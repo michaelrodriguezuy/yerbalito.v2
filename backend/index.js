@@ -107,6 +107,15 @@ app.get('/categories', async (req, res) => {
   }
 });
 
+app.get('/estados', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM estado');
+    res.json({ estados: rows });
+  } catch (error) {
+    console.error('Error obteniendo estados:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
 
 
 app.listen(port, () => {

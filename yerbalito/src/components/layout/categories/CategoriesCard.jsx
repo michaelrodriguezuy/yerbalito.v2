@@ -1,7 +1,8 @@
 import { DataGrid } from "@mui/x-data-grid";
-import { useDemoData } from "@mui/x-data-grid-generator";
 
-import { useContext, useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
+import { AuthContext } from "../../../context/AuthContext";
+
 import axios from "axios";
 
 const CategoriesCard = () => {
@@ -14,51 +15,86 @@ const CategoriesCard = () => {
   //quiero traerme las categorias que tengo en localhost:3001/categories
   const [categories, setCategories] = useState([]);
 
+  const [estados, setEstados] = useState({});
+  const {isLogged} = useContext(AuthContext);
+
   useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchCategoriesEstados = async () => {
       try {
         const response = await axios.get("http://localhost:3001/categories");
-        setCategories(response.data.categorias);
+
+        const responseEstados = await axios.get("http://localhost:3001/estados");
+
+        const estados = responseEstados.data.estados.reduce((acc, estado) => {
+          acc[estado.idestado] = estado.tipo_estado;
+          return acc;
+        }
+        , {});
+
+        const categoriesWhithEstado = response.data.categorias
+        .filter((categoria) => categoria.visible === 1)
+        .map((categoria) => ({          
+            ...categoria,
+            idestado: estados[categoria.idestado] || categoria.idestado,           
+        }));
+
+        setCategories(categoriesWhithEstado);        
+        setEstados(estados);
       } catch (error) {
         console.error("Error fetching categories: ", error);
       }
     };
-    fetchCategories();
+    fetchCategoriesEstados();
   }, []);
 
   const columns = [
-    // { field: "idcategoria", headerName: "ID", width: 90 },
-
-    { field: "nombre_categoria", headerName: "Nombre", width: 150 },
-    { field: "tecnico", headerName: "Tecnico", width: 150 },
-    { field: "telefono", headerName: "Contacto", width: 150 },
-    { field: "edad", headerName: "Edad", width: 150 },
-    { field: "idestado", headerName: "Estado", width: 150 },
-  ];
+    { field: "nombre_categoria", headerName: "Nombre", flex: 1, headerAlign: "center" },
+    { field: "tecnico", headerName: "Tecnico", flex: 1, headerAlign: "center" },
+    { field: "telefono", headerName: "Contacto", flex: 1, headerAlign: "center" },
+    { field: "edad", headerName: "Edad", flex: 1, headerAlign: "center" },
+    isLogged && { field: "idestado", headerName: "Estado", flex: 1, headerAlign: "center" },
+  ].filter(Boolean);
+  
 
   const getRowId = (category) => category.idcategoria;
 
   return (
     <>
-      <div style={{ width: "100%" }}>
-        <div
-          style={{
-            height: 500,
-            width: "60%",
-            backgroundColor: "white" }}
-        >
+      <style>
+        {`
+          .custom-data-grid .MuiDataGrid-cell {
+            color: #f0f0f0 !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+          }
+        `}
+      </style>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <div style={{ height: 500, width: "60%" }}>
           {categories.length > 0 ? (
             <DataGrid
               rows={categories}
               columns={columns}
-              // pageSize={5}
-              // rowsPerPageOptions={[5]}
-              // checkboxSelection
-
-              pagination={false}
-              pageSize={categories.length}
+              autoHeight
+              autoPageSize
+              disableColumnMenu
               getRowId={getRowId}
-              disableRowCount={true}
+              disableSelectionOnClick
+              disableColumnFilter
+              disableColumnSelector
+              disableDensitySelector
+              disableExtendRowFullWidth
+              disableMultipleColumnsFiltering
+              disableColumnReorder
+              disableColumnResize
+              hideFooter={true}
+
+              // hideFooterPagination
+              // hideFooterSelectedRowCount
+              // hideFooterRowCount
+              rowsPerPageOptions={[]}
+              className="custom-data-grid"
             />
           ) : (
             <p>Cargando categorias...</p>
