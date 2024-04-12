@@ -2,7 +2,7 @@ import React from 'react'
 
 const Squads = () => {
   return (
-    <div>Squads</div>
+    <div className='container'>Jugadores</div>
   )
 }
 

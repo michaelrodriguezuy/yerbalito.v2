@@ -1,9 +1,11 @@
-import React from 'react'
+import { useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
+import { Navigate, Outlet } from "react-router-dom";
 
 const ProtectedAdmin = () => {
-  return (
-    <div>ProtectedAdmin</div>
-  )
-}
+  const { user } = useContext(AuthContext);
+  const rolPro = import.meta.env.VITE_ROLPRO;
+  return <>{user.rol == rolPro ? <Outlet /> : <Navigate to="/" />}</>;
+};
 
-export default ProtectedAdmin
+export default ProtectedAdmin;

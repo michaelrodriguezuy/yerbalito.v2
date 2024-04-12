@@ -1,39 +1,34 @@
-import EditNoteIcon from '@mui/icons-material/EditNote';
 
-// import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-
-
+import ShopIcon from '@mui/icons-material/Shop';
 
 export const menuItems = [    
    
     {
-        id: "home",
-        path: "/",
-        title: "Inicio",
-        Icon: "",
-    },
-    {
         id: "squads",
         path: "/squads",
-        title: "Planteles",
-        Icon: "",
-     },    
-    {
-        id: "categories",
-        path: "/categories",
-        title: "Categorías",
-        Icon: "",
-    },
-    {
-        id: "blog",
-        path: "/blog",
-        title: "Blog",
-        Icon: "",
-    },
-    {
-        id: "about",
-        path: "/about",
-        title: "About",
-        Icon: ""
-    }   
+        title: "Jugadores",
+        Icon: ShopIcon,
+      },
+          
+      {
+        id: "payments",
+        path: "/payments",
+        title: "Cuotas del club",
+        Icon: ShopIcon,
+      },
+      {
+        id: "fc",
+        path: "/fc",
+        title: "Fondo de Campeonato",
+        Icon: ShopIcon,
+      },
+      {
+        id: "report",
+        path: "/reports",
+        title: "Reportes",
+        Icon: ShopIcon,
+      },
+
 ]
+
+        
