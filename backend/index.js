@@ -4,6 +4,7 @@ const cors = require('cors');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
 require('dotenv').config();
+const sendEmail = require("./sendEmail");
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -116,6 +117,23 @@ app.get('/estados', async (req, res) => {
     res.status(500).json({ error: 'Error del servidor' });
   }
 });
+
+app.post('/send-email', async (req, res) => {
+  const formData = req.body;
+
+
+  try {
+
+    const result = await sendEmail(formData);
+
+    console.log('Enviando correo electrónico:', result);
+    res.json({ result: 'Correo electrónico enviado' });
+  } catch (error) {
+    console.error('Error enviando correo electrónico:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+}
+);
 
 
 app.listen(port, () => {
