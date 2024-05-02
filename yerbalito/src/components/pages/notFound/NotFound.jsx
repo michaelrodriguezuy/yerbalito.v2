@@ -8,7 +8,7 @@ const NotFound = () => {
       {/* <p class="zoom-area">
         <b>CSS</b> animations to make a cool 404 page.{" "}
       </p> */}
-      <section class="error-container">
+      <section className="error-container">
         <span>
           <span>4</span>
         </span>
@@ -17,10 +17,10 @@ const NotFound = () => {
           <span>4</span>
         </span>
       </section>
-      <div class="link-container">
+      <div className="link-container">
         {/* no quiero que habra una nueva ventana sino que use la misma */}
         
-        <a target="_self" href="/" class="more-link" >
+        <a target="_self" href="/" className="more-link" >
           Volver al Inicio
         </a>
       </div>
