@@ -8,7 +8,7 @@ const About = () => {
         variant="h2"
         component="h2"
         gutterBottom
-        style={{ margin: "60px 0" }}
+        style={{ margin: "20px 0" }}
       >
         Un poco sobre el Club
       </Typography>
@@ -21,7 +21,7 @@ const About = () => {
         de 150 niños y niñas, pero hace algunos años viene desarrollando otras
         actividades conexas en beneficio del crecimiento físico y mental de los
         niños y niñas que en ésta participan, lo cual le permite realizar una
-        tarea social considerada muy importante para la sociedad.
+        tarea considerada muy importante para la sociedad.
       </Typography>
 
       <Typography variant="body1" gutterBottom style={{ margin: "40px 100px" }}>

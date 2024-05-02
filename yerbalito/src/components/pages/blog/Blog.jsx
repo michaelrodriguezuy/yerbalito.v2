@@ -1,114 +1,57 @@
-
-import CssBaseline from "@mui/material/CssBaseline";
-import Grid from "@mui/material/Grid";
-import Container from "@mui/material/Container";
-import GitHubIcon from "@mui/icons-material/GitHub";
-import FacebookIcon from "@mui/icons-material/Facebook";
-import XIcon from "@mui/icons-material/X";
-
-// import MainFeaturedPost from "./MainFeaturedPost";
-// import FeaturedPost from "./FeaturedPost";
-// import Main from "./Main";
-// import Sidebar from "./Sidebar";
-
-/* import post1 from "./blog-post.1.md";
-import post2 from "./blog-post.2.md";
-import post3 from "./blog-post.3.md"; */
-
-// const sections = [
-//   { title: "Technology", url: "#" },
-//   { title: "Design", url: "#" },
-//   { title: "Culture", url: "#" },
-//   { title: "Business", url: "#" },
-//   { title: "Politics", url: "#" },
-//   { title: "Opinion", url: "#" },
-//   { title: "Science", url: "#" },
-//   { title: "Health", url: "#" },
-//   { title: "Style", url: "#" },
-//   { title: "Travel", url: "#" },
-// ];
-
-/* const mainFeaturedPost = {
-  title: "Title of a longer featured blog post",
-  description:
-    "Multiple lines of text that form the lede, informing new readers quickly and efficiently about what's most interesting in this post's contents.",
-  image: "https://source.unsplash.com/random?wallpapers",
-  imageText: "main image description",
-  linkText: "Continue reading…",
-}; */
-
-/* const featuredPosts = [
-  {
-    title: "Featured post",
-    date: "Nov 12",
-    description:
-      "This is a wider card with supporting text below as a natural lead-in to additional content.",
-    image: "https://source.unsplash.com/random?wallpapers",
-    imageLabel: "Image Text",
-  },
-  {
-    title: "Post title",
-    date: "Nov 11",
-    description:
-      "This is a wider card with supporting text below as a natural lead-in to additional content.",
-    image: "https://source.unsplash.com/random?wallpapers",
-    imageLabel: "Image Text",
-  },
-]; */
-
-// const posts = [post1, post2, post3];
-
-/* const sidebar = {
-  title: "About",
-  description:
-    "Etiam porta sem malesuada magna mollis euismod. Cras mattis consectetur purus sit amet fermentum. Aenean lacinia bibendum nulla sed consectetur.",
-  archives: [
-    { title: "March 2020", url: "#" },
-    { title: "February 2020", url: "#" },
-    { title: "January 2020", url: "#" },
-    { title: "November 1999", url: "#" },
-    { title: "October 1999", url: "#" },
-    { title: "September 1999", url: "#" },
-    { title: "August 1999", url: "#" },
-    { title: "July 1999", url: "#" },
-    { title: "June 1999", url: "#" },
-    { title: "May 1999", url: "#" },
-    { title: "April 1999", url: "#" },
-  ],
-  social: [
-    { name: "GitHub", icon: GitHubIcon },
-    { name: "X", icon: XIcon },
-    { name: "Facebook", icon: FacebookIcon },
-  ],
-}; */
+import { useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { Box, Typography } from "@mui/material";
 
 const Blog = () => {
+  const { id } = useParams();
+
+  const [blog, setBlog] = useState(null);
+
+  useEffect(() => {
+    const fetchBlog = async () => {
+      try {
+        const response = await axios.get(`http://localhost:3001/posts/${id}`);
+
+        if (!response.data.post) {
+          console.error("Blog no encontrado");
+          return;
+        } else {
+          setBlog(response.data.post);
+        }
+      } catch (error) {
+        console.error("Error fetching blog: ", error);
+      }
+    };
+    fetchBlog();
+  }, [id]);
+
   return (
-    <div className='container'>Blog</div>
+    <div className="container" style={{ textAlign: "center",maxHeight: "100vh", overflowY: "auto"  }}>
+      <>
+        {blog ? (
+          <>
+          <Box sx={{ maxWidth: 600, margin: "0 auto", padding: 2 }}>
+            <Typography variant="h2" gutterBottom>
+              {blog.title}
+            </Typography>
+            <Typography variant="subtitle2" gutterBottom>
+              Autor: {blog.author}, el {new Date(blog.date).toLocaleDateString()}
+            </Typography>
 
-    )
-  }
-  
-  export default Blog;
-  {/* <Container maxWidth="lg">
-    <CssBaseline />
-     < title="Blog" sections={sections} /> 
+            <img src={blog.urlImg} alt="Blog" style={{ width: "80%", borderRadius: 8, marginTop: 16 }} />
 
-    <main>
-      <MainFeaturedPost post={mainFeaturedPost} /> 
-      <Grid container spacing={4}>
-        {featuredPosts.map((post) => (
-          <FeaturedPost key={post.title} post={post} />
-        ))} 
-      </Grid>
-      <Grid container spacing={5} sx={{ mt: 3 }}>
-        {/* <Main title="From the firehose" posts={posts} />
-        <Sidebar
-          title={sidebar.title}
-          description={sidebar.description}
-          archives={sidebar.archives}
-          social={sidebar.social}
-        /> 
-      </Grid>
-    </main>
-  </Container> */}
+          </Box>
+            <Typography variant="body1" gutterBottom style={{ maxWidth: 800, margin: "0 auto", textAlign:"justify" }}>
+              {blog.description}
+            </Typography>
+          </>
+        ) : (
+          <p>Cargando...</p>
+        )}
+      </>
+    </div>
+  );
+};
+
+export default Blog;

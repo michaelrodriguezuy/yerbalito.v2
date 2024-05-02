@@ -1,0 +1,53 @@
+.blogContainer {
+   /* display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-gap: 20px;
+  padding: 20px;*/
+  padding-top: spacing(3); 
+}
+
+.card {
+    max-width: "100%";
+    text-align: left;
+   /* display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2); 
+  margin-bottom: spacing(3); */
+}
+
+.cardMedia {
+    height: 240;
+   /* width: 100%;
+  object-fit: cover;
+  border-radius: 10px 10px 0 0;
+  margin-bottom: spacing(2); */
+}
+
+.cardActions {
+    display: flex;
+    margin: "0 10px";
+    justify-content: space-between;
+    
+}
+
+.author {
+    display: flex;
+    /* alinear a la izquierda */
+    text-align: left;
+    margin-bottom: spacing(2);
+    
+}
+
+.paginationContainer {
+    display: flex;
+    justify-content: center;
+    /* margin-top: spacing(3); */
+    
+}
+
+.paginationContainer .MuiPaginationItem-root {
+    color: white;
+  }

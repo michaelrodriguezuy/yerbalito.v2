@@ -135,6 +135,38 @@ app.post('/send-email', async (req, res) => {
 }
 );
 
+app.get('/posts', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM blog');
+    res.json({ posts: rows });
+    // console.log("posts: ", rows);
+  } catch (error) {
+    console.error('Error obteniendo posts:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+app.get('/posts/:id', async (req, res) => {
+  const postId = req.params.id;
+
+  try {
+    const row = await db.query('SELECT * FROM blog WHERE idblog = ?', [postId]);
+    const post = row && row.length > 0 ? row[0][0] : null;
+
+    if (post) {
+      res.json({ post });
+    } else {
+      console.log('El post no se encontró en la base de datos.');
+      res.status(404).json({ error: 'Post no encontrado' });
+    }
+  } catch (error) {
+    console.error('Error obteniendo detalles del post:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+
+
 
 app.listen(port, () => {
   console.log(`Servidor escuchando en http://localhost:${port}`);

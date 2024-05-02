@@ -18,7 +18,9 @@ const NotFound = () => {
         </span>
       </section>
       <div class="link-container">
-        <a target="_blank" href="/" class="more-link">
+        {/* no quiero que habra una nueva ventana sino que use la misma */}
+        
+        <a target="_self" href="/" class="more-link" >
           Volver al Inicio
         </a>
       </div>
