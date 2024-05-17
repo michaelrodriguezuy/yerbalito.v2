@@ -16,29 +16,32 @@ const CategoriesCard = () => {
   const [categories, setCategories] = useState([]);
 
   const [estados, setEstados] = useState({});
-  const {isLogged} = useContext(AuthContext);
+  const { isLogged } = useContext(AuthContext);
 
   useEffect(() => {
     const fetchCategoriesEstados = async () => {
       try {
-        const response = await axios.get("http://localhost:3001/categories");
+        const response = await axios.get(
+          "http://localhost:3001/categories?categoryIDs=1,2,3,4,5,6,7,8,11,12,13"
+        );
 
-        const responseEstados = await axios.get("http://localhost:3001/estados");
+        const responseEstados = await axios.get(
+          "http://localhost:3001/estados"
+        );
 
         const estados = responseEstados.data.estados.reduce((acc, estado) => {
           acc[estado.idestado] = estado.tipo_estado;
           return acc;
-        }
-        , {});
+        }, {});
 
         const categoriesWhithEstado = response.data.categorias
-        .filter((categoria) => categoria.visible === 1)
-        .map((categoria) => ({          
+          .filter((categoria) => categoria.visible === 1)
+          .map((categoria) => ({
             ...categoria,
-            idestado: estados[categoria.idestado] || categoria.idestado,           
-        }));
+            idestado: estados[categoria.idestado] || categoria.idestado,
+          }));
 
-        setCategories(categoriesWhithEstado);        
+        setCategories(categoriesWhithEstado);
         setEstados(estados);
       } catch (error) {
         console.error("Error fetching categories: ", error);
@@ -48,13 +51,27 @@ const CategoriesCard = () => {
   }, []);
 
   const columns = [
-    { field: "nombre_categoria", headerName: "Nombre", flex: 1, headerAlign: "center" },
-    { field: "tecnico", headerName: "Tecnico", flex: 1, headerAlign: "center" },
-    { field: "telefono", headerName: "Contacto", flex: 1, headerAlign: "center" },
-    { field: "edad", headerName: "Edad", flex: 1, headerAlign: "center" },
-    isLogged && { field: "idestado", headerName: "Estado", flex: 1, headerAlign: "center" },
+    {
+      field: "nombre_categoria",
+      headerName: "NOMBRE",
+      flex: 1,
+      headerAlign: "center",
+    },
+    { field: "tecnico", headerName: "TECNICO", flex: 1, headerAlign: "center" },
+    {
+      field: "telefono",
+      headerName: "CONTACTO",
+      flex: 1,
+      headerAlign: "center",
+    },
+    { field: "edad", headerName: "EDAD", flex: 1, headerAlign: "center" },
+    isLogged && {
+      field: "idestado",
+      headerName: "ESTADO",
+      flex: 1,
+      headerAlign: "center",
+    },
   ].filter(Boolean);
-  
 
   const getRowId = (category) => category.idcategoria;
 
@@ -89,7 +106,6 @@ const CategoriesCard = () => {
               disableColumnReorder
               disableColumnResize
               hideFooter={true}
-
               // hideFooterPagination
               // hideFooterSelectedRowCount
               // hideFooterRowCount

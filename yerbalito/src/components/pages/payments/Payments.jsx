@@ -1,8 +1,6 @@
-import { useEffect, useState, useContext } from "react";
-import axios from "axios";
+import { useState, useEffect, useContext } from "react";
 import {
   TextField,
-  Button,
   TableContainer,
   Table,
   TableHead,
@@ -11,18 +9,20 @@ import {
   TableBody,
   Paper,
   IconButton,
+  Button,
   Modal,
   Box,
   Select,
   MenuItem,
 } from "@mui/material";
+import axios from "axios";
 import { Link } from "react-router-dom";
 import DeleteIcon from "@mui/icons-material/Delete";
 import Swal from "sweetalert2";
 
 import { AuthContext } from "../../../context/AuthContext";
 
-const FondoCamp = () => {
+const Payments = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [payments, setPayments] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -35,7 +35,7 @@ const FondoCamp = () => {
   useEffect(() => {
     const fetchPayments = async () => {
       try {
-        const response = await axios.get("http://localhost:3001/fc");
+        const response = await axios.get("http://localhost:3001/payments");
         setPayments(response.data.payments);
 
         if (searchTerm) {
@@ -78,8 +78,8 @@ const FondoCamp = () => {
 
     if (result.isConfirmed) {
       try {
-        await axios.delete(`http://localhost:3001/fc/${id}`);
-        const response = await axios.get("http://localhost:3001/fc");
+        await axios.delete(`http://localhost:3001/payments/${id}`);
+        const response = await axios.get("http://localhost:3001/payments");
         setPayments(response.data.payments);
         // Mostrar un mensaje de éxito
         Swal.fire("¡Eliminado!", "El recibo ha sido eliminado.", "success");
@@ -124,7 +124,7 @@ const FondoCamp = () => {
       }}
     >
       <TextField
-        label="Buscar recibos de fondo de campeonato de..."
+        label="Buscar recibos de cuotas del club de..."
         variant="outlined"
         value={searchTerm}
         onChange={handleSearchChange}
@@ -160,7 +160,10 @@ const FondoCamp = () => {
                     FECHA RECIBO
                   </TableCell>
                   <TableCell style={{ color: "white", textAlign: "center" }}>
-                    CUOTA
+                    MES
+                  </TableCell>
+                  <TableCell style={{ color: "white", textAlign: "center" }}>
+                    AÑO
                   </TableCell>
                   <TableCell style={{ color: "white", textAlign: "center" }}>
                     MONTO
@@ -168,8 +171,6 @@ const FondoCamp = () => {
                   <TableCell style={{ color: "white", textAlign: "center" }}>
                     USUARIO
                   </TableCell>
-
-                  {/* esto lo muestro solo si es usuario admin */}
                   {user.rol === import.meta.env.VITE_ROLPRO && (
                     <TableCell style={{ color: "white", textAlign: "center" }}>
                       ACCIONES
@@ -183,7 +184,7 @@ const FondoCamp = () => {
                     <TableCell style={{ color: "white", textAlign: "center" }}>
                       <Link
                         title="Ver recibo"
-                        to={`/fc/${payment.id}`}
+                        to={`/payments/${payment.id}`}
                         style={{ textDecoration: "none", color: "inherit" }}
                       >
                         {payment.numero}
@@ -193,14 +194,17 @@ const FondoCamp = () => {
                       {payment.nombre_jugador} {payment.apellido_jugador}
                     </TableCell>
                     <TableCell style={{ color: "white", textAlign: "center" }}>
-                      {payment.fecha
+                      {payment.fecha_recibo
                         .split("T")[0]
                         .split("-")
                         .reverse()
                         .join("/")}
                     </TableCell>
                     <TableCell style={{ color: "white", textAlign: "center" }}>
-                      {payment.cuota_paga}
+                      {payment.mes_pago}
+                    </TableCell>
+                    <TableCell style={{ color: "white", textAlign: "center" }}>
+                      {payment.anio}
                     </TableCell>
                     <TableCell style={{ color: "white", textAlign: "center" }}>
                       $ {payment.monto}
@@ -209,7 +213,6 @@ const FondoCamp = () => {
                       {payment.nombre_usuario}
                     </TableCell>
 
-                    {/* esto lo muestro solo si es usuario admin */}
                     {user.rol === import.meta.env.VITE_ROLPRO && (
                       <TableCell
                         style={{ color: "white", textAlign: "center" }}
@@ -217,7 +220,7 @@ const FondoCamp = () => {
                         <IconButton
                           color="error"
                           title="Eliminar recibo"
-                          onClick={() => handleDelete(payment.id_fondo)}
+                          onClick={() => handleDelete(payment.idrecibo)}
                         >
                           <DeleteIcon />
                         </IconButton>
@@ -292,4 +295,4 @@ const FondoCamp = () => {
   );
 };
 
-export default FondoCamp;
+export default Payments;
