@@ -29,12 +29,16 @@ const PlayersCard = () => {
   const fetchSquads = async () => {
     try {
       const response = await axios.get(
-        "http://localhost:3001/squad?categoryIDs=1,2,3,4,5,6,7,8,11,12,13"
+        "http://localhost:3001/squad"
       );
+
+      // console.log("response: ", response.data.squads);
+
       const data = response.data.squads;
       const updatedSquads = await Promise.all(
         data.map(async (squad) => {
           try {
+            // console.log("squad: ", squad);
             const categoria = await fetchCategory(squad.idcategoria);
             const estadoData = await fetchEstado(squad.idestado);
             const estado = estadoData ? estadoData.tipo_estado : null;
@@ -96,9 +100,10 @@ const PlayersCard = () => {
   const fetchCategories = async () => {
     try {
       const response = await axios.get(
-        "http://localhost:3001/categories?categoryIDs=1,2,3,4,5,6,7,8,11,12,13"
+        "http://localhost:3001/categories"
       );
       setCategories(response.data.categorias);
+      // console.log("response.data.categorias: ", response.data.categorias);
     } catch (error) {
       console.error("Error fetching categories: ", error);
     }

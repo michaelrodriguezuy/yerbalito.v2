@@ -35,11 +35,6 @@ const Contact = () => {
   return (
     <div className="container" style={{ textAlign: "center",maxHeight: "100vh", overflowY: "auto"  }}>
 
-
-
-
-
-
       <Typography
         variant="h2"
         component="h2"
@@ -92,6 +87,7 @@ const Contact = () => {
                       variant="outlined"
                       margin="normal"
                       InputLabelProps={{ style: { color: "white" } }}
+                      InputProps={{ style: { color: "white" } }}
                       error={meta.touched && meta.error}
                     />
                     {meta.touched && meta.error && (
@@ -110,6 +106,7 @@ const Contact = () => {
                       variant="outlined"
                       margin="normal"
                       InputLabelProps={{ style: { color: "white" } }}
+                      InputProps={{ style: { color: "white" } }}
                       error={meta.touched && meta.error}
                     />
                     {meta.touched && meta.error && (
@@ -130,6 +127,7 @@ const Contact = () => {
                       rows={4}
                       margin="normal"
                       InputLabelProps={{ style: { color: "white" } }}
+                      InputProps={{ style: { color: "white" } }}
                       error={meta.touched && meta.error}
                     />
                     {meta.touched && meta.error && (

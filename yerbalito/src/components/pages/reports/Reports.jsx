@@ -1,5 +1,5 @@
 import { AreaChartCuotas } from "../../layout/reports/Cuotas";
-import { AreaChartFC } from "../../layout/reports/Fc";
+import { BarChartFC } from "../../layout/reports/FC";
 import { BarListCantxCategoria } from "../../layout/reports/CantidadesXcat";
 import { BarChartCuotasYfcXcategoria } from "../../layout/reports/CyFCxCat";
 import { Card } from "@tremor/react";
@@ -7,7 +7,7 @@ import { Card } from "@tremor/react";
 const Reports = () => {
   return (
     <div
-      className="container "
+      className="container"
       style={{
         textAlign: "center",
         maxHeight: "100vh",
@@ -15,7 +15,7 @@ const Reports = () => {
       }}
     >
       Reportes
-      <div className="grid grid-cols-2 mt-10 m-20 gap-6">
+      <div className="grid grid-cols-2 mt-10 gap-6">
         <Card>
           <div className="col-span-1 px-7">
             <AreaChartCuotas />
@@ -24,7 +24,7 @@ const Reports = () => {
 
         <Card>
           <div className="col-span-1 px-7">
-            <AreaChartFC />
+            <BarChartFC />
           </div>
         </Card>
         <Card>

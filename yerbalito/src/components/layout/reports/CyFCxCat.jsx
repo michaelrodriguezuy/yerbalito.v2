@@ -2,7 +2,7 @@ import { BarChart } from '@tremor/react';
 
 const chartdata = [
   {
-    name: 'Cuotas del club',
+    name: 'Cuotas del club del mes actual',
     'Abejas': 890,
     'Grillos': 338,
     'Chatas': 538,
@@ -16,7 +16,7 @@ const chartdata = [
     'Sub 13': 539,
   },
   {
-    name: 'Fondo de campeonato',
+    name: 'Fondo de campeonato anual',
     'Abejas': 289,
     'Grillos': 233,
     'Chatas': 253,
@@ -45,7 +45,7 @@ export function BarChartCuotasYfcXcategoria() {
         Cuotas y Fondo de campeonato por categoría
       </h3>
       <BarChart
-        className="mt-6"
+        className="mt-16"
         data={chartdata}
         index="name"
         categories={[

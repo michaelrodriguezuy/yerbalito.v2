@@ -99,15 +99,29 @@ app.get('/user', async (req, res) => {
 
 //ahora necesito mostrar las categorias
 app.get('/categories', async (req, res) => {
-  const categoryIds = req.query.categoryIDs.split(',').map(Number);
+  // const categoryIds = req.query.categoryIDs.split(',').map(Number);
   try {
-    const [rows] = await db.query('SELECT * FROM categoria WHERE idcategoria IN (?) ORDER BY idcategoria', [categoryIds]);
+    // const [rows] = await db.query('SELECT * FROM categoria WHERE idcategoria IN (?) ORDER BY idcategoria', [categoryIds]);
+    const [rows] = await db.query('SELECT * FROM categoria WHERE visible = 1 ORDER BY idcategoria');
     res.json({ categorias: rows });
   } catch (error) {
     console.error('Error obteniendo categorias:', error);
     res.status(500).json({ error: 'Error del servidor' });
   }
 });
+
+// lo uso para el dashboard
+app.get('/categories/all', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM categoria');
+    res.json({ categorias: rows });
+  } catch (error) {
+    console.error('Error obteniendo categorias:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+
 app.get('/categories/:id', async (req, res) => {
   const categoryId = req.params.id;
   // console.log(req.params.id)
@@ -269,10 +283,21 @@ app.get('/posts/:id', async (req, res) => {
 
 // jugadores por categoria
 app.get('/squad', async (req, res) => {
-  const categoryIds = req.query.categoryIDs.split(',').map(Number);
+  // const categoryIds = req.query.categoryIDs.split(',').map(Number);
   try {
-    const [rows] = await db.query('SELECT * FROM jugador WHERE idcategoria IN (?) ORDER BY idcategoria, nombre', [categoryIds]);
-    res.json({ squads: rows });
+    const [categories] = await db.query('SELECT idcategoria FROM categoria WHERE visible = 1');
+    const categoryIds = categories.map(category => category.idcategoria);
+
+    if (categoryIds.length === 0) {
+      return res.json({ squads: [] });
+    }
+
+    const [players] = await db.query('SELECT * FROM jugador WHERE idcategoria IN (?) ORDER BY idcategoria, nombre', [categoryIds]);
+
+    // const [rows] = await db.query('SELECT * FROM jugador WHERE idcategoria IN (?) ORDER BY idcategoria, nombre', [categoryIds]);
+    // console.log("players: ", players);
+    res.json({ squads: players });
+    // res.json({ squads: rows });
   } catch (error) {
     console.error('Error obteniendo jugadores:', error);
     res.status(500).json({ error: 'Error del servidor' });
@@ -282,7 +307,7 @@ app.get('/squad', async (req, res) => {
 // todos los jugadores
 app.get('/squad/all', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM jugador where idcategoria IN (1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13)');
+    const [rows] = await db.query('SELECT * FROM jugador');
     res.json({ squads: rows });
   } catch (error) {
     console.error('Error obteniendo jugadores:', error);

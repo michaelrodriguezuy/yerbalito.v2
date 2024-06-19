@@ -22,7 +22,7 @@ const CategoriesCard = () => {
     const fetchCategoriesEstados = async () => {
       try {
         const response = await axios.get(
-          "http://localhost:3001/categories?categoryIDs=1,2,3,4,5,6,7,8,11,12,13"
+          "http://localhost:3001/categories"
         );
 
         const responseEstados = await axios.get(
