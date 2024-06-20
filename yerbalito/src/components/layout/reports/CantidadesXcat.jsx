@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 
 export function BarListCantxCategoria() {
+
+  
   const [categories, setCategories] = useState([]);
   const [cantJugadores, setCantJugadores] = useState([]);
 
@@ -63,13 +65,6 @@ export function BarListCantxCategoria() {
     const fetchCategoriesEstados = async () => {
       try {
         const response = await axios.get("http://localhost:3001/categories");
-
-        // const categoriesWhithEstado = response.data.categorias
-        //   .filter((categoria) => categoria.visible === 1)
-        //   .map((categoria) => ({
-        //     ...categoria,
-        //   }));
-
         setCategories(response.data.categorias);
       } catch (error) {
         console.error("Error fetching categories: ", error);
@@ -81,7 +76,7 @@ export function BarListCantxCategoria() {
         const response = await axios.get("http://localhost:3001/squad");
 
         setCantJugadores(response.data.squads);
-        console.log("response.data.squad: ", response.data);
+        // console.log("response.data.squad: ", response.data);
       } catch (error) {
         console.error("Error fetching jugadores: ", error);
       }

@@ -326,8 +326,9 @@ app.get('/payments', async (req, res) => {
     FROM recibo r 
     JOIN jugador j ON r.idjugador = j.idjugador
     JOIN usuarios u ON r.idusuario = u.id_usuario
+    JOIN categoria c ON j.idcategoria = c.idcategoria
     WHERE monto > 0
-    AND j.idcategoria IN (1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13)
+    AND c.visible = 1
     ORDER BY r.idrecibo DESC
     `);
     res.json({ payments: rows });
@@ -371,6 +372,89 @@ app.post('/payments', async (req, res) => {
   }
 });
 
+//aca obtengo los pagos de cuotas por mes de cada categoria
+app.get('/cuotasXcat', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        c.nombre_categoria as categoria,
+        CASE 
+          WHEN r.mes_pago = 1 THEN 'Enero'
+          WHEN r.mes_pago = 2 THEN 'Febrero'
+          WHEN r.mes_pago = 3 THEN 'Marzo'
+          WHEN r.mes_pago = 4 THEN 'Abril'
+          WHEN r.mes_pago = 5 THEN 'Mayo'
+          WHEN r.mes_pago = 6 THEN 'Junio'
+          WHEN r.mes_pago = 7 THEN 'Julio'
+          WHEN r.mes_pago = 8 THEN 'Agosto'
+          WHEN r.mes_pago = 9 THEN 'Septiembre'
+          WHEN r.mes_pago = 10 THEN 'Octubre'
+          WHEN r.mes_pago = 11 THEN 'Noviembre'
+          WHEN r.mes_pago = 12 THEN 'Diciembre'
+        END as mes,
+        SUM(r.monto) as total
+      FROM recibo r
+      JOIN jugador j ON r.idjugador = j.idjugador
+      JOIN categoria c ON j.idcategoria = c.idcategoria
+      WHERE r.monto > 0 AND r.anio = YEAR(CURDATE()) AND c.visible = 1
+      GROUP BY c.nombre_categoria, r.anio, r.mes_pago
+      ORDER BY FIELD(mes,
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'),
+        c.nombre_categoria, r.anio, r.mes_pago
+    `);
+    
+    res.json({ payments: rows });
+    // console.log("rows: ", rows);
+  } catch (error) {
+    console.error('Error obteniendo pagos:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+app.get('/paymentsAnual', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+    SELECT 
+        c.nombre_categoria as categoria,
+        SUM(r.monto) as total
+
+    FROM recibo r 
+    JOIN jugador j ON r.idjugador = j.idjugador
+    
+    JOIN categoria c ON j.idcategoria = c.idcategoria
+    WHERE monto > 0 AND c.visible = 1 AND r.anio = YEAR(CURDATE())
+    GROUP BY c.nombre_categoria
+    ORDER BY c.nombre_categoria
+    `);
+    res.json({ payments: rows });
+  } catch (error) {
+    console.error('Error obteniendo pagos:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+app.get('/fcAnual', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+    SELECT 
+        c.nombre_categoria as categoria,
+        SUM(f.monto) as total
+
+    FROM fondocampeonato f 
+    JOIN jugador j ON f.idjugador = j.idjugador
+    
+    JOIN categoria c ON j.idcategoria = c.idcategoria
+    WHERE monto > 0 AND c.visible = 1 AND f.anio = YEAR(CURDATE())
+    GROUP BY c.nombre_categoria
+    ORDER BY c.nombre_categoria
+    `);
+    res.json({ payments: rows });
+  } catch (error) {
+    console.error('Error obteniendo pagos:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
 app.get('/fc', async (req, res) => {
   try {
     const [rows] = await db.query(`
@@ -381,8 +465,9 @@ app.get('/fc', async (req, res) => {
     FROM fondocampeonato f 
     JOIN jugador j ON f.idjugador = j.idjugador
     JOIN usuarios u ON f.idusuario = u.id_usuario
+    JOIN categoria c ON j.idcategoria = c.idcategoria
     WHERE monto > 0
-    AND j.idcategoria IN (1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13)
+    AND c.visible = 1
     ORDER BY f.id_fondo DESC
     `);
     res.json({ payments: rows });
