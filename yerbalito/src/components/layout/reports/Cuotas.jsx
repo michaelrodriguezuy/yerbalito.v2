@@ -213,7 +213,7 @@ export function AreaChartCuotas() {
         className="h-80"
         data={chartdata}
         index="date"
-        yAxisWidth={60}
+        yAxisWidth={70}
         categories={categoryNames}
         colors={colors.slice(0, categoryNames.length)}
         valueFormatter={valueFormatter}

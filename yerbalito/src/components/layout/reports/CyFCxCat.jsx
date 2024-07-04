@@ -57,18 +57,18 @@ export function BarChartCuotasYfcXcategoria() {
     "pink",
   ];
 
-  const fetchCategories = async () => {
-    try {
-      const response = await axios.get("http://localhost:3001/categories");
-      setCategories(response.data.categorias);
-    } catch (error) {
-      console.error("Error fetching categories: ", error);
-    }
-  };
+    const fetchCategories = async () => {
+      try {
+        const response = await axios.get("http://localhost:3001/categories");
+        setCategories(response.data.categorias);
+      } catch (error) {
+        console.error("Error fetching categories: ", error);
+      }
+    };
 
-  const categoryNames = categories.map(
-    (categoria) => categoria.nombre_categoria
-  );
+    const categoryNames = categories.map(
+      (categoria) => categoria.nombre_categoria
+    );
 
   // paymentsAnual
   // fcAnual
@@ -103,7 +103,7 @@ export function BarChartCuotasYfcXcategoria() {
   return (
     <>
       <h3 className="text-lg font-medium text-tremor-content-strong dark:text-dark-tremor-content-strong">
-        Cuotas y Fondo de campeonato por categoría anual
+        Cuotas y Fondo de campeonato por categoría porcentual anual
       </h3>
       <BarChart
         className="mt-16"

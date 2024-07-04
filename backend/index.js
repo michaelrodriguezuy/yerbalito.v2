@@ -511,6 +511,34 @@ app.post('/fc', async (req, res) => {
   }
 });
 
+app.get('/fcXcuotas', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+    SELECT
+  c.nombre_categoria as categoria,
+  SUM(CASE WHEN r.cuota_paga = 1 THEN r.monto ELSE 0 END) AS 'Total Cuota 1',
+  SUM(CASE WHEN r.cuota_paga = 2 THEN r.monto ELSE 0 END) AS 'Total Cuota 2'
+FROM
+  fondocampeonato r
+JOIN
+  jugador j ON r.idjugador = j.idjugador
+JOIN
+  categoria c ON j.idcategoria = c.idcategoria
+WHERE
+  r.monto > 0
+  AND c.visible = 1
+GROUP BY
+  c.idcategoria
+  order by
+	c.idcategoria;
+    `);
+    res.json({ payments: rows });
+  } catch (error) {
+    console.error('Error obteniendo pagos:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Servidor escuchando en http://localhost:${port}`);
 });
