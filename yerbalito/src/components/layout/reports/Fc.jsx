@@ -150,7 +150,7 @@ export function BarChartFC() {
         index="date"
         categories={["Cuota1", "Cuota2"]}
         colors={["gray", "blue"]}
-        yAxisWidth={60}
+        yAxisWidth={70}
         valueFormatter={valueFormatter}
         onValueChange={(v) => setValue(v)}
       />

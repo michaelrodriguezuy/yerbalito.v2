@@ -36,8 +36,9 @@ import axios from "axios";
 // const dataFormatter = (number: number) =>
 //   Intl.NumberFormat('us').format(number).toString();
 
-const dataFormatter = (number) =>
-  Intl.NumberFormat("us").format(number).toString();
+const valueFormatter = function (number) {
+  return "$ " + new Intl.NumberFormat("us").format(number).toString();
+};
 
 export function BarChartCuotasYfcXcategoria() {
   const [categories, setCategories] = useState([]);
@@ -57,24 +58,26 @@ export function BarChartCuotasYfcXcategoria() {
     "pink",
   ];
 
-    const fetchCategories = async () => {
-      try {
-        const response = await axios.get("http://localhost:3001/categories");
-        setCategories(response.data.categorias);
-      } catch (error) {
-        console.error("Error fetching categories: ", error);
-      }
-    };
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get("http://localhost:3001/categories");
+      setCategories(response.data.categorias);
+    } catch (error) {
+      console.error("Error fetching categories: ", error);
+    }
+  };
 
-    const categoryNames = categories.map(
-      (categoria) => categoria.nombre_categoria
-    );
+  const categoryNames = categories.map(
+    (categoria) => categoria.nombre_categoria
+  );
 
   // paymentsAnual
   // fcAnual
   const fetchCyFCxCat = async () => {
     try {
-      const responseCuotas = await axios.get("http://localhost:3001/paymentsAnual");
+      const responseCuotas = await axios.get(
+        "http://localhost:3001/paymentsAnual"
+      );
       const responseFondo = await axios.get("http://localhost:3001/fcAnual");
 
       const chartDataCuotas = { name: "Cuotas del club" };
@@ -111,8 +114,8 @@ export function BarChartCuotasYfcXcategoria() {
         index="name"
         categories={categoryNames}
         colors={colors.slice(0, categoryNames.length)}
-        valueFormatter={dataFormatter}
-        yAxisWidth={60}
+        valueFormatter={valueFormatter}
+        yAxisWidth={70}
       />
     </>
   );
