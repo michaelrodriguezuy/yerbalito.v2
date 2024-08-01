@@ -23,6 +23,7 @@ import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import PlayerForm from "./PlayerForm";
 import { format } from "date-fns";
 import es from "date-fns/locale/es";
+import Swal from "sweetalert2";
 
 const style = {
   position: "absolute",
@@ -129,14 +130,28 @@ const PlayerList = () => {
     }
   };
 
-  // const deletePlayer = async (id) => {
-  //   try {
-  //     await axios.delete(`http://localhost:3001/squad/${id}`);
-  //     setIsChange(true);
-  //   } catch (error) {
-  //     console.error("Error deleting player: ", error);
-  //   }
-  // };
+  const deletePlayer = (id, nombre) => {
+    Swal.fire({
+      title: `Estas queriendo eliminar al jugador '${nombre}'`,
+      text: "¿Estás seguro? ¡No podrás revertir esto!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Sí, eliminarlo",
+      cancelButtonText: "Cancelar",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await axios.delete(`http://localhost:3001/squad/${id}`);
+          setIsChange(true);
+          Swal.fire("Eliminado!", "El jugador ha sido eliminado.", "success");
+        } catch (error) {
+          console.error("Error deleting player: ", error);
+        }
+      }
+    });
+  };
 
   // const searchPlayer = async (searchTerm) => {
   //   try {
@@ -184,45 +199,45 @@ const PlayerList = () => {
                 </Tooltip>
               </StyledTableCell>
 
-              <StyledTableCell align="center">
+              <StyledTableCell align="left">
                 <Tooltip title="Clic para ordenar">
                   <span>Apellido</span>
                 </Tooltip>
               </StyledTableCell>
-              <StyledTableCell align="left">
+              <StyledTableCell align="center">
                 <Tooltip title="Clic para ordenar">
                   <span>Fecha de nacimiento</span>
                 </Tooltip>
               </StyledTableCell>
 
               <StyledTableCell align="center">
-                <Tooltip title="Clic para ordenar">
-                  <span>Cedula</span>
-                </Tooltip>
+                <span>Cedula</span>
               </StyledTableCell>
 
-              <StyledTableCell align="center">
+              <StyledTableCell align="left">
                 <span>Padre </span>
               </StyledTableCell>
-              <StyledTableCell align="center">
+              <StyledTableCell align="left">
                 <span>Madre </span>
               </StyledTableCell>
               <StyledTableCell align="center">
                 <span>Contacto </span>
               </StyledTableCell>
-              <StyledTableCell align="left">
+              <StyledTableCell align="center">
                 <span>Fecha de ingreso </span>
               </StyledTableCell>
 
-              <StyledTableCell align="left">
+              <StyledTableCell align="center">
                 <Tooltip title="Clic para ordenar">
                   <span>Categoría</span>
                 </Tooltip>
               </StyledTableCell>
               <StyledTableCell align="center">
-                <span>Estado </span>
+                <Tooltip title="Clic para ordenar">
+                  <span>Estado </span>
+                </Tooltip>
               </StyledTableCell>
-              <StyledTableCell align="center">
+              <StyledTableCell align="left">
                 <span>Observaciones </span>
               </StyledTableCell>
               <StyledTableCell align="center">
@@ -244,18 +259,18 @@ const PlayerList = () => {
             {players.map((player) => (
               <StyledTableRow key={player.idjugador}>
                 <StyledTableCell align="left">{player.nombre}</StyledTableCell>
-                <StyledTableCell align="center">
+                <StyledTableCell align="left">
                   {player.apellido}
                 </StyledTableCell>
-                <StyledTableCell component="th" scope="row" align="left">
+                <StyledTableCell component="th" scope="row" align="center">
                   {player.fecha_nacimiento}
                 </StyledTableCell>
                 <StyledTableCell align="center">
                   {player.cedula}
                 </StyledTableCell>
 
-                <StyledTableCell align="center">{player.padre}</StyledTableCell>
-                <StyledTableCell align="center">{player.madre}</StyledTableCell>
+                <StyledTableCell align="left">{player.padre}</StyledTableCell>
+                <StyledTableCell align="left">{player.madre}</StyledTableCell>
 
                 <StyledTableCell align="center">
                   {player.contacto}
@@ -269,7 +284,7 @@ const PlayerList = () => {
                 <StyledTableCell align="center">
                   {player.estado}
                 </StyledTableCell>
-                <StyledTableCell align="center">
+                <StyledTableCell align="left">
                   {player.obveservacionesJugador}
                 </StyledTableCell>
                 <StyledTableCell align="center">
@@ -291,7 +306,9 @@ const PlayerList = () => {
                   {/* tengo que consultar si realmente desea eliminar */}
 
                   <IconButton
-                  /* onClick={() => deleteProduct(player.id, player.code)} */
+                    onClick={() =>
+                      deletePlayer(player.idjugador, player.nombre)
+                    }
                   >
                     <DeleteForeverIcon color="primary" />
                   </IconButton>
@@ -313,7 +330,7 @@ const PlayerList = () => {
             handleClose={handleClose}
             setIsChange={setIsChange}
             playerSelected={playerSelected}
-            setPlayerSelected={setPlayerSelected}
+            // setPlayerSelected={setPlayerSelected}
             // categories={categories}
           />
         </Box>

@@ -165,20 +165,18 @@ const UserList = () => {
                   <span>Usuario</span>
                 </Tooltip>
               </StyledTableCell>
-              <StyledTableCell align="left">
-                <Tooltip title="Clic para ordenar">
-                  <span>Contacto</span>
-                </Tooltip>
+              <StyledTableCell align="center">
+                <span>Contacto</span>
+              </StyledTableCell>
+
+              <StyledTableCell align="center">
+                <span>Estado</span>
               </StyledTableCell>
 
               <StyledTableCell align="center">
                 <Tooltip title="Clic para ordenar">
-                  <span>Estado</span>
+                  <span>Rol </span>
                 </Tooltip>
-              </StyledTableCell>
-
-              <StyledTableCell align="center">
-                <span>Rol </span>
               </StyledTableCell>
 
               <StyledTableCell align="center">Acciones</StyledTableCell>
@@ -189,7 +187,7 @@ const UserList = () => {
               <StyledTableRow key={user.id_usuario}>
                 <StyledTableCell align="left">{user.nombre}</StyledTableCell>
                 <StyledTableCell align="center">{user.usuario}</StyledTableCell>
-                <StyledTableCell component="th" scope="row" align="left">
+                <StyledTableCell component="th" scope="row" align="center">
                   {user.celular}
                 </StyledTableCell>
                 <StyledTableCell align="center">{user.estado}</StyledTableCell>

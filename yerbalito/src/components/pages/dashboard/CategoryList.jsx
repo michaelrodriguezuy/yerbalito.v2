@@ -154,7 +154,7 @@ const CategoryList = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <StyledTableCell align="left">
+              <StyledTableCell align="center">
                 <Tooltip title="Clic para ordenar">
                   <span>Nombre</span>
                 </Tooltip>
@@ -165,16 +165,12 @@ const CategoryList = () => {
                   <span>Tecnico</span>
                 </Tooltip>
               </StyledTableCell>
-              <StyledTableCell align="left">
-                <Tooltip title="Clic para ordenar">
-                  <span>Contacto</span>
-                </Tooltip>
+              <StyledTableCell align="center">
+                <span>Contacto</span>
               </StyledTableCell>
 
               <StyledTableCell align="center">
-                <Tooltip title="Clic para ordenar">
-                  <span>Estado</span>
-                </Tooltip>
+                <span>Estado</span>
               </StyledTableCell>
 
               <StyledTableCell align="center">
@@ -187,13 +183,13 @@ const CategoryList = () => {
           <TableBody>
             {categories.map((category) => (
               <StyledTableRow key={category.idcategoria}>
-                <StyledTableCell align="left">
+                <StyledTableCell align="center">
                   {category.nombre_categoria}
                 </StyledTableCell>
                 <StyledTableCell align="center">
                   {category.tecnico}
                 </StyledTableCell>
-                <StyledTableCell component="th" scope="row" align="left">
+                <StyledTableCell component="th" scope="row" align="center">
                   {category.telefono}
                 </StyledTableCell>
                 <StyledTableCell align="center">
