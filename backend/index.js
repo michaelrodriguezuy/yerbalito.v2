@@ -6,6 +6,12 @@ const bcrypt = require('bcrypt');
 require('dotenv').config();
 const sendEmail = require("./sendEmail");
 
+//para cargar archivos
+const ftp = require('basic-ftp');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
+
 const app = express();
 const port = process.env.PORT || 3001;
 
@@ -97,6 +103,62 @@ app.get('/user', async (req, res) => {
   }
 });
 
+app.get('/user/all', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM usuarios');
+    res.json({ users: rows });
+  } catch (error) {
+    console.error('Error obteniendo usuarios:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+app.post('/user', async (req, res) => {
+  const newUser = req.body;
+
+  try {
+    const hashedPassword = await bcrypt.hash(newUser.password, 10);
+    newUser.password = hashedPassword
+
+    await db.query('INSERT INTO usuarios SET ?', newUser);
+    res.json({ message: 'Usuario agregado' });
+  } catch (error) {
+
+    console.error('Error agregando usuario:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+app.put('/user/:id', async (req, res) => {
+  const userId = req.params.id;
+  const updateFields = req.body;
+
+  try {
+    if (updateFields.password) {
+      const hashedPassword = await bcrypt.hash(updateFields.password, 10);
+      updateFields.password = hashedPassword;
+    }
+
+    await db.query('UPDATE usuarios SET ? WHERE id_usuario = ?', [updateFields, userId]);
+    res.json({ message: 'Usuario actualizado' });
+  } catch (error) {
+    console.error('Error actualizando usuario:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+app.delete('/user/:id', async (req, res) => {
+  const userId = req.params.id;
+
+  try {
+    await db.query('DELETE FROM usuarios WHERE id_usuario = ?', [userId]);
+    res.json({ message: 'Usuario eliminado' });
+  } catch (error) {
+    console.error('Error eliminando usuario:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
 //ahora necesito mostrar las categorias
 app.get('/categories', async (req, res) => {
   // const categoryIds = req.query.categoryIDs.split(',').map(Number);
@@ -132,12 +194,53 @@ app.get('/categories/:id', async (req, res) => {
 
     if (categoria) {
       res.json({ categoria });
+      // console.log("categoria: ", categoria);
     } else {
       console.log('La categoria no se encontró en la base de datos.');
       res.status(404).json({ error: 'Categoria no encontrada' });
     }
   } catch (error) {
     console.error('Error obteniendo detalles de la categoria:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+}
+);
+
+app.post('/categories', async (req, res) => {
+  const newCategory = req.body;
+
+  try {
+    await db.query('INSERT INTO categoria SET ?', newCategory);
+    res.json({ message: 'Categoria agregada' });
+  } catch (error) {
+    console.error('Error agregando categoria:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+}
+);
+
+app.put('/categories/:id', async (req, res) => {
+  const categoryId = req.params.id;
+  const updateFields = req.body;
+
+  try {
+    await db.query('UPDATE categoria SET ? WHERE idcategoria = ?', [updateFields, categoryId]);
+    res.json({ message: 'Categoria actualizada' });
+  } catch (error) {
+    console.error('Error actualizando categoria:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+}
+);
+
+app.delete('/categories/:id', async (req, res) => {
+  const categoryId = req.params.id;
+
+  try {
+    await db.query('DELETE FROM categoria WHERE idcategoria = ?', [categoryId]);
+    res.json({ message: 'Categoria eliminada' });
+  } catch (error) {
+    console.error('Error eliminando categoria:', error);
     res.status(500).json({ error: 'Error del servidor' });
   }
 }
@@ -162,6 +265,7 @@ app.get('/estados/:id', async (req, res) => {
 
     if (estado) {
       res.json({ estado });
+      // console.log("estado: ", estado);
     } else {
       console.log('El estado no se encontró en la base de datos.');
       res.status(404).json({ error: 'Estado no encontrado' });
@@ -307,13 +411,188 @@ app.get('/squad', async (req, res) => {
 // todos los jugadores
 app.get('/squad/all', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM jugador');
+    const [rows] = await db.query('SELECT * FROM jugador order by idcategoria');
     res.json({ squads: rows });
   } catch (error) {
     console.error('Error obteniendo jugadores:', error);
     res.status(500).json({ error: 'Error del servidor' });
   }
 });
+
+app.get('/squad/:id', async (req, res) => {
+
+  const playerId = req.params.id;
+
+  try {
+    const [rows] = await db.query('SELECT * FROM jugador WHERE idjugador = ?', [playerId]);
+    const player = rows && rows.length > 0 ? rows[0] : null;
+
+    if (player) {
+      res.json({ player });
+    } else {
+      console.log('El jugador no se encontró en la base de datos.');
+      res.status(404).json({ error: 'Jugador no encontrado' });
+    }
+  } catch (error) {
+    console.error('Error obteniendo detalles del jugador:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+}
+);
+
+
+//para cargar archivos
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, file.originalname);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    if (file.fieldname === 'imagen') {
+      cb(null, true);
+    } else {
+      cb(new Error('Unexpected field'), false);
+    }
+  }
+});
+
+
+app.post('/squad', upload.single('imagen'), async (req, res) => {
+  const {
+    nombre,
+    apellido,
+    cedula,
+    fecha_nacimiento,
+    sexo,
+    numJugador,
+    fecha_ingreso,
+    categoria,
+    ciudadania,
+    padre,
+    madre,
+    contacto,
+    hermano,
+    hermanos,
+    observaciones
+  } = req.body;
+
+  const imagen = req.file;
+  let year = null;
+
+  if (!imagen) {
+    return res.status(400).json({ error: 'No se ha cargado ninguna imagen' });
+  }
+
+  if (categoria && /\(\d{4}\)/.test(categoria)) {
+    const match = categoria.match(/\(\d{4}\)/);
+    if (match && match[1]) {
+      year = match[1];
+    }
+  }
+
+  if (!year) {
+    return res.status(400).json({ error: 'Categoría no válida o no contiene año' });
+  }
+
+  const client = new ftp.Client();
+  client.ftp.verbose = true;  // Opción para ver más detalles de los logs (opcional)
+
+  try {
+    // Conectar al servidor FTP
+    await client.access({
+      host: "https://yerbalito.uy",  // Reemplaza por la dirección de tu servidor FTP
+      user: "wwwolima",          // Reemplaza por tu usuario FTP
+      password: "rjW63u0I6n",   // Reemplaza por tu contraseña FTP
+      secure: false                // Cambia a true si usas FTPS
+    });
+
+    const playerName = `${nombre} ${apellido}.jpeg`;
+    const remoteFilePath = `/images/${year}/${playerName}`;
+
+    // Asegúrate de que el directorio remoto existe
+    await client.ensureDir(`/images/${year}`);
+    await client.uploadFrom(imagen.path, remoteFilePath);
+
+    const newPlayer = {
+      nombre,
+      apellido,
+      cedula,
+      fecha_nacimiento,
+      sexo,
+      numJugador,
+      imagen: `https://yerbalito.uy/images/${year}/${playerName}`, // URL de la imagen
+      fecha_ingreso,
+      categoria,
+      ciudadania,
+      padre,
+      madre,
+      contacto,
+      hermano,
+      hermanos,
+      observaciones
+    };
+    await db.query('INSERT INTO jugador SET ?', newPlayer);
+    res.json({ message: 'Jugador agregado' });
+  } catch (error) {
+    console.error('Error agregando jugador:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  } finally {
+    client.close();
+  }
+});
+
+app.put('/squad/:id', async (req, res) => {
+  const playerId = req.params.id;
+  const updateFields = req.body;
+
+  try {
+    await db.query('UPDATE jugador SET ? WHERE idjugador = ?', [updateFields, playerId]);
+    res.json({ message: 'Jugador actualizado' });
+  } catch (error) {
+    console.error('Error actualizando jugador:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+}
+);
+
+app.delete('/squad/:id', async (req, res) => {
+  const playerId = req.params.id;
+
+  try {
+    await db.query('DELETE FROM jugador WHERE idjugador = ?', [playerId]);
+    res.json({ message: 'Jugador eliminado' });
+  } catch (error) {
+    console.error('Error eliminando jugador:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+}
+);
+
+//quiero buscar un jugador por su cedula
+app.get('/squad/search/:ci', async (req, res) => {
+  const playerCi = req.params.ci;
+
+  try {
+    const [rows] = await db.query('SELECT * FROM jugador WHERE cedula = ?', [playerCi]);
+    const playerExists = rows[0].count > 0;
+
+    res.json({ exists: playerExists });
+
+
+  } catch (error) {
+    console.error('Error obteniendo detalles del jugador:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+}
+);
+
+
 
 // recibos de pagos
 app.get('/payments', async (req, res) => {
@@ -403,7 +682,7 @@ app.get('/cuotasXcat', async (req, res) => {
         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'),
         c.nombre_categoria, r.anio, r.mes_pago
     `);
-    
+
     res.json({ payments: rows });
     // console.log("rows: ", rows);
   } catch (error) {
