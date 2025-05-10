@@ -1,7 +1,7 @@
 
 const Category = () => {
   return (
-    <div className="container">Category</div>
+    <div className="page-container">Category</div>
   )
 }
 

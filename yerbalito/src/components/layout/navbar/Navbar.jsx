@@ -83,8 +83,13 @@ function Navbar() {
           top: 0,
           left: 0,
           width: "100%",
-          zIndex: 1,
-          backgroundColor: "transparent",
+          zIndex: 1000,
+          backgroundColor: "rgba(0, 0, 0, 0.8)",
+          backdropFilter: "blur(8px)",
+          boxShadow: "0px 2px 10px rgba(0, 0, 0, 0.3)",
+          transition: "background-color 0.3s ease",
+          height: "120px",
+          marginBottom: "30px"
         }}
       >
         <Container maxWidth="xl" disableGutters>

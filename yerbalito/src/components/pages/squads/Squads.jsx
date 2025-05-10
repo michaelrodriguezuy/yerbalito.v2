@@ -3,11 +3,11 @@ import PlayersCard from "../../layout/player/PlayersCards";
 const Squads = () => {
   return (
     <div
-      className="container"
+      className="page-container"
       style={{
         textAlign: "center",
-        maxHeight: "100vh",
-        overflowY: "auto",
+        height: "100%",
+        paddingBottom: "20px"
       }}
     >
       <PlayersCard />

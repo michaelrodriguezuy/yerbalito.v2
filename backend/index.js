@@ -806,6 +806,7 @@ JOIN
 WHERE
   r.monto > 0
   AND c.visible = 1
+  AND r.anio = YEAR(CURDATE())
 GROUP BY
   c.idcategoria
   order by

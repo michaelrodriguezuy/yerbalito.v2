@@ -15,6 +15,8 @@ import {
   Box,
   Select,
   MenuItem,
+  Typography,
+  CircularProgress
 } from "@mui/material";
 import { Link } from "react-router-dom";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -26,6 +28,7 @@ const FondoCamp = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [payments, setPayments] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [selectedPlayer, setSelectedPlayer] = useState("");
   const [playerPayments, setPlayerPayments] = useState([]);
@@ -35,8 +38,8 @@ const FondoCamp = () => {
   useEffect(() => {
     const fetchPayments = async () => {
       try {
+        setLoading(true);
         const response = await axios.get("http://localhost:3001/fc");
-        setPayments(response.data.payments);
 
         if (searchTerm) {
           const filtered = response.data.payments.filter(
@@ -52,8 +55,10 @@ const FondoCamp = () => {
         } else {
           setPayments(response.data.payments);
         }
+        setLoading(false);
       } catch (error) {
         console.error("Error fetching payments: ", error);
+        setLoading(false);
       }
     };
 
@@ -116,120 +121,269 @@ const FondoCamp = () => {
 
   return (
     <div
-      className="container"
+      className="page-container"
       style={{
         textAlign: "center",
-        maxHeight: "100vh",
-        overflowY: "auto",
+        height: "100%",
+        paddingBottom: "20px"
       }}
     >
-      <TextField
-        label="Buscar recibos de fondo de campeonato de..."
-        variant="outlined"
-        value={searchTerm}
-        onChange={handleSearchChange}
-        style={{ marginBottom: "1rem", width: "50%" }}
-        InputProps={{
-          style: { color: "white" },
+      <Paper
+        elevation={3}
+        style={{
+          backgroundColor: "rgba(0, 0, 0, 0.7)",
+          padding: "20px",
+          maxWidth: "95%",
+          width: "1300px",
+          margin: "0 auto",
+          color: "white"
         }}
-        InputLabelProps={{
-          style: { color: "white" },
-        }}
-      />
-      <Button
-        variant="contained"
-        onClick={handleCreate}
-        style={{ marginLeft: "2rem" }}
       >
-        Crear Recibo
-      </Button>
-      <div style={{ display: "flex", justifyContent: "center" }}>
-        <div style={{ width: "90%", maxHeight: 500, overflow: "auto" }}>
-          <TableContainer
-            component={Paper}
-            style={{ backgroundColor: "transparent" }}
+        {/* Título de la sección */}
+        <h1 style={{ 
+          fontSize: "2rem", 
+          margin: "20px 0 30px 0",
+          color: "white",
+          textShadow: "2px 2px 4px rgba(0, 0, 0, 0.7)"
+        }}>
+          RECIBOS DE FONDO DE CAMPEONATO
+        </h1>
+        
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
+          <TextField
+            label="Buscar recibos de fondo de campeonato de..."
+            variant="outlined"
+            value={searchTerm}
+            onChange={handleSearchChange}
+            style={{ marginBottom: "1rem", width: "50%" }}
+            InputProps={{
+              style: { color: "white" },
+            }}
+            InputLabelProps={{
+              style: { color: "white" },
+            }}
+            sx={{
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(255, 255, 255, 0.3)',
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(255, 255, 255, 0.6)',
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(255, 255, 255, 0.8)',
+              }
+            }}
+          />
+          <Button
+            variant="contained"
+            onClick={handleCreate}
+            style={{ 
+              marginLeft: "2rem",
+              height: "56px",
+              backgroundColor: "rgba(63, 81, 181, 0.8)"
+            }}
           >
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell style={{ color: "white", textAlign: "center" }}>
-                    RECIBO
-                  </TableCell>
-                  <TableCell style={{ color: "white" }}>NOMBRE</TableCell>
-                  <TableCell style={{ color: "white", textAlign: "center" }}>
-                    FECHA RECIBO
-                  </TableCell>
-                  <TableCell style={{ color: "white", textAlign: "center" }}>
-                    CUOTA
-                  </TableCell>
-                  <TableCell style={{ color: "white", textAlign: "center" }}>
-                    MONTO
-                  </TableCell>
-                  <TableCell style={{ color: "white", textAlign: "center" }}>
-                    USUARIO
-                  </TableCell>
-
-                  {/* esto lo muestro solo si es usuario admin */}
-                  {user.rol === import.meta.env.VITE_ROLPRO && (
-                    <TableCell style={{ color: "white", textAlign: "center" }}>
-                      ACCIONES
+            Crear Recibo
+          </Button>
+        </div>
+        
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <div style={{ width: "100%", maxHeight: 350, overflow: "auto" }}>
+            <TableContainer
+              component={Paper}
+              style={{ backgroundColor: "transparent" }}
+            >
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ 
+                    backgroundColor: "rgba(0, 0, 0, 0.5)",
+                    borderBottom: "2px solid rgba(255, 255, 255, 0.2)"
+                  }}>
+                    <TableCell style={{ 
+                      color: "white", 
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      fontSize: "1rem",
+                      paddingTop: "12px",
+                      paddingBottom: "12px"
+                    }}>
+                      RECIBO
                     </TableCell>
-                  )}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {payments.map((payment) => (
-                  <TableRow key={payment.id}>
-                    <TableCell style={{ color: "white", textAlign: "center" }}>
-                      <Link
-                        title="Ver recibo"
-                        to={`/fc/${payment.id}`}
-                        style={{ textDecoration: "none", color: "inherit" }}
-                      >
-                        {payment.numero}
-                      </Link>
+                    <TableCell style={{ 
+                      color: "white",
+                      fontWeight: "bold",
+                      fontSize: "1rem",
+                      paddingTop: "12px",
+                      paddingBottom: "12px"
+                    }}>
+                      NOMBRE
                     </TableCell>
-                    <TableCell style={{ color: "white" }}>
-                      {payment.nombre_jugador} {payment.apellido_jugador}
+                    <TableCell style={{ 
+                      color: "white", 
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      fontSize: "1rem",
+                      paddingTop: "12px",
+                      paddingBottom: "12px"
+                    }}>
+                      FECHA RECIBO
                     </TableCell>
-                    <TableCell style={{ color: "white", textAlign: "center" }}>
-                      {payment.fecha
-                        .split("T")[0]
-                        .split("-")
-                        .reverse()
-                        .join("/")}
+                    <TableCell style={{ 
+                      color: "white", 
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      fontSize: "1rem",
+                      paddingTop: "12px",
+                      paddingBottom: "12px"
+                    }}>
+                      CUOTA
                     </TableCell>
-                    <TableCell style={{ color: "white", textAlign: "center" }}>
-                      {payment.cuota_paga}
+                    <TableCell style={{ 
+                      color: "white", 
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      fontSize: "1rem",
+                      paddingTop: "12px",
+                      paddingBottom: "12px"
+                    }}>
+                      MONTO
                     </TableCell>
-                    <TableCell style={{ color: "white", textAlign: "center" }}>
-                      $ {payment.monto}
-                    </TableCell>
-                    <TableCell style={{ color: "white", textAlign: "center" }}>
-                      {payment.nombre_usuario}
+                    <TableCell style={{ 
+                      color: "white", 
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      fontSize: "1rem",
+                      paddingTop: "12px",
+                      paddingBottom: "12px"
+                    }}>
+                      USUARIO
                     </TableCell>
 
                     {/* esto lo muestro solo si es usuario admin */}
                     {user.rol === import.meta.env.VITE_ROLPRO && (
-                      <TableCell
-                        style={{ color: "white", textAlign: "center" }}
-                      >
-                        <IconButton
-                          color="error"
-                          title="Eliminar recibo"
-                          onClick={() => handleDelete(payment.id_fondo)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
+                      <TableCell style={{ 
+                        color: "white", 
+                        textAlign: "center",
+                        fontWeight: "bold",
+                        fontSize: "1rem",
+                        paddingTop: "12px",
+                        paddingBottom: "12px"
+                      }}>
+                        ACCIONES
                       </TableCell>
                     )}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} style={{ textAlign: "center", padding: "40px" }}>
+                        <CircularProgress style={{ color: "white" }} />
+                        <Typography variant="body1" style={{ color: "white", marginTop: "20px" }}>
+                          Cargando recibos...
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : payments.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} style={{ textAlign: "center", padding: "40px" }}>
+                        <Typography variant="body1" style={{ color: "white" }}>
+                          No se encontraron recibos con los filtros seleccionados
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    payments.map((payment, index) => (
+                      <TableRow 
+                        key={payment.id_fondo}
+                        sx={{ 
+                          backgroundColor: index % 2 === 0 ? "rgba(255, 255, 255, 0.03)" : "rgba(255, 255, 255, 0.07)",
+                          '&:hover': {
+                            backgroundColor: "rgba(255, 255, 255, 0.1)",
+                          }
+                        }}
+                      >
+                        <TableCell style={{ 
+                          color: "white", 
+                          textAlign: "center",
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.1)"
+                        }}>
+                          <Link
+                            title="Ver recibo"
+                            to={`/fc/${payment.id_fondo}`}
+                            style={{ textDecoration: "none", color: "#4dabf5" }}
+                          >
+                            {payment.numero}
+                          </Link>
+                        </TableCell>
+                        <TableCell style={{ 
+                          color: "white",
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.1)"
+                        }}>
+                          {payment.nombre_jugador} {payment.apellido_jugador}
+                        </TableCell>
+                        <TableCell style={{ 
+                          color: "white", 
+                          textAlign: "center",
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.1)"
+                        }}>
+                          {payment.fecha
+                            .split("T")[0]
+                            .split("-")
+                            .reverse()
+                            .join("/")}
+                        </TableCell>
+                        <TableCell style={{ 
+                          color: "white", 
+                          textAlign: "center",
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.1)"
+                        }}>
+                          {payment.cuota_paga}
+                        </TableCell>
+                        <TableCell style={{ 
+                          color: "#4dabf5", 
+                          textAlign: "center",
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                          fontWeight: "bold"
+                        }}>
+                          $ {payment.monto}
+                        </TableCell>
+                        <TableCell style={{ 
+                          color: "white", 
+                          textAlign: "center",
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.1)"
+                        }}>
+                          {payment.nombre_usuario}
+                        </TableCell>
+
+                        {/* esto lo muestro solo si es usuario admin */}
+                        {user.rol === import.meta.env.VITE_ROLPRO && (
+                          <TableCell
+                            style={{ 
+                              color: "white", 
+                              textAlign: "center",
+                              borderBottom: "1px solid rgba(255, 255, 255, 0.1)"
+                            }}
+                          >
+                            <IconButton
+                              color="error"
+                              title="Eliminar recibo"
+                              onClick={() => handleDelete(payment.id_fondo)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </div>
         </div>
-      </div>
+      </Paper>
+      
       <Modal
         open={showModal}
         onClose={handleCloseModal}
@@ -268,24 +422,6 @@ const FondoCamp = () => {
                 </MenuItem>
               ))}
           </Select>
-
-          {/* <TextField
-            label="Fecha"
-            variant="outlined"
-            type="date"
-            fullWidth
-            style={{ marginBottom: "1rem" }}
-          />
-
-          <TextField
-            label="Nombre"
-            variant="outlined"
-            fullWidth
-            style={{ marginBottom: "1rem" }}
-          />
-          <Button variant="contained" color="primary">
-            Guardar
-          </Button> */}
         </Box>
       </Modal>
     </div>

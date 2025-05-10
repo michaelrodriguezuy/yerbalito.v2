@@ -1,4 +1,4 @@
-import { BarChart } from "@tremor/react";
+import { BarChart, Card } from "@tremor/react";
 import { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -73,6 +73,14 @@ import axios from "axios";
 export function BarChartFC() {
   const [value, setValue] = useState(null);
   const [chartdata, setChartdata] = useState([]);
+  // Estados para los contadores animados
+  const [totalCuota1, setTotalCuota1] = useState(0);
+  const [totalCuota2, setTotalCuota2] = useState(0);
+  const [contadorCuota1, setContadorCuota1] = useState(0);
+  const [contadorCuota2, setContadorCuota2] = useState(0);
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("Todos");
+  const [isAnimatingCuota1, setIsAnimatingCuota1] = useState(false);
+  const [isAnimatingCuota2, setIsAnimatingCuota2] = useState(false);
 
   // const fetchCategories = async () => {
   //   try {
@@ -125,6 +133,22 @@ export function BarChartFC() {
       // console.log("chartDataArray: ", chartDataArray);
 
       setChartdata(chartDataArray);
+      
+      // Calcular totales de ambas cuotas
+      let sumaCuota1 = 0;
+      let sumaCuota2 = 0;
+      
+      chartDataArray.forEach(item => {
+        sumaCuota1 += item.Cuota1 || 0;
+        sumaCuota2 += item.Cuota2 || 0;
+      });
+      
+      setTotalCuota1(sumaCuota1);
+      setTotalCuota2(sumaCuota2);
+      
+      // Resetear contadores para animación
+      setContadorCuota1(0);
+      setContadorCuota2(0);
     } catch (error) {
       console.error("Error fetching data: ", error);
     }
@@ -134,16 +158,142 @@ export function BarChartFC() {
     // fetchCategories();
     fetchPaymentsByQuota();
   }, []);
+  
+  // Efecto para animar el contador de cuota 1
+  useEffect(() => {
+    if (totalCuota1 > 0 && contadorCuota1 < totalCuota1) {
+      setIsAnimatingCuota1(true);
+      const intervalo = Math.max(5, Math.floor(1000 / totalCuota1));
+      
+      const timer = setTimeout(() => {
+        setContadorCuota1(prev => 
+          prev < totalCuota1 ? prev + Math.max(1, Math.floor(totalCuota1 / 50)) : totalCuota1
+        );
+      }, intervalo);
+      
+      return () => clearTimeout(timer);
+    } else if (contadorCuota1 >= totalCuota1 && totalCuota1 > 0) {
+      setContadorCuota1(totalCuota1);
+      setIsAnimatingCuota1(false);
+    }
+  }, [contadorCuota1, totalCuota1]);
+  
+  // Efecto para animar el contador de cuota 2
+  useEffect(() => {
+    if (totalCuota2 > 0 && contadorCuota2 < totalCuota2) {
+      setIsAnimatingCuota2(true);
+      const intervalo = Math.max(5, Math.floor(1000 / totalCuota2));
+      
+      const timer = setTimeout(() => {
+        setContadorCuota2(prev => 
+          prev < totalCuota2 ? prev + Math.max(1, Math.floor(totalCuota2 / 50)) : totalCuota2
+        );
+      }, intervalo);
+      
+      return () => clearTimeout(timer);
+    } else if (contadorCuota2 >= totalCuota2 && totalCuota2 > 0) {
+      setContadorCuota2(totalCuota2);
+      setIsAnimatingCuota2(false);
+    }
+  }, [contadorCuota2, totalCuota2]);
 
   const valueFormatter = function (number) {
     return "$ " + new Intl.NumberFormat("us").format(number).toString();
   };
+  
+  // Manejar cuando se selecciona una barra en el gráfico
+  const handleValueChange = (v) => {
+    setValue(v);
+    
+    if (v) {
+      setCategoriaSeleccionada(v.date);
+      setContadorCuota1(0);
+      setContadorCuota2(0);
+      
+      setTotalCuota1(v.Cuota1 || 0);
+      setTotalCuota2(v.Cuota2 || 0);
+    } else {
+      // Si se deselecciona, volver a mostrar los totales
+      let sumaCuota1 = 0;
+      let sumaCuota2 = 0;
+      
+      chartdata.forEach(item => {
+        sumaCuota1 += item.Cuota1 || 0;
+        sumaCuota2 += item.Cuota2 || 0;
+      });
+      
+      setCategoriaSeleccionada("Todos");
+      setContadorCuota1(0);
+      setContadorCuota2(0);
+      
+      setTotalCuota1(sumaCuota1);
+      setTotalCuota2(sumaCuota2);
+    }
+  };
 
   return (
     <>
-      <h3 className="text-lg font-medium text-tremor-content-strong dark:text-dark-tremor-content-strong">
-        Fondo de campeonato
-      </h3>
+      {/* Contadores animados */}
+      <div className="grid grid-cols-2 gap-4 mb-4 mt-2">
+        <Card className="p-4 shadow-sm">
+          <div className="flex flex-col items-center justify-center">
+            <div className="text-center mb-2">
+              <span className="text-gray-500 text-sm">Cuota 1 ({categoriaSeleccionada})</span>
+            </div>
+            <div 
+              className={`text-2xl font-bold ${isAnimatingCuota1 ? 'text-gray-600' : 'text-gray-700'}`}
+              style={{ 
+                transition: 'color 0.5s, transform 0.3s',
+                transform: isAnimatingCuota1 ? 'scale(1.1)' : 'scale(1)'
+              }}
+            >
+              {valueFormatter(contadorCuota1)}
+            </div>
+            <div 
+              className="w-full h-1 bg-gray-200 mt-2 rounded overflow-hidden"
+              style={{ maxWidth: '100px' }}
+            >
+              <div 
+                className="h-full bg-gray-600 rounded" 
+                style={{ 
+                  width: `${totalCuota1 > 0 ? (contadorCuota1 / totalCuota1) * 100 : 0}%`,
+                  transition: 'width 0.3s ease-out'
+                }}
+              ></div>
+            </div>
+          </div>
+        </Card>
+        
+        <Card className="p-4 shadow-sm">
+          <div className="flex flex-col items-center justify-center">
+            <div className="text-center mb-2">
+              <span className="text-gray-500 text-sm">Cuota 2 ({categoriaSeleccionada})</span>
+            </div>
+            <div 
+              className={`text-2xl font-bold ${isAnimatingCuota2 ? 'text-blue-500' : 'text-gray-700'}`}
+              style={{ 
+                transition: 'color 0.5s, transform 0.3s',
+                transform: isAnimatingCuota2 ? 'scale(1.1)' : 'scale(1)'
+              }}
+            >
+              {valueFormatter(contadorCuota2)}
+            </div>
+            <div 
+              className="w-full h-1 bg-gray-200 mt-2 rounded overflow-hidden"
+              style={{ maxWidth: '100px' }}
+            >
+              <div 
+                className="h-full bg-blue-500 rounded" 
+                style={{ 
+                  width: `${totalCuota2 > 0 ? (contadorCuota2 / totalCuota2) * 100 : 0}%`,
+                  transition: 'width 0.3s ease-out'
+                }}
+              ></div>
+            </div>
+          </div>
+        </Card>
+      </div>
+      
       <BarChart
         className="mt-6"
         data={chartdata}
@@ -152,7 +302,7 @@ export function BarChartFC() {
         colors={["gray", "blue"]}
         yAxisWidth={70}
         valueFormatter={valueFormatter}
-        onValueChange={(v) => setValue(v)}
+        onValueChange={handleValueChange}
       />
       {/* {value && (
         <pre className="mt-8 bg-gray-800 text-white p-4 rounded">

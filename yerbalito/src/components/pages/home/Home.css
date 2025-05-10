@@ -1,26 +1,23 @@
-.container {
-  margin: 0;
-  /* padding: 60px; */
+/* Este archivo ya no define la clase .container para evitar conflictos con los estilos globales */
 
-  padding-top: 140px; 
-  padding-bottom: 60px;
-
-  background-image: url("../../../assets/cancha.webp");
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
-
-  /* capa sobre fondo */
-  box-shadow: inset 0 0 0 1000px rgba(0, 0, 0, 0.6);
-
-  /* opacity: 0.6; */
-
-
-  /* para que ocupe toda la pantalla */
-  height: 100vh;
+.home-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   width: 100%;
-  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
 
-  /* top: 0;
-  left: 0; */
+.home-title {
+  color: white;
+  font-size: 6rem;
+  font-weight: bold;
+  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.7);
+  text-align: center;
+  letter-spacing: 5px;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  z-index: 10;
 }

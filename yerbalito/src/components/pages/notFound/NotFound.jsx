@@ -1,9 +1,8 @@
-import "../home/Home.css";
 import "./NotFound.css";
 
 const NotFound = () => {
   return (
-    <div className="container">
+    <div className="not-found-page">
       <h1>Página no encontrada</h1>
       {/* <p class="zoom-area">
         <b>CSS</b> animations to make a cool 404 page.{" "}

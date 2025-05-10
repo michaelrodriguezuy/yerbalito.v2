@@ -1,0 +1,35 @@
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow: hidden;
+  margin-top: 30px; /* Espacio adicional debajo del navbar */
+}
+
+.page-container {
+  flex: 1;
+  padding-top: 130px; /* Reducido el espacio para el navbar */
+  padding-bottom: 60px; /* Aumentado el espacio para el footer */
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  overflow: hidden; /* Cambiado de auto a hidden para prevenir scroll doble */
+}
+
+/* Estilos para componentes específicos con Paper */
+.content-paper {
+  margin-top: 30px !important; /* Espacio adicional para contenedores de componentes */
+  padding-top: 20px !important;
+} 

@@ -3,84 +3,61 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 
 export function BarListCantxCategoria() {
-
-  
   const [categories, setCategories] = useState([]);
   const [cantJugadores, setCantJugadores] = useState([]);
+  const [contador, setContador] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  // Calcular el total de jugadores
+  const totalJugadores = cantJugadores.length;
 
   const data = categories.map((categoria) => ({
     name: categoria.nombre_categoria,
-    value: cantJugadores.filter(jugador => jugador.idcategoria === categoria.idcategoria).length ,
-    //     value: jugadores.filter(jugador => jugador.categoria_id === categoria.id).length,
-
+    value: cantJugadores.filter(jugador => jugador.idcategoria === categoria.idcategoria).length,
   }));
 
-    // const data = [
-    //   {
-    //     name: "Abejas",
-    //     value: 32,
-    //   },
-    //   {
-    //     name: "Grillos",
-    //     value: 351,
-    //   },
-    //   {
-    //     name: "Chatas",
-    //     value: 271,
-    //   },
-    //   {
-    //     name: "Churrinches",
-    //     value: 16,
-    //   },
-    //   {
-    //     name: "Gorriones",
-    //     value: 17,
-    //   },
-    //   {
-    //     name: "Semillas",
-    //     value: 14,
-    //   },
-    //   {
-    //     name: "Cebollas",
-    //     value: 15,
-    //   },
-    //   {
-    //     name: "Babys",
-    //     value: 15,
-    //   },
-    //   {
-    //     name: "Sub 9",
-    //     value: 13,
-    //   },
-    //   {
-    //     name: "Sub 11",
-    //     value: 9,
-    //   },
-    //   {
-    //     name: "Sub 13",
-    //     value: 11,
-    //   },
-    // ];
-
-    const fetchCategoriesEstados = async () => {
-      try {
-        const response = await axios.get("http://localhost:3001/categories");
-        setCategories(response.data.categorias);
-      } catch (error) {
-        console.error("Error fetching categories: ", error);
-      }
-    };
-
-    const fetchJugadores = async () => {
-      try {
-        const response = await axios.get("http://localhost:3001/squad");
-
-        setCantJugadores(response.data.squads);
-        // console.log("response.data.squad: ", response.data);
-      } catch (error) {
-        console.error("Error fetching jugadores: ", error);
-      }
+  // Efecto para animar el contador
+  useEffect(() => {
+    if (totalJugadores > 0 && contador < totalJugadores) {
+      setIsAnimating(true);
+      const intervalo = Math.max(5, Math.floor(1000 / totalJugadores)); // Asegura que la animación dure al menos 1 segundo
+      
+      const timer = setTimeout(() => {
+        setContador(prev => 
+          prev < totalJugadores ? prev + 1 : totalJugadores
+        );
+      }, intervalo);
+      
+      return () => clearTimeout(timer);
+    } else if (contador >= totalJugadores && totalJugadores > 0) {
+      setIsAnimating(false);
     }
+  }, [contador, totalJugadores]);
+
+  // Resetear el contador cuando cambian los datos
+  useEffect(() => {
+    if (totalJugadores > 0) {
+      setContador(0);
+    }
+  }, [cantJugadores]);
+
+  const fetchCategoriesEstados = async () => {
+    try {
+      const response = await axios.get("http://localhost:3001/categories");
+      setCategories(response.data.categorias);
+    } catch (error) {
+      console.error("Error fetching categories: ", error);
+    }
+  };
+
+  const fetchJugadores = async () => {
+    try {
+      const response = await axios.get("http://localhost:3001/squad");
+      setCantJugadores(response.data.squads);
+    } catch (error) {
+      console.error("Error fetching jugadores: ", error);
+    }
+  }
 
   useEffect(() => {
     fetchCategoriesEstados();
@@ -89,9 +66,32 @@ export function BarListCantxCategoria() {
 
   return (
     <Card className="mx-auto max-w-lg">
-      <h3 className="text-tremor-title text-tremor-content-strong dark:text-dark-tremor-content-strong font-medium">
-        Cantidad de jugador@s por categoría
-      </h3>
+      <div className="flex flex-col items-center justify-center mb-4">
+        <div className="text-center mb-2">
+          <span className="text-gray-500 text-sm">Total de jugador@s en el club</span>
+        </div>
+        <div 
+          className={`text-4xl font-bold ${isAnimating ? 'text-blue-500' : 'text-gray-700'}`}
+          style={{ 
+            transition: 'color 0.5s, transform 0.3s',
+            transform: isAnimating ? 'scale(1.1)' : 'scale(1)'
+          }}
+        >
+          {contador}
+        </div>
+        <div 
+          className="w-full h-1 bg-gray-200 mt-2 rounded overflow-hidden"
+          style={{ maxWidth: '100px' }}
+        >
+          <div 
+            className="h-full bg-blue-500 rounded" 
+            style={{ 
+              width: `${totalJugadores > 0 ? (contador / totalJugadores) * 100 : 0}%`,
+              transition: 'width 0.3s ease-out'
+            }}
+          ></div>
+        </div>
+      </div>
 
       <BarList data={data} className="mt-4" />
     </Card>

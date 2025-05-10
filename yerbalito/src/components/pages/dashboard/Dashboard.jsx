@@ -21,10 +21,10 @@ const Dashboard = () => {
 
   return (
     <div
-      className="container"
+      className="page-container"
       style={{
         textAlign: "center",
-        maxHeight: "100vh",
+        overflow: "auto",
         overflowY: "auto",
       }}
     >

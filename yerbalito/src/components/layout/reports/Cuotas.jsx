@@ -1,4 +1,4 @@
-import { LineChart } from "@tremor/react";
+import { LineChart, Card } from "@tremor/react";
 import { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -134,6 +134,14 @@ import axios from "axios";
 export function AreaChartCuotas() {
   const [categories, setCategories] = useState([]);
   const [chartdata, setChartdata] = useState([]);
+  // Estados para los contadores animados
+  const [totalMes, setTotalMes] = useState(0);
+  const [totalAnio, setTotalAnio] = useState(0);
+  const [contadorMes, setContadorMes] = useState(0);
+  const [contadorAnio, setContadorAnio] = useState(0);
+  const [mesSeleccionado, setMesSeleccionado] = useState("Actual");
+  const [isAnimatingMes, setIsAnimatingMes] = useState(false);
+  const [isAnimatingAnio, setIsAnimatingAnio] = useState(false);
 
   const colors = [
     "indigo",
@@ -157,6 +165,7 @@ export function AreaChartCuotas() {
       console.error("Error fetching categories: ", error);
     }
   };
+  
   const fetchCuotasXCat = async () => {
     try {
       const response = await axios.get("http://localhost:3001/cuotasXcat");
@@ -167,19 +176,45 @@ export function AreaChartCuotas() {
         ...new Set(payments.map((payment) => payment.categoria)),
       ];
 
+      // Usar nombres de meses abreviados para mejor visualización
+      const mesesDelAnio = [
+        "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+        "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
+      ];
+
       // Transformar los datos para el formato esperado por el gráfico
       const chartDataFormatted = {};
 
+      // Pre-inicializar el objeto para todos los meses
+      mesesDelAnio.forEach(mes => {
+        chartDataFormatted[mes] = {};
+      });
+
+      // Mapeo para convertir nombres de meses completos a abreviados
+      const mesMapping = {
+        "Enero": "Ene",
+        "Febrero": "Feb", 
+        "Marzo": "Mar", 
+        "Abril": "Abr", 
+        "Mayo": "May", 
+        "Junio": "Jun",
+        "Julio": "Jul", 
+        "Agosto": "Ago", 
+        "Septiembre": "Sep", 
+        "Octubre": "Oct", 
+        "Noviembre": "Nov", 
+        "Diciembre": "Dic"
+      };
+
       payments.forEach((payment) => {
         const { categoria, mes, total } = payment;
-        if (!chartDataFormatted[mes]) {
-          chartDataFormatted[mes] = {};
-        }
-        chartDataFormatted[mes][categoria] = parseInt(total);
+        // Convertir el nombre del mes a su versión abreviada
+        const mesAbreviado = mesMapping[mes] || mes;
+        chartDataFormatted[mesAbreviado][categoria] = parseInt(total);
       });
 
       // Crear un arreglo ordenado para el gráfico
-      const chartDataArray = Object.keys(chartDataFormatted).map((mes) => {
+      const chartDataArray = mesesDelAnio.map((mes) => {
         const dataObj = { date: mes };
         categories.forEach((categoria) => {
           const categoryName = categoria;
@@ -189,6 +224,35 @@ export function AreaChartCuotas() {
       });
 
       setChartdata(chartDataArray);
+      
+      // Calcular el total por año
+      let totalAnual = 0;
+      chartDataArray.forEach(mes => {
+        categories.forEach(categoria => {
+          totalAnual += mes[categoria] || 0;
+        });
+      });
+      
+      // Obtener el mes actual (para mostrar por defecto)
+      const fechaActual = new Date();
+      const mesActualAbreviado = mesesDelAnio[fechaActual.getMonth()];
+      const mesActualData = chartDataArray.find(item => item.date === mesActualAbreviado);
+      
+      // Calcular total del mes actual
+      let totalMesActual = 0;
+      if (mesActualData) {
+        categories.forEach(categoria => {
+          totalMesActual += mesActualData[categoria] || 0;
+        });
+      }
+      
+      setTotalMes(totalMesActual);
+      setTotalAnio(totalAnual);
+      setMesSeleccionado(mesActualAbreviado);
+      
+      // Resetear contadores para iniciar animación
+      setContadorMes(0);
+      setContadorAnio(0);
     } catch (error) {
       console.error("Error fetching cuotas x cat: ", error);
     }
@@ -199,6 +263,44 @@ export function AreaChartCuotas() {
     fetchCuotasXCat();
   }, []);
 
+  // Efecto para animar el contador del mes
+  useEffect(() => {
+    if (totalMes > 0 && contadorMes < totalMes) {
+      setIsAnimatingMes(true);
+      const intervalo = Math.max(5, Math.floor(1000 / totalMes));
+      
+      const timer = setTimeout(() => {
+        setContadorMes(prev => 
+          prev < totalMes ? prev + Math.max(1, Math.floor(totalMes / 50)) : totalMes
+        );
+      }, intervalo);
+      
+      return () => clearTimeout(timer);
+    } else if (contadorMes >= totalMes && totalMes > 0) {
+      setContadorMes(totalMes);
+      setIsAnimatingMes(false);
+    }
+  }, [contadorMes, totalMes]);
+
+  // Efecto para animar el contador del año
+  useEffect(() => {
+    if (totalAnio > 0 && contadorAnio < totalAnio) {
+      setIsAnimatingAnio(true);
+      const intervalo = Math.max(5, Math.floor(1000 / totalAnio));
+      
+      const timer = setTimeout(() => {
+        setContadorAnio(prev => 
+          prev < totalAnio ? prev + Math.max(1, Math.floor(totalAnio / 50)) : totalAnio
+        );
+      }, intervalo);
+      
+      return () => clearTimeout(timer);
+    } else if (contadorAnio >= totalAnio && totalAnio > 0) {
+      setContadorAnio(totalAnio);
+      setIsAnimatingAnio(false);
+    }
+  }, [contadorAnio, totalAnio]);
+
   const categoryNames = categories.map(
     (categoria) => categoria.nombre_categoria
   );
@@ -207,10 +309,87 @@ export function AreaChartCuotas() {
     return "$ " + new Intl.NumberFormat("us").format(number).toString();
   };
 
+  // Actualizar el total del mes cuando se selecciona un mes en el gráfico
+  const handleValueChange = (v) => {
+    if (v && v.date) {
+      const mesData = chartdata.find(item => item.date === v.date);
+      if (mesData) {
+        let nuevoTotal = 0;
+        categoryNames.forEach(categoria => {
+          nuevoTotal += mesData[categoria] || 0;
+        });
+        setTotalMes(nuevoTotal);
+        setContadorMes(0); // Resetear contador para nueva animación
+        setMesSeleccionado(v.date);
+      }
+    }
+  };
+
   return (
     <>
+      {/* Contadores animados */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <Card className="p-4 shadow-sm">
+          <div className="flex flex-col items-center justify-center">
+            <div className="text-center mb-2">
+              <span className="text-gray-500 text-sm">Total cuotas {mesSeleccionado}</span>
+            </div>
+            <div 
+              className={`text-2xl font-bold ${isAnimatingMes ? 'text-blue-500' : 'text-gray-700'}`}
+              style={{ 
+                transition: 'color 0.5s, transform 0.3s',
+                transform: isAnimatingMes ? 'scale(1.1)' : 'scale(1)'
+              }}
+            >
+              {valueFormatter(contadorMes)}
+            </div>
+            <div 
+              className="w-full h-1 bg-gray-200 mt-2 rounded overflow-hidden"
+              style={{ maxWidth: '100px' }}
+            >
+              <div 
+                className="h-full bg-blue-500 rounded" 
+                style={{ 
+                  width: `${totalMes > 0 ? (contadorMes / totalMes) * 100 : 0}%`,
+                  transition: 'width 0.3s ease-out'
+                }}
+              ></div>
+            </div>
+          </div>
+        </Card>
+        
+        <Card className="p-4 shadow-sm">
+          <div className="flex flex-col items-center justify-center">
+            <div className="text-center mb-2">
+              <span className="text-gray-500 text-sm">Total año</span>
+            </div>
+            <div 
+              className={`text-2xl font-bold ${isAnimatingAnio ? 'text-green-500' : 'text-gray-700'}`}
+              style={{ 
+                transition: 'color 0.5s, transform 0.3s',
+                transform: isAnimatingAnio ? 'scale(1.1)' : 'scale(1)'
+              }}
+            >
+              {valueFormatter(contadorAnio)}
+            </div>
+            <div 
+              className="w-full h-1 bg-gray-200 mt-2 rounded overflow-hidden"
+              style={{ maxWidth: '100px' }}
+            >
+              <div 
+                className="h-full bg-green-500 rounded" 
+                style={{ 
+                  width: `${totalAnio > 0 ? (contadorAnio / totalAnio) * 100 : 0}%`,
+                  transition: 'width 0.3s ease-out'
+                }}
+              ></div>
+            </div>
+          </div>
+        </Card>
+      </div>
+
       <LineChart
-        className="h-80"
+        className="h-80 w-full"
         data={chartdata}
         index="date"
         yAxisWidth={70}
@@ -218,7 +397,10 @@ export function AreaChartCuotas() {
         colors={colors.slice(0, categoryNames.length)}
         valueFormatter={valueFormatter}
         xAxisLabel="Cuotas del club"
-        onValueChange={(v) => console.log(v)}
+        showAnimation={true}
+        showLegend={true}
+        onValueChange={handleValueChange}
+        showGridLines={true}
       />
     </>
   );
