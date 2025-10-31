@@ -1,3 +1,4 @@
+import { API_ENDPOINTS } from "../../../config/api";
 import { BarList, Card } from "@tremor/react";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -43,7 +44,7 @@ export function BarListCantxCategoria() {
 
   const fetchCategoriesEstados = async () => {
     try {
-      const response = await axios.get("http://localhost:3001/categories");
+      const response = await axios.get(API_ENDPOINTS.CATEGORIES);
       setCategories(response.data.categorias);
     } catch (error) {
       console.error("Error fetching categories: ", error);
@@ -52,7 +53,7 @@ export function BarListCantxCategoria() {
 
   const fetchJugadores = async () => {
     try {
-      const response = await axios.get("http://localhost:3001/squad");
+      const response = await axios.get(API_ENDPOINTS.SQUAD_ALL);
       setCantJugadores(response.data.squads);
     } catch (error) {
       console.error("Error fetching jugadores: ", error);

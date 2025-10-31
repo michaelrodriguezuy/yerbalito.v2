@@ -1,3 +1,4 @@
+import { API_ENDPOINTS } from "../../../config/api";
 import { DataGrid } from "@mui/x-data-grid";
 import { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../../../context/AuthContext";
@@ -22,11 +23,11 @@ const CategoriesCard = () => {
       try {
         setLoading(true);
         const response = await axios.get(
-          "http://localhost:3001/categories"
+          API_ENDPOINTS.CATEGORIES
         );
 
         const responseEstados = await axios.get(
-          "http://localhost:3001/estados"
+          API_ENDPOINTS.ESTADOS
         );
 
         const estados = responseEstados.data.estados.reduce((acc, estado) => {
@@ -35,7 +36,14 @@ const CategoriesCard = () => {
         }, {});
 
         const categoriesWhithEstado = response.data.categorias
-          .filter((categoria) => categoria.visible === 1)
+          .filter((categoria) => {
+            // Si está logueado (admin), mostrar todas las categorías excepto SIN FICHAR
+            if (isLogged) {
+              return categoria.nombre_categoria !== "SIN FICHAR";
+            }
+            // Si no está logueado, solo mostrar las visibles
+            return categoria.visible === 1 && categoria.nombre_categoria !== "SIN FICHAR";
+          })
           .map((categoria) => ({
             ...categoria,
             idestado: estados[categoria.idestado] || categoria.idestado,
@@ -85,15 +93,16 @@ const CategoriesCard = () => {
       align: "center",
       minWidth: 100,
     },
-    isLogged && {
+    // Agregar columna Estado solo para usuarios logueados
+    ...(isLogged ? [{
       field: "idestado",
       headerName: "ESTADO",
       flex: 1,
       headerAlign: "center",
       align: "center",
       minWidth: 120,
-    },
-  ].filter(Boolean);
+    }] : []),
+  ];
 
   const getRowId = (category) => category.idcategoria;
 
@@ -138,68 +147,120 @@ const CategoriesCard = () => {
       </style>
       
       {loading ? (
-        <Box 
-          sx={{ 
-            display: "flex", 
-            justifyContent: "center", 
-            alignItems: "center", 
-            height: "200px",
-            backgroundColor: "rgba(20, 20, 20, 0.7)",
-            borderRadius: "8px"
-          }}
-        >
-          <CircularProgress style={{ color: "white" }} />
+        <Box className="loading-container">
+          <CircularProgress className="loading-spinner" />
+          <Typography className="consistency-caption">
+            Cargando categorías...
+          </Typography>
         </Box>
       ) : categories.length > 0 ? (
         <Box 
           sx={{ 
             width: "100%", 
-            height: "auto",
-            borderRadius: "8px",
+            backgroundColor: "rgba(40, 40, 40, 0.95)",
+            borderRadius: "16px",
+            padding: "24px",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.2)",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            backdropFilter: "blur(10px)",
+            position: "relative",
             overflow: "hidden",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)"
+            "&::before": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: "4px",
+              background: "linear-gradient(90deg, #4CAF50, #66BB6A, #4CAF50)",
+              borderRadius: "16px 16px 0 0"
+            }
           }}
         >
-          <DataGrid
-            rows={categories}
-            columns={columns}
-            autoHeight
-            getRowId={getRowId}
-            disableColumnMenu
-            disableSelectionOnClick
-            disableColumnFilter
-            disableColumnSelector
-            disableDensitySelector
-            disableExtendRowFullWidth
-            disableMultipleColumnsFiltering
-            disableColumnReorder
-            disableColumnResize
-            hideFooter={true}
-            className="custom-data-grid"
-            rowHeight={60}
-            sx={{
-              borderColor: 'rgba(255, 255, 255, 0.2)',
-              '& .MuiDataGrid-cell': {
-                borderColor: 'rgba(255, 255, 255, 0.1)'
-              },
-              '& .MuiDataGrid-main': {
-                borderRadius: '8px',
-                overflow: 'hidden'
-              },
-              width: '100%'
-            }}
-          />
+         
+          {/* Tabla con estilo mejorado */}
+          <Box sx={{
+            backgroundColor: "rgba(30, 30, 30, 0.8)",
+            borderRadius: "12px",
+            overflow: "hidden",
+            border: "1px solid rgba(255, 255, 255, 0.05)"
+          }}>
+            <DataGrid
+              rows={categories}
+              columns={columns}
+              autoHeight
+              getRowId={getRowId}
+              disableColumnMenu
+              disableSelectionOnClick
+              disableColumnFilter
+              disableColumnSelector
+              disableDensitySelector
+              disableExtendRowFullWidth
+              disableMultipleColumnsFiltering
+              disableColumnReorder
+              disableColumnResize
+              hideFooter={true}
+              className="custom-data-grid"
+              rowHeight={60}
+              sx={{
+                border: "none",
+                '& .MuiDataGrid-cell': {
+                  color: "#f0f0f0 !important",
+                  display: "flex !important",
+                  justifyContent: "center !important",
+                  alignItems: "center !important",
+                  padding: "12px 16px !important",
+                  fontSize: "1rem !important",
+                  borderColor: "rgba(255, 255, 255, 0.05) !important"
+                },
+                '& .MuiDataGrid-columnHeader': {
+                  backgroundColor: "rgba(50, 50, 50, 0.9) !important",
+                  padding: "16px !important",
+                  borderColor: "rgba(255, 255, 255, 0.1) !important"
+                },
+                '& .MuiDataGrid-columnHeaderTitle': {
+                  color: "white !important",
+                  fontWeight: "bold !important",
+                  fontSize: "1.1rem !important"
+                },
+                '& .MuiDataGrid-virtualScroller': {
+                  backgroundColor: "transparent !important"
+                },
+                '& .MuiDataGrid-row': {
+                  backgroundColor: "transparent !important",
+                  borderBottom: "1px solid rgba(255, 255, 255, 0.05) !important"
+                },
+                '& .MuiDataGrid-row:hover': {
+                  backgroundColor: "rgba(76, 175, 80, 0.1) !important"
+                },
+                '& .MuiDataGrid-columnSeparator': {
+                  display: "none !important"
+                },
+                '& .MuiDataGrid-iconSeparator': {
+                  display: "none !important"
+                },
+                '& .MuiDataGrid-main': {
+                  borderRadius: "12px",
+                  overflow: "hidden"
+                },
+                width: "100%"
+              }}
+            />
+          </Box>
         </Box>
       ) : (
         <Box 
           sx={{ 
-            padding: "30px", 
-            backgroundColor: "rgba(20, 20, 20, 0.7)",
+            padding: "40px", 
             textAlign: "center",
-            borderRadius: "8px"
+            backgroundColor: "rgba(40, 40, 40, 0.95)",
+            borderRadius: "16px",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.2)",
+            backdropFilter: "blur(10px)"
           }}
         >
-          <Typography sx={{ color: "white", fontSize: "1.2rem" }}>
+          <Typography sx={{ color: "white", fontSize: "1.1rem" }}>
             No se encontraron categorías
           </Typography>
         </Box>

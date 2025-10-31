@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { API_ENDPOINTS } from "../../../config/api";
+import { useEffect, useState, useContext } from "react";
 import axios from "axios";
 import {
   Button,
@@ -21,6 +22,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 
 import CategoryForm from "./CategoryForm";
+import Swal from "sweetalert2";
+import { AuthContext } from "../../../context/AuthContext";
 
 const style = {
   position: "absolute",
@@ -28,10 +31,12 @@ const style = {
   left: "50%",
   transform: "translate(-50%, -50%)",
   width: 400,
-  bgcolor: "background.paper",
+  maxHeight: '90vh',
+  bgcolor: "white",
   border: "2px solid #000",
   boxShadow: 24,
   p: 4,
+  borderRadius: 2,
 };
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -58,6 +63,7 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 }));
 
 const CategoryList = () => {
+  const { user } = useContext(AuthContext);
   const [categories, setCategories] = useState([]);
   const [isChange, setIsChange] = useState(false);
   const [open, setOpen] = useState(false);
@@ -65,37 +71,13 @@ const CategoryList = () => {
 
   useEffect(() => {
     setIsChange(false);
-    const fetchAllCategory = async () => {
-      try {
-        const response = await axios.get(
-          "http://localhost:3001/categories/all"
-        );
-
-        const formattedResponse = await Promise.all(
-          response.data.categorias.map(async (category) => {
-            const estadoData = await fetchEstado(category.idestado);
-            const estado = estadoData ? estadoData.tipo_estado : null;
-
-            return {
-              ...category,
-              estado,
-            };
-          })
-        );
-        // console.log("Formatted Response:", formattedResponse);
-        setCategories(formattedResponse);
-      } catch (error) {
-        console.error("Error fetching categories: ", error);
-      }
-    };
-
     fetchAllCategory();
   }, [isChange]);
 
   const fetchEstado = async (idestado) => {
     try {
       const response = await axios.get(
-        `http://localhost:3001/estados/${idestado}`
+        `${API_ENDPOINTS.ESTADOS}/${idestado}`
       );
       // console.log("fetchEstado response:", response.data.estado.tipo_estado);
       return response.data.estado;
@@ -107,7 +89,7 @@ const CategoryList = () => {
 
   // const deletePlayer = async (id) => {
   //   try {
-  //     await axios.delete(`http://localhost:3001/squad/${id}`);
+  //     await axios.delete(`API_ENDPOINTS.SQUAD/${id}`);
   //     setIsChange(true);
   //   } catch (error) {
   //     console.error("Error deleting player: ", error);
@@ -117,7 +99,7 @@ const CategoryList = () => {
   // const searchPlayer = async (searchTerm) => {
   //   try {
   //     const response = await axios.get(
-  //       `http://localhost:3001/squad/search/${searchTerm}`
+  //       `API_ENDPOINTS.SQUAD/search/${searchTerm}`
   //     );
   //     setPlayers(response.data.squads);
   //   } catch (error) {
@@ -134,8 +116,60 @@ const CategoryList = () => {
     setOpen(true);
   };
 
+  const handleDelete = async (categoryId) => {
+    const result = await Swal.fire({
+      title: "¿Estás seguro?",
+      text: "Esta acción no se puede deshacer.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await axios.delete(`${API_ENDPOINTS.CATEGORIES}/${categoryId}`);
+        setCategories(categories.filter((category) => category.idcategoria !== categoryId));
+        Swal.fire("¡Eliminado!", "La categoría ha sido eliminada.", "success");
+      } catch (error) {
+        console.error("Error deleting category:", error);
+        Swal.fire("Error!", "No se pudo eliminar la categoría.", "error");
+      }
+    }
+  };
+
+  const fetchAllCategory = async () => {
+    try {
+      const response = await axios.get(API_ENDPOINTS.CATEGORIES_ALL, {
+        headers: { 'x-role': user?.rol || 'usuario' },
+        params: user?.rol === 'admin' ? { role: 'admin' } : {}
+      });
+      const formattedResponse = await Promise.all(
+        response.data.categorias.map(async (category) => {
+          const estadoData = await fetchEstado(category.idestado);
+          const estado = estadoData ? estadoData.tipo_estado : null;
+          return {
+            ...category,
+            estado,
+          };
+        })
+      );
+      setCategories(formattedResponse);
+    } catch (error) {
+      console.error("Error fetching categories: ", error);
+    }
+  };
+
+  const handleSave = () => {
+    setIsChange(true);
+    // Refrescar la lista de categorías
+    fetchAllCategory();
+  };
+
   return (
-    <div>
+    <div className="slide-up">
       <Box
         style={{
           display: "flex",
@@ -149,7 +183,7 @@ const CategoryList = () => {
       </Box>
       <TableContainer
         component={Paper}
-        style={{ marginTop: "5px", maxHeight: "500px", overflowY: "auto" }}
+        style={{ marginTop: "5px", maxHeight: "500px" }}
       >
         <Table>
           <TableHead>
@@ -207,9 +241,9 @@ const CategoryList = () => {
                   {/* tengo que consultar si realmente desea eliminar */}
 
                   <IconButton
-                  /* onClick={() => deleteProduct(player.id, player.code)} */
+                    onClick={() => handleDelete(category.idcategoria)}
                   >
-                    <DeleteForeverIcon color="primary" />
+                    <DeleteForeverIcon color="error" />
                   </IconButton>
                 </StyledTableCell>
               </StyledTableRow>
@@ -226,11 +260,9 @@ const CategoryList = () => {
       >
         <Box sx={style}>
           <CategoryForm
-            handleClose={handleClose}
-            setIsChange={setIsChange}
-            categorySelected={categorySelected}
-            setCategorySelected={setCategorySelected}
-            // categories={categories}
+            category={categorySelected}
+            onClose={handleClose}
+            onSave={handleSave}
           />
         </Box>
       </Modal>

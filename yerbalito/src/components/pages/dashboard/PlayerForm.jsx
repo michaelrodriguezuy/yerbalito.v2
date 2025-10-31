@@ -1,8 +1,11 @@
+import { API_ENDPOINTS } from "../../../config/api";
 import { act, useEffect, useState } from "react";
 import { Formik, Form, Field, ErrorMessage } from "formik";
+import "./PlayerForm.css";
 
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { es } from "date-fns/locale";
 
 import * as Yup from "yup";
 import axios from "axios";
@@ -17,28 +20,122 @@ import {
   Select,
   FormControl,
   Chip,
+  Box,
+  Typography,
+  IconButton,
+  Paper,
 } from "@mui/material";
 
-import dayjs from 'dayjs';
-
+import dayjs from "dayjs";
+import { calculateCedulaVerifier } from "../../../utils/utils";
+import Swal from "sweetalert2";
 
 const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
   const [codeExistsWarning, setCodeExistsWarning] = useState(false);
   const [categories, setCategories] = useState([]);
   const [jugadores, setJugadores] = useState([]);
-  
+
+  // Estilos comunes para TextField (alineados con CategoryForm)
+  const textFieldStyles = {
+    "& .MuiOutlinedInput-root": {
+      backgroundColor: "#ffffff",
+      "& input": {
+        color: "#000000 !important",
+        fontSize: "0.80rem",
+        padding: "4px 8px",
+      },
+      "& textarea": {
+        color: "#000000 !important",
+        fontSize: "0.80rem",
+        padding: "4px 8px",
+      },
+    },
+    "& .MuiSelect-select": {
+      color: "#000000 !important",
+      backgroundColor: "#ffffff",
+      fontSize: "0.80rem",
+      padding: "4px 8px",
+    },
+    "& .MuiInputLabel-root, & .MuiFormLabel-root": {
+      color: "#222222 !important",
+      fontSize: "0.85rem",
+      fontWeight: 600,
+    },
+    "& .MuiInputLabel-root.Mui-focused, & .MuiFormLabel-root.Mui-focused": {
+      color: "#222222 !important",
+    },
+    "& .MuiInputLabel-root.MuiInputLabel-shrink": {
+      color: "#222222 !important",
+    },
+    "& .MuiOutlinedInput-notchedOutline": {
+      borderColor: "rgba(0,0,0,0.23) !important",
+    },
+    "&:hover .MuiOutlinedInput-notchedOutline": {
+      borderColor: "rgba(0,0,0,0.40) !important",
+    },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+      borderColor: "rgba(0,0,0,0.60) !important",
+    },
+  };
 
   const validationSchema = Yup.object().shape({
     nombre: Yup.string().required("El nombre es obligatorio"),
     apellido: Yup.string().required("El apellido es obligatorio"),
     cedula: Yup.string()
-      .transform((value) => value.replace(/\s+/g, ""))
-      .required("La cedula es obligatoria"),
+      .transform((value) => (value ? value.toString().replace(/\s+/g, "") : ""))
+      .required("La cedula es obligatoria")
+      .matches(/^\d+$/, "La cédula solo puede contener números")
+      .max(8, "La cédula no puede tener más de 8 dígitos")
+      .test(
+        "valid-cedula",
+        "El número de cédula no es válido",
+        function (value) {
+          if (!value) return true; // La validación de required ya se encarga de esto
+
+          // Remover espacios y guiones
+          const cleanCedula = value.replace(/[\s-]/g, "");
+
+          // Debe tener exactamente 7 u 8 dígitos (ya validado por max(8), pero verificamos)
+          if (cleanCedula.length < 7 || cleanCedula.length > 8) {
+            return false;
+          }
+
+          if (!/^\d{7,8}$/.test(cleanCedula)) {
+            return false;
+          }
+
+          // Si tiene 7 dígitos, considerar válida (el verificador se puede agregar después)
+          if (cleanCedula.length === 7) {
+            return true;
+          }
+
+          // Si tiene 8 dígitos, verificar que el último dígito sea correcto
+          if (cleanCedula.length === 8) {
+            const first7Digits = cleanCedula.substring(0, 7);
+            const lastDigit = parseInt(cleanCedula.substring(7, 8));
+            const calculatedVerifier = calculateCedulaVerifier(first7Digits);
+            return lastDigit === calculatedVerifier;
+          }
+
+          return false;
+        }
+      ),
     sexo: Yup.string().required("El sexo es obligatorio"),
     fechaNacimiento: Yup.date()
       .required("La fecha de nacimiento es obligatoria")
       .nullable(),
-    contacto: Yup.string().required("El contacto es obligatorio"),
+    contacto: Yup.string()
+      .nullable()
+      .matches(/^\d*$/, "El contacto solo puede contener números"),
+    numJugador: Yup.string()
+      .matches(/^\d*$/, "El número de jugador solo puede contener números")
+      .nullable(),
+    hasSiblings: Yup.boolean(),
+    selectedSiblings: Yup.array().when("hasSiblings", {
+      is: true,
+      then: (schema) => schema.min(1, "Debe seleccionar al menos un hermano"),
+      otherwise: (schema) => schema,
+    }),
   });
 
   const DatePickerField = ({ field, form, label, ...other }) => {
@@ -48,24 +145,32 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
 
     const handleChange = (date) => {
       form.setFieldValue(name, date);
-      form.setFieldTouched(name, true); 
+      form.setFieldTouched(name, true);
     };
 
     return (
-      <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
         <DatePicker
           label={label}
           value={field.value || null}
           onChange={handleChange}
+          inputFormat="dd/MM/yyyy"
           renderInput={(params) => (
             <TextField
               {...params}
               fullWidth
+              size="small"
               error={Boolean(isTouched && currentError)}
               helperText={isTouched && currentError ? currentError : ""}
+              sx={{
+                ...textFieldStyles,
+                "& .MuiInputBase-input": {
+                  fontSize: "0.80rem",
+                  padding: "4px 8px",
+                },
+              }}
             />
           )}
-          
           {...other}
         />
       </LocalizationProvider>
@@ -79,7 +184,7 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
 
   const checkCiExists = async (ci) => {
     try {
-      const response = await fetch(`http://localhost:3001/squad/search/${ci}`);
+      const response = await fetch(`${API_ENDPOINTS.SQUAD_SEARCH}/${ci}`);
       const data = await response.json();
 
       if (response.ok) {
@@ -100,7 +205,7 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
 
   const fetchCategory = async () => {
     try {
-      const response = await axios.get(`http://localhost:3001/categories`);
+      const response = await axios.get(API_ENDPOINTS.CATEGORIES);
       // console.log("fetchCategory response:", response.data.categoria.nombre_categoria);
       //  response.data.categoria.nombre_categoria;
       setCategories(response.data.categorias);
@@ -112,7 +217,7 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
 
   const fetchJugadores = async () => {
     try {
-      const response = await axios.get(`http://localhost:3001/squad`);
+      const response = await axios.get(API_ENDPOINTS.SQUAD);
       setJugadores(response.data.squads);
     } catch (error) {
       console.error("Error fetching players: ", error);
@@ -124,41 +229,59 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
     // console.log("values", values);
 
     if (!values.fechaNacimiento) {
-      actions.setFieldError('fechaNacimiento', 'La fecha de nacimiento es obligatoria');
+      actions.setFieldError(
+        "fechaNacimiento",
+        "La fecha de nacimiento es obligatoria"
+      );
       actions.setSubmitting(false);
       return;
     }
 
-    const formattedFechaNacimiento = dayjs(values.fechaNacimiento).format('YYYY-MM-DD');
-    const formattedFechaIngreso = dayjs(values.fechaIngreso).format('YYYY-MM-DD');
+    const formattedFechaNacimiento = dayjs(values.fechaNacimiento).format(
+      "YYYY-MM-DD"
+    );
+    const formattedFechaIngreso = dayjs(values.fechaIngreso).format(
+      "YYYY-MM-DD"
+    );
 
     const selectedCategory = categories.find(
       (category) => category.nombre_categoria === values.categoria
     );
-    const categoriaId = selectedCategory ? selectedCategory.idcategoria : "";
+    const idcategoria = selectedCategory
+      ? selectedCategory.idcategoria
+      : null;
+
+    if (!idcategoria) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Debe seleccionar una categoría válida",
+      });
+      actions.setSubmitting(false);
+      return;
+    }
 
     const formData = new FormData();
 
     formData.append("nombre", values.nombre);
-
     formData.append("apellido", values.apellido);
     formData.append("cedula", values.cedula);
     formData.append("fecha_nacimiento", formattedFechaNacimiento);
     formData.append("sexo", values.sexo);
-    formData.append("numeroClub", values.numJugador);
-
+    formData.append("numeroClub", values.numJugador || "");
     formData.append("fecha_ingreso", formattedFechaIngreso);
-    formData.append("idcategoria", categoriaId);
-    formData.append("ciudadania", values.ciudadania);
-    formData.append("padre", values.padre);
-    formData.append("madre", values.madre);
-    formData.append("contacto", values.contacto);
+    formData.append("idcategoria", idcategoria);
+    formData.append("ciudadania", values.ciudadania || "");
+    formData.append("padre", values.padre || "");
+    formData.append("madre", values.madre || "");
+    formData.append("contacto", values.contacto || "");
     // formData.append("hermano", values.hermano);
-    // formData.append("hermanos", values.hermanos);
-    formData.append("observacionesJugador", values.observaciones);
+    formData.append("observaciones", values.observaciones || "");
 
     if (values.hasSiblings && values.selectedSiblings.length > 0) {
       formData.append("hermanos", values.selectedSiblings.join(","));
+    } else {
+      formData.append("hermanos", "");
     }
 
     if (values.imagen && values.imagen instanceof File) {
@@ -168,17 +291,18 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
     try {
       if (playerSelected) {
         await axios.put(
-          `http://localhost:3001/squad/${playerSelected.id}`,
+          `${API_ENDPOINTS.SQUAD}/${
+            playerSelected.idjugador || playerSelected.id
+          }`,
           formData,
           { headers: { "Content-Type": "multipart/form-data" } }
         );
       } else {
-        
         for (let [key, value] of formData.entries()) {
           console.log(`${key}: ${value}`);
         }
 
-        await axios.post("http://localhost:3001/squad", formData, {
+        await axios.post(API_ENDPOINTS.SQUAD, formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
         // console.log("values", formData);
@@ -187,6 +311,19 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
       handleClose();
     } catch (error) {
       console.error("Error saving player: ", error);
+      if (error.response && error.response.data && error.response.data.error) {
+        Swal.fire({
+          icon: "error",
+          title: "Error al guardar",
+          text: error.response.data.error,
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error al guardar",
+          text: "Ocurrió un error al intentar guardar el jugador",
+        });
+      }
     } finally {
       actions.setSubmitting(false);
     }
@@ -216,18 +353,68 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
   }, [categories, playerSelected]);
 
   return (
-    <div>
+    <Paper
+      elevation={3}
+      sx={{ p: 1.5, maxWidth: 1180, width: "100%", margin: "0 auto" }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2,
+        }}
+      >
+        <Typography variant="h6">Agregar jugador</Typography>
+        <IconButton onClick={handleClose}>×</IconButton>
+      </Box>
       <Formik
         initialValues={{
           nombre: playerSelected?.nombre || "",
           apellido: playerSelected?.apellido || "",
           cedula: playerSelected?.cedula || "",
-          fechaNacimiento: playerSelected?.fecha_nacimiento || "",
-          sexo: playerSelected?.sexo || "",
-          numJugador: playerSelected?.numeroClub || "",
+          fechaNacimiento: playerSelected?.fecha_nacimiento
+            ? typeof playerSelected.fecha_nacimiento === "string" &&
+              playerSelected.fecha_nacimiento.includes("-")
+              ? playerSelected.fecha_nacimiento.includes("T") ||
+                playerSelected.fecha_nacimiento.includes("Z")
+                ? new Date(playerSelected.fecha_nacimiento)
+                : dayjs(
+                    playerSelected.fecha_nacimiento
+                      .split("-")
+                      .reverse()
+                      .join("-"),
+                    "DD-MM-YYYY"
+                  ).toDate()
+              : new Date(playerSelected.fecha_nacimiento)
+            : "",
+          sexo:
+            playerSelected?.sexo === "M" || playerSelected?.sexo === "Masculino"
+              ? "M"
+              : playerSelected?.sexo === "F" ||
+                playerSelected?.sexo === "Femenino"
+              ? "F"
+              : playerSelected?.sexo || "",
+          numJugador:
+            playerSelected?.numeroClub || playerSelected?.numJugador || "",
           imagen: playerSelected?.imagen || "",
-          fechaIngreso: playerSelected?.fecha_ingreso || "",
-          categoria: playerSelected?.idcategoria || "",
+          fechaIngreso: playerSelected?.fecha_ingreso
+            ? typeof playerSelected.fecha_ingreso === "string" &&
+              playerSelected.fecha_ingreso.includes("-")
+              ? playerSelected.fecha_ingreso.includes("T") ||
+                playerSelected.fecha_ingreso.includes("Z")
+                ? new Date(playerSelected.fecha_ingreso)
+                : dayjs(
+                    playerSelected.fecha_ingreso.split("-").reverse().join("-"),
+                    "DD-MM-YYYY"
+                  ).toDate()
+              : new Date(playerSelected.fecha_ingreso)
+            : "",
+          categoria:
+            playerSelected?.nombre_categoria ||
+            playerSelected?.categoria?.nombre_categoria ||
+            playerSelected?.categoria ||
+            "",
           ciudadania: playerSelected?.ciudadania || "",
           padre: playerSelected?.padre || "",
           madre: playerSelected?.madre || "",
@@ -235,7 +422,10 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
 
           hermanos: playerSelected?.hermanos || "",
 
-          observaciones: playerSelected?.observacionesJugador || "",
+          observaciones:
+            playerSelected?.observacionesJugador ||
+            playerSelected?.observaciones ||
+            "",
 
           hasSiblings: playerSelected?.hermanos ? true : false,
           selectedSiblings: playerSelected?.selectedSiblings || [],
@@ -245,7 +435,15 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
         validationSchema={validationSchema}
         onSubmit={handleSubmit}
       >
-        {({ isSubmitting, setFieldValue, values, touched, errors }) => {
+        {({
+          isSubmitting,
+          setFieldValue,
+          setFieldTouched,
+          validateField,
+          values,
+          touched,
+          errors,
+        }) => {
           // console.log('Formik touched:', touched);
           // console.log('Formik errors:', errors);
 
@@ -261,18 +459,77 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
                 ? fechaNacimiento.getFullYear()
                 : null;
 
-              const selectedSex = values.sexo;
+              if (!yearOfBirth || !values.sexo) return;
 
-              if (yearOfBirth && selectedSex) {
-                const matchedCategory = categories.find(
-                  (category) =>
-                    category.nombre_categoria.includes(
-                      yearOfBirth.toString()
-                    ) && category.sexo === selectedSex
+              // Calcular edad actual
+              const currentYear = new Date().getFullYear();
+              const age = currentYear - yearOfBirth;
+
+              // Lógica de categorías según edad y sexo
+              let categoryId = null;
+
+              if (values.sexo.toLowerCase() === "femenino") {
+                // Categorías femeninas
+                if (age >= 6 && age <= 7)
+                  categoryId = 11; // SUB9 (2016-2017-2018)
+                else if (age >= 8 && age <= 9)
+                  categoryId = 12; // SUB11 (2014-2015)
+                else if (age >= 10 && age <= 11) categoryId = 13; // SUB13 (2012-2013)
+              } else {
+                // Categorías masculinas
+                if (age >= 6 && age <= 7) categoryId = 1; // ABEJAS(2019)
+                else if (age >= 7 && age <= 8) categoryId = 2; // GRILLOS(2018)
+                else if (age >= 8 && age <= 9) categoryId = 3; // CHATAS(2017)
+                else if (age >= 9 && age <= 10)
+                  categoryId = 4; // CHURRINCHES(2016)
+                else if (age >= 10 && age <= 11)
+                  categoryId = 5; // GORRIONES(2015)
+                else if (age >= 11 && age <= 12)
+                  categoryId = 6; // SEMILLAS(2014)
+                else if (age >= 12 && age <= 13)
+                  categoryId = 7; // CEBOLLAS(2013)
+                else if (age >= 13 && age <= 14) categoryId = 8; // BABYS(2012)
+              }
+
+              if (yearOfBirth) {
+                const yearStr = String(yearOfBirth);
+                if (values.sexo && values.sexo.toUpperCase().startsWith("F")) {
+                  // Map femenino: SUB9 (2016-2018), SUB11 (2014-2015), SUB13 (2012-2013)
+                  let targetPrefix = null;
+                  if (["2016", "2017", "2018"].includes(yearStr))
+                    targetPrefix = "SUB9";
+                  else if (["2014", "2015"].includes(yearStr))
+                    targetPrefix = "SUB11";
+                  else if (["2012", "2013"].includes(yearStr))
+                    targetPrefix = "SUB13";
+                  if (targetPrefix) {
+                    const foundFem = categories.find((c) =>
+                      (c?.nombre_categoria || "")
+                        .toUpperCase()
+                        .startsWith(targetPrefix)
+                    );
+                    if (foundFem) {
+                      setFieldValue("categoria", foundFem.nombre_categoria);
+                      return;
+                    }
+                  }
+                }
+                // Masculino: buscar categoría cuyo nombre contenga el año y no sea SUBx
+                const foundByYear = categories.find((c) => {
+                  const n = (c?.nombre_categoria || "").toUpperCase();
+                  return n.includes(`(${yearStr})`) && !n.startsWith("SUB");
+                });
+                if (foundByYear) {
+                  setFieldValue("categoria", foundByYear.nombre_categoria);
+                  return;
+                }
+              }
+              if (categoryId) {
+                const found = categories.find(
+                  (c) => c.idcategoria === categoryId
                 );
-
-                if (matchedCategory) {
-                  setFieldValue("categoria", matchedCategory.nombre_categoria);
+                if (found) {
+                  setFieldValue("categoria", found.nombre_categoria);
                 }
               }
             };
@@ -294,123 +551,259 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
               //   }
               // }}
             >
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+              <Grid container spacing={1}>
+                <Grid item xs={12} sm={6} md={4}>
+                  <Typography
+                    sx={{
+                      mb: 0.5,
+                      color: "#222222",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Nombre
+                  </Typography>
                   <Field
                     as={TextField}
                     variant="outlined"
-                    label="Nombre"
+                    label=""
                     name="nombre"
                     fullWidth
+                    size="small"
                     value={values.nombre}
                     onChange={(e) => setFieldValue("nombre", e.target.value)}
                     error={<ErrorMessage name="nombre" />}
                     helperText={<ErrorMessage name="nombre" />}
+                    sx={textFieldStyles}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={4}>
+                  <Typography
+                    sx={{
+                      mb: 0.5,
+                      color: "#222222",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Apellido
+                  </Typography>
                   <Field
                     as={TextField}
                     variant="outlined"
-                    label="Apellido"
+                    label=""
                     name="apellido"
                     fullWidth
+                    size="small"
                     value={values.apellido}
                     onChange={(e) => setFieldValue("apellido", e.target.value)}
                     error={<ErrorMessage name="apellido" />}
                     helperText={<ErrorMessage name="apellido" />}
+                    sx={textFieldStyles}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={4}>
+                  <Typography
+                    sx={{
+                      mb: 0.5,
+                      color: "#222222",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Cedula
+                  </Typography>
                   <Field
                     as={TextField}
                     variant="outlined"
-                    label="Cedula"
+                    label=""
                     name="cedula"
+                    type="text"
+                    inputMode="numeric"
+                    size="small"
                     onChange={async (e) => {
-                      const value = e.target.value.replace(/\s+/g, "");
-                      setFieldValue("cedula", value);
-                      const ciExists = await checkCiExists(value);
-                      setCodeExistsWarning(ciExists);
+                      // Solo permitir números y limitar a máximo 8 dígitos
+                      const value = e.target.value
+                        .replace(/\D/g, "")
+                        .substring(0, 8);
+                      setFieldValue("cedula", value, false);
+                      if (value) {
+                        const ciExists = await checkCiExists(value);
+                        setCodeExistsWarning(ciExists);
+                      }
+                    }}
+                    onBlur={async (e) => {
+                      setFieldTouched("cedula", true);
+                      // Forzar validación de Formik cuando se sale del campo
+                      await validateField("cedula");
                     }}
                     value={values.cedula}
                     error={Boolean(
-                      codeExistsWarning || <ErrorMessage name="cedula" />
+                      codeExistsWarning || (touched.cedula && errors.cedula)
                     )}
                     helperText={
-                      codeExistsWarning ? (
-                        "El numero de CI ya existe"
-                      ) : (
-                        <ErrorMessage name="cedula" />
-                      )
+                      codeExistsWarning
+                        ? "El numero de CI ya existe"
+                        : touched.cedula && errors.cedula
+                        ? errors.cedula
+                        : ""
                     }
+                    sx={textFieldStyles}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={4}>
+                  <Typography
+                    sx={{
+                      mb: 0.5,
+                      color: "#222222",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Sexo
+                  </Typography>
                   <Field
                     as={TextField}
                     variant="outlined"
-                    label="Sexo"
+                    label=""
                     name="sexo"
                     select
+                    size="small"
                     value={values.sexo}
                     onChange={(e) => setFieldValue("sexo", e.target.value)}
                     fullWidth
                     error={<ErrorMessage name="sexo" />}
                     helperText={<ErrorMessage name="sexo" />}
+                    sx={textFieldStyles}
+                    SelectProps={{
+                      MenuProps: {
+                        PaperProps: {
+                          sx: {
+                            backgroundColor: "#ffffff",
+                            "& .MuiMenuItem-root": { color: "#000000" },
+                          },
+                        },
+                      },
+                    }}
                   >
                     <MenuItem value="M">Masculino</MenuItem>
                     <MenuItem value="F">Femenino</MenuItem>
                   </Field>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={4}>
+                  <Typography
+                    sx={{
+                      mb: 0.5,
+                      color: "#222222",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Fecha de nacimiento
+                  </Typography>
                   <Field
                     name="fechaNacimiento"
                     component={DatePickerField}
                     placeholder="Fecha de nacimiento"
-                    label="Fecha de nacimiento"
+                    label=""
                     fullWidth
+                    sx={textFieldStyles}
                   />
-  <ErrorMessage name="fechaNacimiento" component="div" />
-  </Grid>
-                <Grid item xs={12} sm={6}>
+                  <ErrorMessage name="fechaNacimiento" component="div" />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                  <Typography
+                    sx={{
+                      mb: 0.5,
+                      color: "#222222",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Número de jugador fichado
+                  </Typography>
                   <Field
                     name="numJugador"
                     as={TextField}
                     variant="outlined"
-                    label="Número de jugador fichado"
-                    value={values.numJugador}
-                    onChange={(e) =>
-                      setFieldValue("numJugador", e.target.value)
+                    inputMode="numeric"
+                    label=""
+                    size="small"
+                    value={values.numJugador || ""}
+                    onChange={(e) => {
+                      // Solo permitir números o vacío
+                      const value = e.target.value.replace(/\D/g, "");
+                      setFieldValue("numJugador", value);
+                    }}
+                    onBlur={() => setFieldTouched("numJugador", true)}
+                    error={Boolean(touched.numJugador && errors.numJugador)}
+                    helperText={
+                      touched.numJugador && errors.numJugador
+                        ? errors.numJugador
+                        : ""
                     }
                     fullWidth
+                    sx={textFieldStyles}
                   />
-                  <ErrorMessage name="numJugador" component="div" />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={4}>
+                  <Typography
+                    sx={{
+                      mb: 0.5,
+                      color: "#222222",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Ciudadania
+                  </Typography>
                   <Field
                     as={TextField}
                     variant="outlined"
-                    label="Ciudadania"
+                    label=""
                     name="ciudadania"
+                    size="small"
                     value={values.ciudadania}
                     onChange={(e) =>
                       setFieldValue("ciudadania", e.target.value)
                     }
                     fullWidth
+                    sx={textFieldStyles}
                   />
                   <ErrorMessage name="ciudadania" component="div" />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={4}>
+                  <Typography
+                    sx={{
+                      mb: 0.5,
+                      color: "#222222",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Categoría
+                  </Typography>
                   <Field
                     as={TextField}
                     variant="outlined"
-                    label="Categoría"
+                    label=""
                     name="categoria"
                     select
+                    size="small"
                     value={values.categoria}
                     onChange={(e) => setFieldValue("categoria", e.target.value)}
                     fullWidth
+                    sx={textFieldStyles}
+                    SelectProps={{
+                      MenuProps: {
+                        PaperProps: {
+                          sx: {
+                            backgroundColor: "#ffffff",
+                            "& .MuiMenuItem-root": { color: "#000000" },
+                          },
+                        },
+                      },
+                    }}
                   >
                     {categories &&
                       categories.map((category) => (
@@ -423,19 +816,37 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
                       ))}
                   </Field>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Typography
+                    sx={{
+                      mb: 0.5,
+                      color: "#222222",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Fecha de ingreso al club
+                  </Typography>
                   <Field
                     name="fechaIngreso"
                     component={DatePickerField}
                     placeholder="Fecha de ingreso al club"
-                    label="Fecha de ingreso al club"
+                    label=""
                     fullWidth
+                    sx={textFieldStyles}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  <InputLabel shrink htmlFor="foto-upload">
-                    Foto
-                  </InputLabel>
+                <Grid item xs={12} sm={6} md={3} sx={{ order: 50 }}>
+                  <Typography
+                    sx={{
+                      mb: 0.5,
+                      color: "#222222",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Imagen
+                  </Typography>
                   <Field
                     name="imagen"
                     render={({ field }) => (
@@ -448,59 +859,115 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
                           setFieldValue(field.name, e.target.files[0])
                         }
                         fullWidth
+                        size="small"
+                        sx={textFieldStyles}
                       />
                     )}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Typography
+                    sx={{
+                      mb: 0.5,
+                      color: "#222222",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Padre
+                  </Typography>
                   <Field
                     as={TextField}
                     variant="outlined"
-                    label="Padre"
+                    label=""
                     name="padre"
+                    size="small"
                     value={values.padre}
                     onChange={(e) => setFieldValue("padre", e.target.value)}
                     fullWidth
+                    sx={textFieldStyles}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Typography
+                    sx={{
+                      mb: 0.5,
+                      color: "#222222",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Madre
+                  </Typography>
                   <Field
                     as={TextField}
                     variant="outlined"
-                    label="Madre"
+                    label=""
                     name="madre"
+                    size="small"
                     value={values.madre}
                     onChange={(e) => setFieldValue("madre", e.target.value)}
                     fullWidth
+                    sx={textFieldStyles}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Typography
+                    sx={{
+                      mb: 0.5,
+                      color: "#222222",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Contacto
+                  </Typography>
                   <Field
                     as={TextField}
                     variant="outlined"
-                    label="Contacto"
+                    label=""
                     name="contacto"
+                    type="text"
+                    inputMode="numeric"
+                    size="small"
                     value={values.contacto}
-                    onChange={(e) => setFieldValue("contacto", e.target.value)}
+                    onChange={(e) => {
+                      // Solo permitir números
+                      const value = e.target.value.replace(/\D/g, "");
+                      setFieldValue("contacto", value);
+                    }}
                     fullWidth
                     error={<ErrorMessage name="contacto" />}
                     helperText={<ErrorMessage name="contacto" />}
+                    sx={textFieldStyles}
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} md={9} sx={{ order: 49 }}>
+                  <Typography
+                    sx={{
+                      mb: 0.5,
+                      color: "#222222",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Observaciones
+                  </Typography>
                   <Field
                     as={TextField}
                     variant="outlined"
-                    label="Observaciones"
+                    label=""
                     name="observaciones"
                     multiline
-                    rows={4}
+                    rows={2}
                     fullWidth
+                    size="small"
                     value={values.observaciones}
                     onChange={(e) =>
                       setFieldValue("observaciones", e.target.value)
                     }
+                    sx={textFieldStyles}
                   />
                 </Grid>
               </Grid>
@@ -516,18 +983,53 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
               >
                 <Grid item xs={12}>
                   <FormControlLabel
+                    sx={{
+                      color: "#222222 !important",
+                      "& .MuiTypography-root": {
+                        color: "#222222 !important",
+                        fontWeight: 600,
+                        fontSize: "0.85rem",
+                      },
+                    }}
                     control={
                       <Field
                         name="hasSiblings"
                         type="checkbox"
                         as={Checkbox}
-                        color="primary"
+                        sx={{
+                          color: "#ffffff !important",
+                          "& .MuiSvgIcon-root": {
+                            fontSize: "1.25rem",
+                            color: "#ffffff !important",
+                            border: "2px solid #ffffff",
+                            borderRadius: "4px",
+                            backgroundColor: "transparent",
+                          },
+                          "&.Mui-checked": {
+                            color: "#1E8732 !important",
+                            "& .MuiSvgIcon-root": {
+                              color: "#1E8732 !important",
+                              border: "2px solid #1E8732",
+                              backgroundColor: "transparent",
+                            },
+                          },
+                          "&:hover .MuiSvgIcon-root": {
+                            backgroundColor: "rgba(255, 255, 255, 0.1)",
+                          },
+                          "&.Mui-checked:hover .MuiSvgIcon-root": {
+                            backgroundColor: "rgba(30, 135, 50, 0.1)",
+                          },
+                        }}
                         onChange={(e) => {
                           const isChecked = e.target.checked;
                           setFieldValue("hasSiblings", isChecked);
+                          setFieldTouched("hasSiblings", true);
                           if (!isChecked) {
                             setFieldValue("selectedSiblingCategory", "");
                             setFieldValue("selectedSiblings", []);
+                            setFieldTouched("selectedSiblings", false);
+                          } else {
+                            setFieldTouched("selectedSiblings", true);
                           }
                         }}
                       />
@@ -538,15 +1040,21 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
 
                 {values.hasSiblings && (
                   <>
-                    <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth>
-                        <InputLabel id="category-label">
-                          Categoría del Hermano
-                        </InputLabel>
+                    <Grid item xs={12} sm={12} md={6} sx={{ mt: 1 }}>
+                      <Typography
+                        sx={{
+                          mb: 0.5,
+                          color: "#222222",
+                          fontWeight: 600,
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        Categoría del Hermano
+                      </Typography>
+                      <FormControl fullWidth sx={textFieldStyles} size="small">
                         <Field
                           name="selectedSiblingCategory"
                           as={Select}
-                          labelId="category-label"
                           value={values.selectedSiblingCategory}
                           onChange={(e) => {
                             setFieldValue(
@@ -559,6 +1067,15 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
                             values.selectedSiblings.length === 0 &&
                             values.hasSiblings
                           }
+                          sx={textFieldStyles}
+                          MenuProps={{
+                            PaperProps: {
+                              sx: {
+                                backgroundColor: "#ffffff",
+                                "& .MuiMenuItem-root": { color: "#000000" },
+                              },
+                            },
+                          }}
                         >
                           {categories.map((category) => (
                             <MenuItem
@@ -572,24 +1089,43 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
                       </FormControl>
                     </Grid>
 
-                    <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth>
-                        <InputLabel id="siblings-label">Hermanos</InputLabel>
+                    <Grid item xs={12} sm={12} md={6} sx={{ mt: 1 }}>
+                      <Typography
+                        sx={{
+                          mb: 0.5,
+                          color: "#222222",
+                          fontWeight: 600,
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        Hermanos
+                      </Typography>
+                      <FormControl fullWidth sx={textFieldStyles} size="small">
                         <Field
                           name="selectedSiblings"
                           as={Select}
-                          labelId="siblings-label"
                           multiple
                           value={values.selectedSiblings}
                           onChange={(e) =>
                             setFieldValue("selectedSiblings", e.target.value)
                           }
+                          sx={textFieldStyles}
+                          MenuProps={{
+                            PaperProps: {
+                              sx: {
+                                backgroundColor: "#ffffff",
+                                "& .MuiMenuItem-root": { color: "#000000" },
+                              },
+                            },
+                          }}
                           renderValue={(selected) => (
                             <div
                               style={{
                                 display: "flex",
-                                flexDirection: "column",
-                                maxHeight: "80px",
+                                flexDirection: "row",
+                                flexWrap: "wrap",
+                                gap: "6px",
+                                maxHeight: "72px",
                                 overflowY: "auto",
                               }}
                             >
@@ -610,15 +1146,23 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
                                         newSelected
                                       );
                                     }}
-                                    style={{ marginBottom: "5px" }}
+                                    style={{ marginBottom: 0 }}
                                   />
                                 );
                               })}
                             </div>
                           )}
-                          error={
+                          error={Boolean(
+                            values.hasSiblings &&
                             values.selectedSiblings.length === 0 &&
-                            values.hasSiblings
+                            touched.selectedSiblings
+                          )}
+                          helperText={
+                            values.hasSiblings &&
+                            values.selectedSiblings.length === 0 &&
+                            touched.selectedSiblings
+                              ? errors.selectedSiblings || "Debe seleccionar al menos un hermano"
+                              : ""
                           }
                         >
                           {jugadores
@@ -650,15 +1194,26 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
                 color="primary"
                 type="submit"
                 disabled={isSubmitting}
-                style={{ alignSelf: "flex-end" }}
+                className="submit-button"
+                style={{
+                  alignSelf: "flex-end",
+                  marginTop: "20px",
+                  padding: "12px 30px",
+                  fontSize: "1rem",
+                  fontWeight: "600",
+                }}
               >
-                {playerSelected ? "Actualizar" : "Agregar"}
+                {isSubmitting
+                  ? "Procesando..."
+                  : playerSelected
+                  ? "Actualizar"
+                  : "Agregar"}
               </Button>
             </Form>
           );
         }}
       </Formik>
-    </div>
+    </Paper>
   );
 };
 

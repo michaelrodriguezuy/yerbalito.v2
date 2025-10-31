@@ -1,0 +1,51 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: mysql_container
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: wwwolima_yerbalito
+      MYSQL_USER: wwwolima
+      MYSQL_PASSWORD: rjW63u0I6n
+    ports:
+      - "3308:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./mysql/wwwolima_yerbalito-3.sql:/docker-entrypoint-initdb.d/init.sql
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: yerbalito_backend
+    environment:
+      - NODE_ENV=production
+      - MYSQL_HOST=mysql_container
+      - MYSQL_USER=wwwolima
+      - MYSQL_PASSWORD=rjW63u0I6n
+      - MYSQL_DATABASE=wwwolima_yerbalito
+      - PORT=5001
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./yerbalito
+      dockerfile: Dockerfile
+    container_name: yerbalito_frontend
+    environment:
+      - NODE_ENV=production
+      - VITE_API_URL=http://localhost:5001
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db_data:

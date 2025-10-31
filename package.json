@@ -1,0 +1,12 @@
+{
+  "name": "yerbalito-scripts",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "claude": "node scripts/claude-helper.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.67.0",
+    "dotenv": "^17.2.3"
+  }
+}

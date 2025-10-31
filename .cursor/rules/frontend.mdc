@@ -1,0 +1,19 @@
+---
+alwaysApply: true
+---
+rules:
+  - Usar React 18 con componentes funcionales y hooks.
+  - Formularios con Formik y Yup obligatoriamente.
+  - UI: combinar Material UI y Tailwind CSS.
+  - Notificaciones con toast() o SweetAlert2, no con alert().
+  - Peticiones HTTP con Axios usando VITE_API_URL.
+  - Tema del club: verde (#1E8732) y blanco (#ffffff).
+  - Estructura:
+      - pages/ → vistas completas
+      - components/ → piezas reutilizables
+      - hooks/ → lógica reutilizable
+      - services/ → peticiones Axios
+  - Formatear fechas solo en frontend (no backend).
+  - Labels fuera de inputs fijas, o solo placeholders, segun manejo de colores.
+  - Usar `p-4`, `gap-4`, `space-y-4` para consistencia de espaciado.
+  - Diseño responsive probado en sm, md, lg.

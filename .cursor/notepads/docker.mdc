@@ -1,0 +1,12 @@
+---
+alwaysApply: true
+---
+notepad:
+  name: "Docker Notes"
+  description: "Comandos rápidos y recordatorios para entorno Docker"
+  items:
+    - "docker-compose up -d --build → reconstruir todo"
+    - "docker-compose logs --tail=50 backend → ver últimos logs"
+    - "docker-compose exec db mysql -u wwwolima -p"
+    - "docker-compose down → detener servicios"
+    - "docker system prune -af → limpiar imágenes viejas"

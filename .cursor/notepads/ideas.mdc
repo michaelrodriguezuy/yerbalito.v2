@@ -1,0 +1,15 @@
+---
+alwaysApply: true
+---
+notepad:
+  name: "Ideas y Mejoras"
+  description: "Inspiraciones o ideas a implementar más adelante"
+  items:
+    - "Agregar sistema de notificaciones internas (alertas a usuarios registrados via whatsapp)"
+    - "Implementar fixture editable con drag & drop"
+    - "Mantener historial de fixture"
+    - "Mostrar tabla de posiciones segun resultados, por campeonato, categorias"
+    - "Conexión API para mostrar clima en partidos"
+    - "Sección de galería con fotos de cada categoría"
+    - "Integración con MercadoPago para cuotas online"
+    - "Modo oscuro (dark theme verde/blanco)"

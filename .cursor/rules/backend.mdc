@@ -1,0 +1,16 @@
+---
+alwaysApply: true
+---
+rules:
+  - Usar Express.js con controladores organizados por recurso.
+  - Estructura de respuesta estándar: { success, message, data }.
+  - Validar datos en backend además del frontend.
+  - Proteger rutas sensibles con middleware JWT.
+  - Encriptar contraseñas con bcryptjs.
+  - Subidas de archivos con Multer en /uploads.
+  - Configuración mediante .env y dotenv.
+  - Consultas SQL siempre parametrizadas.
+  - Endpoints con nombres plurales (/jugadores, /categorias...).
+  - No duplicar relaciones en hermanos.
+  - No formatear fechas en backend.
+  - Probar rutas críticas con Postman o Thunder Client.

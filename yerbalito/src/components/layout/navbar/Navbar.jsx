@@ -25,7 +25,6 @@ function Navbar() {
   const [anchorElNav, setAnchorElNav] = React.useState(null);
   const [anchorElUser, setAnchorElUser] = React.useState(null);
 
-  const rolPro = import.meta.env.VITE_ROLPRO;
   const rolUser = import.meta.env.VITE_ROLUSER;
   const rolAdmin = import.meta.env.VITE_ROLADMIN;
   const navigate = useNavigate();
@@ -43,21 +42,7 @@ function Navbar() {
     }
   };
 
-  // quiero generar un numero random para el avatar
-  const random = Math.floor(Math.random() * 100);
-  const [avatarRandom, setAvatarRandom] = React.useState(random);
-  //actualizo el avatar si cierro sesion
-
-  useEffect(() => {
-    // Verifica si hay un usuario autenticado
-    if (isLogged) {
-      // Si hay un usuario autenticado, actualiza el avatar generando un nuevo número aleatorio
-      setAvatarRandom(Math.floor(Math.random() * 100));
-      console.log("hay usuario autenticado");
-    } else {
-      console.log("No hay usuario autenticado");
-    }
-  }, [user]);
+  // Avatar fijo usando el logo del club
 
   const handleOpenNavMenu = (event) => {
     setAnchorElNav(event.currentTarget);
@@ -84,12 +69,13 @@ function Navbar() {
           left: 0,
           width: "100%",
           zIndex: 1000,
-          backgroundColor: "rgba(0, 0, 0, 0.8)",
-          backdropFilter: "blur(8px)",
-          boxShadow: "0px 2px 10px rgba(0, 0, 0, 0.3)",
+          backgroundColor: "transparent !important",
+          backdropFilter: "none",
+          boxShadow: "none",
+          // Efecto de desvanecimiento para tapar contenido que pase por debajo
+          background: "linear-gradient(to bottom, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.8) 30%, rgba(0,0,0,0.4) 70%, transparent 100%)",
           transition: "background-color 0.3s ease",
           height: "120px",
-          marginBottom: "30px"
         }}
       >
         <Container maxWidth="xl" disableGutters>
@@ -101,7 +87,7 @@ function Navbar() {
               <img
                 src={logo}
                 alt="Yerbalito"
-                style={{ height: 120, marginRight: 12, marginTop: 8 }}
+                style={{ height: 100, marginRight: 12 }}
               />
             </Link>
 
@@ -141,7 +127,18 @@ function Navbar() {
                     style={{ textDecoration: "none", color: "black" }}
                   >
                     <MenuItem onClick={handleCloseNavMenu}>
-                      <Typography textAlign={"center"}>{page.title}</Typography>
+                      <Typography 
+                        textAlign={"center"}
+                        sx={{
+                          textTransform: "uppercase",
+                          fontWeight: "bold",
+                          fontSize: "0.9rem",
+                          letterSpacing: "0.5px",
+                          color: "#4CAF50"
+                        }}
+                      >
+                        {page.title}
+                      </Typography>
                     </MenuItem>
                   </Link>
                 ))}
@@ -167,25 +164,36 @@ function Navbar() {
               
             </Typography> */}
             <Box sx={{ flexGrow: 1, display: { xs: "none", md: "flex" } }}>
-              {routes.map(
-                (element) => (
-                  // console.log(element),
-                  (
-                    <Link
-                      key={element.id}
-                      to={element.path}
-                      style={{ textDecoration: "none" }}
-                    >
-                      <Button
-                        onClick={handleCloseNavMenu}
-                        sx={{ my: 2, color: "white", display: "block" }}
-                      >
-                        {element.title}
-                      </Button>
-                    </Link>
-                  )
-                )
-              )}
+              {routes.map((element) => (
+                // console.log(element),
+                <Link
+                  key={element.id}
+                  to={element.path}
+                  style={{ textDecoration: "none" }}
+                >
+                  <Button
+                    onClick={handleCloseNavMenu}
+                    sx={{ 
+                      my: 2, 
+                      color: "white", 
+                      display: "block",
+                      textTransform: "uppercase",
+                      fontWeight: "bold",
+                      fontSize: "0.9rem",
+                      letterSpacing: "0.5px",
+                      textShadow: "2px 2px 4px rgba(0,0,0,0.7)",
+                      "&:hover": {
+                        color: "#4CAF50",
+                        textShadow: "2px 2px 4px rgba(76, 175, 80, 0.8)",
+                        transform: "translateY(-1px)",
+                        transition: "all 0.3s ease"
+                      }
+                    }}
+                  >
+                    {element.title}
+                  </Button>
+                </Link>
+              ))}
             </Box>
             {/* si no hay user, muestro la opcion Iniciar Sesion */}
 
@@ -199,15 +207,31 @@ function Navbar() {
                     marginRight: "10px",
                   }}
                 >
-                  <Typography >BIENVENIDO</Typography>
-                  <Typography>{user.name}</Typography>
+                  <Typography 
+                    sx={{ 
+                      fontSize: "0.8rem", 
+                      fontWeight: "bold",
+                      textShadow: "1px 1px 2px rgba(0,0,0,0.7)",
+                      color: "#4CAF50"
+                    }}
+                  >
+                    BIENVENIDO
+                  </Typography>
+                  <Typography 
+                    sx={{ 
+                      fontSize: "0.9rem", 
+                      fontWeight: "bold",
+                      textShadow: "1px 1px 2px rgba(0,0,0,0.7)",
+                      color: "white"
+                    }}
+                  >
+                    {user.name}
+                  </Typography>
                 </div>
 
                 <Tooltip title="Despliega mas opciones">
                   <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                    <Avatar
-                      src={`https://randomuser.me/api/portraits/men/${avatarRandom}.jpg`}
-                    />
+                    <Avatar src="/src/assets/logo_chico.png" />
                   </IconButton>
                 </Tooltip>
                 <Menu
@@ -232,23 +256,34 @@ function Navbar() {
                         to={item.path}
                         style={{ textDecoration: "none", color: "black" }}
                       >
-                        <Typography textAlign="center">{item.title}</Typography>
+                        <Typography 
+                          textAlign="center"
+                          sx={{
+                            textTransform: "uppercase",
+                            fontWeight: "bold",
+                            fontSize: "0.9rem",
+                            letterSpacing: "0.5px",
+                            color: "#4CAF50"
+                          }}
+                        >
+                          {item.title}
+                        </Typography>
                       </Link>
                     </MenuItem>
                   ))}
-                  {user.rol == rolPro && (
-                    <MenuItem onClick={handleCloseUserMenu}>
-                      <Link
-                        to="/dashboard"
-                        style={{ textDecoration: "none", color: "black" }}
-                      >
-                        <Typography textAlign="center">Dashboard</Typography>
-                      </Link>
-                    </MenuItem>
-                  )}
 
                   <MenuItem onClick={handleCloseUserMenu}>
-                    <Typography onClick={handleLogout} textAlign="center">
+                    <Typography 
+                      onClick={handleLogout} 
+                      textAlign="center"
+                      sx={{
+                        textTransform: "uppercase",
+                        fontWeight: "bold",
+                        fontSize: "0.9rem",
+                        letterSpacing: "0.5px",
+                        color: "#f44336"
+                      }}
+                    >
                       Cerrar Sesion
                     </Typography>
                   </MenuItem>
@@ -259,7 +294,24 @@ function Navbar() {
                 to={"/login"}
                 style={{ textDecoration: "none", color: "black" }}
               >
-                <Button sx={{ my: 2, color: "white", display: "block" }}>
+                <Button 
+                  sx={{ 
+                    my: 2, 
+                    color: "white", 
+                    display: "block",
+                    textTransform: "uppercase",
+                    fontWeight: "bold",
+                    fontSize: "0.9rem",
+                    letterSpacing: "0.5px",
+                    textShadow: "2px 2px 4px rgba(0,0,0,0.7)",
+                    "&:hover": {
+                      color: "#4CAF50",
+                      textShadow: "2px 2px 4px rgba(76, 175, 80, 0.8)",
+                      transform: "translateY(-1px)",
+                      transition: "all 0.3s ease"
+                    }
+                  }}
+                >
                   Iniciar Sesion
                 </Button>
               </Link>

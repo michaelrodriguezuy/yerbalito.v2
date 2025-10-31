@@ -1,12 +1,13 @@
 import Categories from "../components/pages/category/Categories";
-
-import Blog from "../components/pages/blog/Blog";
 import Blogs from "../components/pages/blog/Blogs";
+import BlogItem from "../components/pages/blog/BlogItem";
+import NoticiaItem from "../components/pages/blog/NoticiaItem";
 import Contact from "../components/pages/contact/Contact";
 import About from "../components/pages/about/About";
+import ValoresManager from "../components/pages/dashboard/ValoresManager";
+import FixtureManager from "../components/pages/dashboard/FixtureManager";
 
 export const routes = [
-
   {
     id: "about",
     path: "/about",
@@ -19,16 +20,10 @@ export const routes = [
     title: "Categorías",
     Element: Categories,
   },
-  // {
-  //   id: "category",
-  //   path: "/category/:id",
-  //   title: "Categoría",
-  //   Element: Category,
-  // },
   {
     id: "blogs",
     path: "/blogs",
-    title: "Blogs",
+    title: "Noticias & Blogs",
     Element: Blogs,
   },
   {
@@ -36,11 +31,37 @@ export const routes = [
     path: "/contact",
     title: "Contacto",
     Element: Contact,
+  }
+];
+
+// Rutas protegidas (solo para usuarios logueados)
+export const protectedRoutes = [
+  {
+    id: "valores",
+    path: "/valores",
+    title: "Gestión de Valores",
+    Element: ValoresManager,
   },
   {
-    id: "blog",
-    path: "/itemBlog/:id",
-    Element: Blog,
+    id: "fixture",
+    path: "/fixture",
+    title: "Gestión de Fixture",
+    Element: FixtureManager,
   }
+];
 
+// Rutas dinámicas (no aparecen en navbar)
+export const dynamicRoutes = [
+  {
+    id: "blog",
+    path: "/blog/:id",
+    title: "Blog",
+    Element: BlogItem,
+  },
+  {
+    id: "noticia",
+    path: "/noticia/:id",
+    title: "Noticia",
+    Element: NoticiaItem,
+  }
 ];

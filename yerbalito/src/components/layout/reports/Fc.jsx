@@ -1,3 +1,4 @@
+import { API_ENDPOINTS } from "../../../config/api";
 import { BarChart, Card } from "@tremor/react";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -84,7 +85,7 @@ export function BarChartFC() {
 
   // const fetchCategories = async () => {
   //   try {
-  //     const response = await axios.get("http://localhost:3001/categories");
+  //     const response = await axios.get("API_ENDPOINTS.CATEGORIES");
   //     const formattedCategories = response.data.categorias.map((categoria) => {
   //       const match = categoria.nombre_categoria.match(/\((\d{4})\)$/);
   //       return match ? match[1] : categoria.nombre_categoria;
@@ -99,7 +100,7 @@ export function BarChartFC() {
 
   const fetchPaymentsByQuota = async () => {
     try {
-      const response = await axios.get("http://localhost:3001/fcXcuotas");
+      const response = await axios.get(API_ENDPOINTS.FC_X_CUOTAS);
       const chartDataArray = response.data.payments.map((payment) => {
         const {
           categoria,

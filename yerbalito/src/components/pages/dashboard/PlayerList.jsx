@@ -1,3 +1,4 @@
+import { API_ENDPOINTS } from "../../../config/api";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import {
@@ -13,6 +14,8 @@ import {
   IconButton,
   Tooltip,
   styled,
+  TextField,
+  Typography,
 } from "@mui/material";
 import TableCell, { tableCellClasses } from "@mui/material/TableCell";
 
@@ -30,11 +33,21 @@ const style = {
   top: "50%",
   left: "50%",
   transform: "translate(-50%, -50%)",
-  width: '50%',
-  bgcolor: "background.paper",
+  width: 1200,
+  maxWidth: '95%',
+  maxHeight: 'none',
+  bgcolor: "white",
   border: "2px solid #000",
   boxShadow: 24,
   p: 4,
+  borderRadius: 2,
+  overflowY: 'visible',
+  // Responsive: en móviles permitir scroll vertical
+  ['@media (max-width:900px)']: {
+    width: '95%',
+    maxHeight: '90vh',
+    overflowY: 'auto',
+  },
 };
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -62,15 +75,50 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 
 const PlayerList = () => {
   const [players, setPlayers] = useState([]);
+  const [filteredPlayers, setFilteredPlayers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [isChange, setIsChange] = useState(false);
   const [open, setOpen] = useState(false);
   const [playerSelected, setPlayerSelected] = useState(null);
+
+  // Estilos comunes para TextField
+  const textFieldStyles = {
+    "& .MuiOutlinedInput-root": {
+      backgroundColor: "rgba(255, 255, 255, 0.9)",
+      "& input": {
+        color: "#000000 !important",
+      },
+    },
+    "& .MuiInputLabel-root": {
+      color: "rgba(0, 0, 0, 0.6) !important",
+    },
+    "& .MuiOutlinedInput-notchedOutline": {
+      borderColor: "rgba(0, 0, 0, 0.23) !important",
+    },
+    "&:hover .MuiOutlinedInput-notchedOutline": {
+      borderColor: "rgba(0, 0, 0, 0.4) !important",
+    },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+      borderColor: "rgba(0, 0, 0, 0.6) !important",
+    },
+  };
+
+  const handleSearchChange = (event) => {
+    setSearchTerm(event.target.value);
+  };
 
   useEffect(() => {
     setIsChange(false);
     const fetchAllPlayer = async () => {
       try {
-        const response = await axios.get("http://localhost:3001/squad/all");
+        console.log("Fetching players from:", API_ENDPOINTS.SQUAD_ALL);
+        const response = await axios.get(API_ENDPOINTS.SQUAD_ALL);
+        console.log("Raw response:", response.data);
+
+        if (!response.data.squads || !Array.isArray(response.data.squads)) {
+          console.error("Invalid response format:", response.data);
+          return;
+        }
 
         const formattedResponse = await Promise.all(
           response.data.squads.map(async (player) => {
@@ -95,38 +143,66 @@ const PlayerList = () => {
             };
           })
         );
-        // console.log("Formatted Response:", formattedResponse);
+        console.log("Formatted Response:", formattedResponse);
         setPlayers(formattedResponse);
       } catch (error) {
         console.error("Error fetching players: ", error);
+        // Mostrar mensaje de error al usuario
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "No se pudieron cargar los jugadores. Verifica que el backend esté ejecutándose.",
+        });
       }
     };
 
     fetchAllPlayer();
   }, [isChange]);
 
+  // Efecto para filtrar jugadores cuando cambia el término de búsqueda
+  useEffect(() => {
+    if (searchTerm) {
+      const filtered = players.filter(
+        (player) =>
+          (player.nombre &&
+            player.nombre.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (player.apellido &&
+            player.apellido.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+      setFilteredPlayers(filtered);
+    } else {
+      setFilteredPlayers(players);
+    }
+  }, [searchTerm, players]);
+
   const fetchCategory = async (idcategoria) => {
     try {
+      if (!idcategoria) return 'Sin categoría';
       const response = await axios.get(
-        `http://localhost:3001/categories/${idcategoria}`
+        `${API_ENDPOINTS.CATEGORIES}/${idcategoria}`
       );
-      // console.log("fetchCategory response:", response.data.categoria.nombre_categoria);
-      return response.data.categoria.nombre_categoria;
+      return response.data?.categoria?.nombre_categoria || 'Sin categoría';
     } catch (error) {
       console.error("Error fetching category: ", error);
-      throw error;
+      return 'Sin categoría';
     }
   };
   const fetchEstado = async (idestado) => {
     try {
+      // Si idestado es 0 o null, retornar un estado por defecto
+      if (!idestado || idestado === 0) {
+        return { tipo_estado: "Sin estado" };
+      }
+      
       const response = await axios.get(
-        `http://localhost:3001/estados/${idestado}`
+        `${API_ENDPOINTS.ESTADOS}/${idestado}`
       );
       // console.log("fetchEstado response:", response.data.estado.tipo_estado);
       return response.data.estado;
     } catch (error) {
       console.error("Error fetching estado: ", error);
-      throw error;
+      // Retornar un estado por defecto en caso de error
+      return { tipo_estado: "Sin estado" };
     }
   };
 
@@ -143,7 +219,7 @@ const PlayerList = () => {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          await axios.delete(`http://localhost:3001/squad/${id}`);
+          await axios.delete(`${API_ENDPOINTS.SQUAD}/${id}`);
           setIsChange(true);
           Swal.fire("Eliminado!", "El jugador ha sido eliminado.", "success");
         } catch (error) {
@@ -156,7 +232,7 @@ const PlayerList = () => {
   // const searchPlayer = async (searchTerm) => {
   //   try {
   //     const response = await axios.get(
-  //       `http://localhost:3001/squad/search/${searchTerm}`
+  //       `API_ENDPOINTS.SQUAD/search/${searchTerm}`
   //     );
   //     setPlayers(response.data.squads);
   //   } catch (error) {
@@ -174,21 +250,48 @@ const PlayerList = () => {
   };
 
   return (
-    <div>
+    <div className="slide-up" style={{ maxWidth: "100%", overflowX: "auto" }}>
       <Box
         style={{
           display: "flex",
-          justifyContent: "flex-start",
-          marginBottom: "10px",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "20px",
+          flexWrap: "wrap",
+          gap: "10px",
         }}
       >
+        <Box sx={{ width: { xs: "100%", sm: "50%" }, minWidth: "200px" }}>
+          
+          <TextField
+            variant="outlined"
+            value={searchTerm}
+            onChange={handleSearchChange}
+            placeholder="Buscar por nombre o apellido..."
+            fullWidth
+            inputProps={{
+              style: { color: "#000" },
+            }}
+            sx={{
+              ...textFieldStyles,
+              "& input::placeholder": {
+                color: "#666",
+                opacity: 1,
+              },
+            }}
+          />
+        </Box>
         <Button variant="contained" onClick={() => handleOpen(null)}>
           Agregar jugador
         </Button>
       </Box>
       <TableContainer
         component={Paper}
-        style={{ marginTop: "5px", maxHeight: "500px", overflowY: "auto" }}
+        style={{ 
+          marginTop: "5px", 
+          maxHeight: "500px", 
+          maxWidth: "100%"
+        }}
       >
         <Table>
           <TableHead>
@@ -256,7 +359,7 @@ const PlayerList = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {players.map((player) => (
+            {filteredPlayers.map((player) => (
               <StyledTableRow key={player.idjugador}>
                 <StyledTableCell align="left">{player.nombre}</StyledTableCell>
                 <StyledTableCell align="left">

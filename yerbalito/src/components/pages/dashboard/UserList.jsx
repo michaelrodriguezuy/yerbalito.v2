@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { API_ENDPOINTS } from "../../../config/api";
+import { useEffect, useState, useContext } from "react";
 import axios from "axios";
+import { AuthContext } from "../../../context/AuthContext";
 import {
   Button,
   Box,
@@ -21,6 +23,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 
 import UserForm from "./UserForm";
+import Swal from "sweetalert2";
 
 const style = {
   position: "absolute",
@@ -28,10 +31,12 @@ const style = {
   left: "50%",
   transform: "translate(-50%, -50%)",
   width: 400,
-  bgcolor: "background.paper",
+  maxHeight: '90vh',
+  bgcolor: "white",
   border: "2px solid #000",
   boxShadow: 24,
   p: 4,
+  borderRadius: 2,
 };
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -58,56 +63,30 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 }));
 
 const UserList = () => {
+  const { user } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
   const [isChange, setIsChange] = useState(false);
   const [open, setOpen] = useState(false);
   const [userSelected, setUserSelected] = useState(null);
 
+  // Verificar si el usuario tiene permisos para ver esta sección (solo admin)
+  if (!user || user.rol !== 'admin') {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <h2>Acceso Denegado</h2>
+        <p>No tienes permisos para acceder a esta sección.</p>
+      </Box>
+    );
+  }
+
   useEffect(() => {
     setIsChange(false);
-    const fetchAllUser = async () => {
-      try {
-        const response = await axios.get("http://localhost:3001/user/all");
-
-        const formattedResponse = await Promise.all(
-          response.data.users.map(async (user) => {
-            const estadoFormatted =
-              user.estado === 1 ? "habilitado" : "deshabilitado";
-            let rolFormatted;
-            switch (user.admin) {
-              case 1:
-                rolFormatted = "administrador";
-                break;
-              case 2:
-                rolFormatted = "club";
-                break;
-              case 3:
-                rolFormatted = "estudio";
-                break;
-              default:
-                rolFormatted = "desconocido";
-            }
-
-            return {
-              ...user,
-              estado: estadoFormatted,
-              rol: rolFormatted,
-            };
-          })
-        );
-        // console.log("Formatted Response:", formattedResponse);
-        setUsers(formattedResponse);
-      } catch (error) {
-        console.error("Error fetching users: ", error);
-      }
-    };
-
     fetchAllUser();
   }, [isChange]);
 
   // const deletePlayer = async (id) => {
   //   try {
-  //     await axios.delete(`http://localhost:3001/squad/${id}`);
+  //     await axios.delete(`API_ENDPOINTS.SQUAD/${id}`);
   //     setIsChange(true);
   //   } catch (error) {
   //     console.error("Error deleting player: ", error);
@@ -117,7 +96,7 @@ const UserList = () => {
   // const searchPlayer = async (searchTerm) => {
   //   try {
   //     const response = await axios.get(
-  //       `http://localhost:3001/squad/search/${searchTerm}`
+  //       `API_ENDPOINTS.SQUAD/search/${searchTerm}`
   //     );
   //     setPlayers(response.data.squads);
   //   } catch (error) {
@@ -134,8 +113,54 @@ const UserList = () => {
     setOpen(true);
   };
 
+  const handleDelete = async (userId) => {
+    const result = await Swal.fire({
+      title: "¿Estás seguro?",
+      text: "Esta acción no se puede deshacer.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+    });
+
+        if (result.isConfirmed) {
+          try {
+            await axios.delete(`${API_ENDPOINTS.USER}/${userId}`);
+            setUsers(users.filter((user) => user.id_usuario !== userId));
+            Swal.fire("¡Eliminado!", "El usuario ha sido eliminado.", "success");
+          } catch (error) {
+            console.error("Error deleting user:", error);
+            Swal.fire("Error!", "No se pudo eliminar el usuario.", "error");
+          }
+        }
+  };
+
+  const fetchAllUser = async () => {
+    try {
+      const response = await axios.get(`${API_ENDPOINTS.USER}/all`);
+      const formattedResponse = await Promise.all(
+        response.data.users.map(async (user) => {
+          const estadoFormatted = user.estado === 1 ? 'habilitado' : 'deshabilitado';
+          const rolFormatted = user.rol || 'usuario';
+          return { ...user, estadoFormatted, rolFormatted };
+        })
+      );
+      setUsers(formattedResponse);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
+
+  const handleSave = () => {
+    setIsChange(true);
+    // Refrescar la lista de usuarios
+    fetchAllUser();
+  };
+
   return (
-    <div>
+    <div className="slide-up">
       <Box
         style={{
           display: "flex",
@@ -149,7 +174,7 @@ const UserList = () => {
       </Box>
       <TableContainer
         component={Paper}
-        style={{ marginTop: "5px", maxHeight: "500px", overflowY: "auto" }}
+        style={{ marginTop: "5px", maxHeight: "500px" }}
       >
         <Table>
           <TableHead>
@@ -201,9 +226,9 @@ const UserList = () => {
                   {/* tengo que consultar si realmente desea eliminar */}
 
                   <IconButton
-                  /* onClick={() => deleteProduct(player.id, player.code)} */
+                    onClick={() => handleDelete(user.id_usuario)}
                   >
-                    <DeleteForeverIcon color="primary" />
+                    <DeleteForeverIcon color="error" />
                   </IconButton>
                 </StyledTableCell>
               </StyledTableRow>
@@ -220,11 +245,9 @@ const UserList = () => {
       >
         <Box sx={style}>
           <UserForm
-            handleClose={handleClose}
-            setIsChange={setIsChange}
-            userSelected={userSelected}
-            setUserSelected={setUserSelected}
-            // categories={categories}
+            user={userSelected}
+            onClose={handleClose}
+            onSave={handleSave}
           />
         </Box>
       </Modal>

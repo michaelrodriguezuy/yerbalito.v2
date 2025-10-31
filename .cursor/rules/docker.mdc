@@ -1,0 +1,18 @@
+---
+alwaysApply: true
+---
+rules:
+  - Backend: Node.js 18
+  - Frontend: Nginx sirviendo la build de Vite.
+  - Base de datos: MySQL 8.0
+  - Mantener puertos:
+      - Frontend: 8080
+      - Backend: 5001
+      - MySQL: 3308
+  - Todos los servicios definidos en docker-compose.yml raíz.
+  - Nunca subir archivos .env al repositorio.
+  - Backup de base de datos:
+      docker-compose exec db mysqldump -u wwwolima -p wwwolima_yerbalito > backup.sql
+  - Evitar --no-cache salvo para reconstrucciones críticas.
+  - Logs:
+      docker-compose logs --tail=50

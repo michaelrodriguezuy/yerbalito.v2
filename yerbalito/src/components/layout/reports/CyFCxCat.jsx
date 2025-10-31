@@ -1,3 +1,4 @@
+import { API_ENDPOINTS } from "../../../config/api";
 import { BarChart } from "@tremor/react";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -67,7 +68,7 @@ export function BarChartCuotasYfcXcategoria() {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get("http://localhost:3001/categories");
+      const response = await axios.get(API_ENDPOINTS.CATEGORIES);
       setCategories(response.data.categorias);
     } catch (error) {
       console.error("Error fetching categories: ", error);
@@ -83,27 +84,31 @@ export function BarChartCuotasYfcXcategoria() {
     try {
       setLoading(true);
       // Obtener todos los jugadores
-      const response = await axios.get("http://localhost:3001/squad");
+      const response = await axios.get(API_ENDPOINTS.SQUAD_ALL);
       const jugadores = response.data.squads;
       
       // Obtener nombres de categorías e IDs
-      const categoriasResponse = await axios.get("http://localhost:3001/categories");
+      const categoriasResponse = await axios.get(API_ENDPOINTS.CATEGORIES);
       const categorias = categoriasResponse.data.categorias;
       
       // Crear mapa de ID a nombre para categorías
       const categoriaMap = {};
-      categorias.forEach(cat => {
-        categoriaMap[cat.idcategoria] = cat.nombre_categoria;
-      });
+      if (categorias && Array.isArray(categorias)) {
+        categorias.forEach(cat => {
+          categoriaMap[cat.idcategoria] = cat.nombre_categoria;
+        });
+      }
       
       // Contar jugadores por categoría (usando el nombre)
       const contadorPorNombre = {};
-      jugadores.forEach(jugador => {
-        const nombreCategoria = categoriaMap[jugador.idcategoria];
-        if (nombreCategoria) {
-          contadorPorNombre[nombreCategoria] = (contadorPorNombre[nombreCategoria] || 0) + 1;
-        }
-      });
+      if (jugadores && Array.isArray(jugadores)) {
+        jugadores.forEach(jugador => {
+          const nombreCategoria = categoriaMap[jugador.idcategoria];
+          if (nombreCategoria) {
+            contadorPorNombre[nombreCategoria] = (contadorPorNombre[nombreCategoria] || 0) + 1;
+          }
+        });
+      }
       
       setCantidadJugadores(contadorPorNombre);
     } catch (error) {
@@ -117,50 +122,48 @@ export function BarChartCuotasYfcXcategoria() {
     try {
       setLoading(true);
       // Obtener pagos de cuotas del club
-      const responseCuotas = await axios.get("http://localhost:3001/paymentsAnual");
+      const responseCuotas = await axios.get(API_ENDPOINTS.PAYMENTS_ANUAL);
       
       // Obtener pagos de fondo de campeonato
-      const responseFondo = await axios.get("http://localhost:3001/fcAnual");
+      const responseFondo = await axios.get(API_ENDPOINTS.FC_ANUAL);
       
       // Crear objetos para los datos del gráfico
       const chartDataCuotas = { name: "Cuotas del club" };
       const chartDataFondo = { name: "Fondo de campeonato" };
       
       // Procesar cuotas del club
-      for (const payment of responseCuotas.data.payments) {
-        const { categoria, total } = payment;
-        if (cantidadJugadores[categoria] && cantidadJugadores[categoria] > 0) {
-          // Estimamos que haya un pago por jugador
-          const jugadoresCategoria = cantidadJugadores[categoria];
-          const totalPagado = parseInt(total);
-          
-          // Obtener cuántos pagos se han realizado
-          const estimacionPagosRealizados = await obtenerCantidadPagosCuotas(categoria);
-          
-          // Calcular porcentaje de jugadores que pagaron
-          const porcentajePago = (estimacionPagosRealizados / jugadoresCategoria) * 100;
-          chartDataCuotas[categoria] = Math.min(Math.round(porcentajePago), 100);
-        } else {
-          chartDataCuotas[categoria] = 0;
+      if (responseCuotas.data.payments && Array.isArray(responseCuotas.data.payments)) {
+        for (const payment of responseCuotas.data.payments) {
+          const { categoria, total } = payment;
+          if (cantidadJugadores[categoria] && cantidadJugadores[categoria] > 0) {
+            // Calcular porcentaje basado en el total pagado vs jugadores
+            const jugadoresCategoria = cantidadJugadores[categoria];
+            const totalPagado = parseInt(total) || 0;
+            const montoPorJugador = 5000; // Monto estimado por jugador
+            const pagosEstimados = Math.floor(totalPagado / montoPorJugador);
+            const porcentajePago = Math.min((pagosEstimados / jugadoresCategoria) * 100, 100);
+            chartDataCuotas[categoria] = Math.round(porcentajePago);
+          } else {
+            chartDataCuotas[categoria] = 0;
+          }
         }
       }
       
       // Procesar fondo de campeonato
-      for (const payment of responseFondo.data.payments) {
-        const { categoria, total } = payment;
-        if (cantidadJugadores[categoria] && cantidadJugadores[categoria] > 0) {
-          // Estimamos que haya un pago por jugador
-          const jugadoresCategoria = cantidadJugadores[categoria];
-          const totalPagado = parseInt(total);
-          
-          // Obtener cuántos pagos se han realizado
-          const estimacionPagosRealizados = await obtenerCantidadPagosFC(categoria);
-          
-          // Calcular porcentaje de jugadores que pagaron
-          const porcentajePago = (estimacionPagosRealizados / jugadoresCategoria) * 100;
-          chartDataFondo[categoria] = Math.min(Math.round(porcentajePago), 100);
-        } else {
-          chartDataFondo[categoria] = 0;
+      if (responseFondo.data.payments && Array.isArray(responseFondo.data.payments)) {
+        for (const payment of responseFondo.data.payments) {
+          const { categoria, total } = payment;
+          if (cantidadJugadores[categoria] && cantidadJugadores[categoria] > 0) {
+            // Calcular porcentaje basado en el total pagado vs jugadores
+            const jugadoresCategoria = cantidadJugadores[categoria];
+            const totalPagado = parseInt(total) || 0;
+            const montoPorJugador = 2000; // Monto estimado por jugador para FC
+            const pagosEstimados = Math.floor(totalPagado / montoPorJugador);
+            const porcentajePago = Math.min((pagosEstimados / jugadoresCategoria) * 100, 100);
+            chartDataFondo[categoria] = Math.round(porcentajePago);
+          } else {
+            chartDataFondo[categoria] = 0;
+          }
         }
       }
       
@@ -172,95 +175,6 @@ export function BarChartCuotasYfcXcategoria() {
     }
   };
   
-  // Función auxiliar: estimar cantidad de pagos de cuotas por categoría
-  const obtenerCantidadPagosCuotas = async (nombreCategoria) => {
-    try {
-      // Obtener ID de categoría
-      const categoriaResponse = await axios.get("http://localhost:3001/categories");
-      const categorias = categoriaResponse.data.categorias;
-      const categoriaInfo = categorias.find(cat => cat.nombre_categoria === nombreCategoria);
-      
-      if (!categoriaInfo) return 0;
-      
-      // Obtener jugadores de esa categoría
-      const jugadoresResponse = await axios.get("http://localhost:3001/squad");
-      const jugadores = jugadoresResponse.data.squads.filter(
-        j => j.idcategoria === categoriaInfo.idcategoria
-      );
-      
-      // Obtener todos los pagos
-      const pagosResponse = await axios.get("http://localhost:3001/payments");
-      const pagos = pagosResponse.data.payments;
-      
-      // Año actual
-      const anioActual = new Date().getFullYear();
-      
-      // Contar jugadores únicos que han pagado al menos una cuota en el año actual
-      const jugadoresConPago = new Set();
-      
-      jugadores.forEach(jugador => {
-        // Filtrar pagos por jugador y año
-        const pagoJugador = pagos.find(pago => 
-          pago.idjugador === jugador.idjugador && 
-          pago.anio === anioActual
-        );
-        
-        if (pagoJugador) {
-          jugadoresConPago.add(jugador.idjugador);
-        }
-      });
-      
-      return jugadoresConPago.size;
-    } catch (error) {
-      console.error("Error estimando pagos de cuotas:", error);
-      return 0;
-    }
-  };
-  
-  // Función auxiliar: estimar cantidad de pagos de FC por categoría
-  const obtenerCantidadPagosFC = async (nombreCategoria) => {
-    try {
-      // Obtener ID de categoría
-      const categoriaResponse = await axios.get("http://localhost:3001/categories");
-      const categorias = categoriaResponse.data.categorias;
-      const categoriaInfo = categorias.find(cat => cat.nombre_categoria === nombreCategoria);
-      
-      if (!categoriaInfo) return 0;
-      
-      // Obtener jugadores de esa categoría
-      const jugadoresResponse = await axios.get("http://localhost:3001/squad");
-      const jugadores = jugadoresResponse.data.squads.filter(
-        j => j.idcategoria === categoriaInfo.idcategoria
-      );
-      
-      // Obtener todos los pagos de FC
-      const fcResponse = await axios.get("http://localhost:3001/fc");
-      const pagosFC = fcResponse.data.payments;
-      
-      // Año actual
-      const anioActual = new Date().getFullYear();
-      
-      // Contar jugadores únicos que han pagado al menos una cuota de FC en el año actual
-      const jugadoresConPagoFC = new Set();
-      
-      jugadores.forEach(jugador => {
-        // Filtrar pagos por jugador y año
-        const pagoJugador = pagosFC.find(pago => 
-          pago.idjugador === jugador.idjugador && 
-          pago.anio === anioActual
-        );
-        
-        if (pagoJugador) {
-          jugadoresConPagoFC.add(jugador.idjugador);
-        }
-      });
-      
-      return jugadoresConPagoFC.size;
-    } catch (error) {
-      console.error("Error estimando pagos de FC:", error);
-      return 0;
-    }
-  };
 
   useEffect(() => {
     const loadData = async () => {

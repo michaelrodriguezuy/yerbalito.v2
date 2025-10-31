@@ -1,0 +1,13 @@
+---
+alwaysApply: true
+---
+notepad:
+  name: "Consultas SQL útiles"
+  description: "Snippets y comandos de MySQL para diagnóstico o mantenimiento"
+  items:
+    - "SHOW TABLES;"
+    - "SELECT * FROM jugador ORDER BY fecha_nacimiento DESC;"
+    - "UPDATE jugador SET categoria_id = 3 WHERE id = 45;"
+    - "SELECT COUNT(*) FROM recibo WHERE categoria_id = 2;"
+    - "DELETE FROM hermanos WHERE id = ?;"
+    - "ALTER TABLE jugador ADD COLUMN foto_url VARCHAR(255);"

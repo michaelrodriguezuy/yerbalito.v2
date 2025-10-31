@@ -1,0 +1,15 @@
+{
+    "name": "yerbalito-mcp-server",
+    "version": "1.0.0",
+    "description": "Servidor MCP para conectar Cursor con Yerbalito",
+    "main": "server.js",
+    "type": "module",
+    "scripts": {
+      "start": "node server.js"
+    },
+    "dependencies": {
+      "@modelcontextprotocol/sdk": "^0.6.1",
+      "dotenv": "^16.4.5",
+      "mysql2": "^3.11.0"
+    }
+  }

@@ -8,7 +8,7 @@ html {
   background: rgba(0, 0, 0, 0.8) url("../../../assets/bandera.jpg") center/cover
     no-repeat;
   padding-top: 80px;
-  height: 100vh; /* Ajusta la altura según tus necesidades */
+  min-height: 100vh; /* Ajusta la altura según tus necesidades */
   width: 100vw; /* Ajusta el ancho según tus necesidades */
   position: absolute;
   top: 0;

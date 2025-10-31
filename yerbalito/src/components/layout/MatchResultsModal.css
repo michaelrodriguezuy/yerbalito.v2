@@ -1,0 +1,76 @@
+/* MatchResultsModal.css */
+
+.match-results-modal {
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.match-results-modal:hover {
+  transform: scale(1.02);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7) !important;
+}
+
+.match-results-modal:active {
+  cursor: grabbing !important;
+}
+
+/* Animación de entrada */
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.match-results-modal {
+  animation: slideInFromRight 0.5s ease-out;
+}
+
+/* Efectos de hover para los campos */
+.match-results-modal .MuiTextField-root:hover {
+  transform: scale(1.02);
+  transition: transform 0.2s ease;
+}
+
+/* Estilo para los chips */
+.match-results-modal .MuiChip-root {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .match-results-modal {
+    width: 280px !important;
+    left: 10px !important;
+    top: 10px !important;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,18 @@
+---
+alwaysApply: true
+---
+notepad:
+  name: "API Endpoints"
+  description: "Endpoints más importantes del backend Yerbalito"
+  items:
+    - GET /squad/all → lista todos los jugadores
+    - POST /squad → crea jugador nuevo
+    - PUT /squad/:id → actualiza jugador
+    - DELETE /squad/:id → elimina jugador
+    - GET /categories/all → categorías disponibles
+    - GET /categories → categorías publicas
+    - GET /posts → lista blogs
+    - GET /noticias → lista noticias
+    - POST /login → autenticación
+    - POST /payments → registrar pago de cuotas del club
+    - POST /fc → registrar pago de fondo de campeonato

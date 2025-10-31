@@ -1,0 +1,132 @@
+:root {
+  /* Colores principales */
+  --primary-green: #4CAF50;
+  --primary-white: #ffffff;
+  --background-dark: rgba(0, 0, 0, 0.7);
+  --background-light: rgba(255, 255, 255, 0.1);
+  --text-white: #ffffff;
+  --text-gray: rgba(255, 255, 255, 0.8);
+  
+  /* Espaciado */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 1rem;
+  --spacing-md: 1.5rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 3rem;
+  
+  /* Sombras */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.3);
+  
+  /* Bordes */
+  --border-radius: 8px;
+  --border-radius-lg: 16px;
+}
+
+/* Contenedor base */
+.page-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+/* Paper personalizado */
+.content-paper {
+  background: var(--background-dark) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: var(--border-radius-lg) !important;
+  padding: var(--spacing-lg) !important;
+  box-shadow: var(--shadow-lg) !important;
+  backdrop-filter: blur(10px) !important;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+/* Botones */
+.consistency-button-primary {
+  background: linear-gradient(45deg, var(--primary-green), #66BB6A) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: var(--border-radius) !important;
+  padding: 0.75rem 1.5rem !important;
+  font-weight: bold !important;
+  text-transform: none !important;
+  box-shadow: var(--shadow-md) !important;
+  transition: all 0.3s ease !important;
+}
+
+.consistency-button-primary:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* Inputs */
+.consistency-input {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: none !important; /* sin borde externo extra */
+  border-radius: var(--border-radius) !important;
+  color: #000 !important;
+  padding: 0 !important; /* dejamos padding al control interno de MUI */
+  transition: all 0.2s ease !important;
+}
+
+.consistency-input:focus {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Tablas */
+.consistency-table {
+  background: var(--background-dark) !important;
+  border-radius: var(--border-radius-lg) !important;
+  overflow: hidden !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* Títulos */
+.consistency-title {
+  color: var(--text-white) !important;
+  font-weight: bold !important;
+  margin-bottom: var(--spacing-md) !important;
+}
+
+.consistency-subtitle {
+  color: var(--text-gray) !important;
+  margin-bottom: var(--spacing-lg) !important;
+}
+
+.consistency-caption {
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-size: 0.875rem !important;
+}
+
+/* Estados de carga */
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+}
+
+.loading-spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top: 3px solid var(--primary-green);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--text-gray);
+}

@@ -2,7 +2,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 require('dotenv').config();
 const sendEmail = require("./sendEmail");
 
@@ -13,7 +14,7 @@ const path = require('path');
 const multer = require('multer');
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 5001;
 
 const db = mysql.createPool({
   host: process.env.MYSQL_HOST,
@@ -37,7 +38,7 @@ app.post('/login', async (req, res) => {
   //  console.log("usuario: ", usuario); LLEGA
 
   try {
-    const [user] = await db.query('SELECT * FROM usuarios WHERE usuario = ?', [usuario]);
+    const [user] = await db.query('SELECT * FROM usuario WHERE usuario = ?', [usuario]);
 
     // console.log("user: ", user); LLEGA
 
@@ -61,8 +62,16 @@ app.post('/login', async (req, res) => {
 
 
 
-      // Utiliza await para esperar la comparación de contraseñas
-      const passwordsMatch = await bcrypt.compare(password, storedHashedPassword);
+      // Compatibilidad de contraseñas: bcrypt (nuevo), md5 (legado) o texto plano (muy legado)
+      let passwordsMatch = false;
+      if (typeof storedHashedPassword === 'string' && storedHashedPassword.startsWith('$2')) {
+        // bcrypt
+        passwordsMatch = await bcrypt.compare(password, storedHashedPassword);
+      } else if (/^[a-f0-9]{32}$/i.test(String(storedHashedPassword))) {
+        // md5 legado (32 hex)
+        const md5 = crypto.createHash('md5').update(password).digest('hex');
+        passwordsMatch = md5 === String(storedHashedPassword);
+      }
 
 
       if (passwordsMatch) {
@@ -89,7 +98,7 @@ app.get('/user', async (req, res) => {
   const userId = req.query.id;
 
   try {
-    const [rows] = await db.query('SELECT * FROM usuarios WHERE id_usuario = ?', [userId]);
+    const [rows] = await db.query('SELECT * FROM usuario WHERE id_usuario = ?', [userId]);
 
     if (rows && rows.length > 0) {
       const user = rows[0];
@@ -105,7 +114,7 @@ app.get('/user', async (req, res) => {
 
 app.get('/user/all', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM usuarios');
+    const [rows] = await db.query('SELECT * FROM usuario');
     res.json({ users: rows });
   } catch (error) {
     console.error('Error obteniendo usuarios:', error);
@@ -117,10 +126,22 @@ app.post('/user', async (req, res) => {
   const newUser = req.body;
 
   try {
+    // Normalizar payload
+    // Si no viene 'usuario' pero viene 'email', usarlo
+    if (!newUser.usuario && newUser.email) newUser.usuario = newUser.email;
+    // Proveer valor por defecto para campos opcionales que pueden ser NOT NULL en la base
+    if (typeof newUser.celular === 'undefined') newUser.celular = '';
+    if (typeof newUser.estado === 'undefined') newUser.estado = 1;
+    // Aceptar 'rol' como string; mantener compatibilidad con columna admin si existe
+    if (typeof newUser.admin === 'undefined' && typeof newUser.rol !== 'undefined') {
+      // map opcional si aún existe columna admin
+      newUser.admin = newUser.rol === 'admin' ? 1 : 0;
+    }
+
     const hashedPassword = await bcrypt.hash(newUser.password, 10);
     newUser.password = hashedPassword
 
-    await db.query('INSERT INTO usuarios SET ?', newUser);
+    await db.query('INSERT INTO usuario SET ?', newUser);
     res.json({ message: 'Usuario agregado' });
   } catch (error) {
 
@@ -139,7 +160,15 @@ app.put('/user/:id', async (req, res) => {
       updateFields.password = hashedPassword;
     }
 
-    await db.query('UPDATE usuarios SET ? WHERE id_usuario = ?', [updateFields, userId]);
+    // Normalizar actualización
+    if (!updateFields.usuario && updateFields.email) updateFields.usuario = updateFields.email;
+    if (typeof updateFields.celular === 'undefined') updateFields.celular = '';
+    if (typeof updateFields.estado === 'undefined') updateFields.estado = 1;
+    if (typeof updateFields.admin === 'undefined' && typeof updateFields.rol !== 'undefined') {
+      updateFields.admin = updateFields.rol === 'admin' ? 1 : 0;
+    }
+
+    await db.query('UPDATE usuario SET ? WHERE id_usuario = ?', [updateFields, userId]);
     res.json({ message: 'Usuario actualizado' });
   } catch (error) {
     console.error('Error actualizando usuario:', error);
@@ -147,11 +176,15 @@ app.put('/user/:id', async (req, res) => {
   }
 });
 
+// Endpoint temporal para re-hashear contraseñas existentes (solo uso administrativo)
+// Requiere header 'x-admin-secret' que coincida con process.env.ADMIN_SECRET
+// (Endpoint temporal de re-hash eliminado a pedido del usuario)
+
 app.delete('/user/:id', async (req, res) => {
   const userId = req.params.id;
 
   try {
-    await db.query('DELETE FROM usuarios WHERE id_usuario = ?', [userId]);
+    await db.query('DELETE FROM usuario WHERE id_usuario = ?', [userId]);
     res.json({ message: 'Usuario eliminado' });
   } catch (error) {
     console.error('Error eliminando usuario:', error);
@@ -175,7 +208,22 @@ app.get('/categories', async (req, res) => {
 // lo uso para el dashboard
 app.get('/categories/all', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM categoria');
+    // Detectar si la petición viene de un admin
+    // (acepta cualquiera de estas señales sencillas hasta tener JWT)
+    const roleHeader = (req.headers['x-role'] || '').toString().toLowerCase();
+    const roleQuery = (req.query.role || '').toString().toLowerCase();
+    const isAdmin = roleHeader === 'admin' || roleQuery === 'admin';
+
+    let query;
+    if (isAdmin) {
+      // Admin ve absolutamente todas
+      query = 'SELECT * FROM categoria ORDER BY idcategoria';
+    } else {
+      // Usuario logueado no-admin ve todas excepto "SIN FICHAR"
+      query = "SELECT * FROM categoria WHERE nombre_categoria <> 'SIN FICHAR' ORDER BY idcategoria";
+    }
+
+    const [rows] = await db.query(query);
     res.json({ categorias: rows });
   } catch (error) {
     console.error('Error obteniendo categorias:', error);
@@ -385,6 +433,57 @@ app.get('/posts/:id', async (req, res) => {
   }
 });
 
+// Endpoint para obtener un blog individual
+app.get('/blog/:id', async (req, res) => {
+  const blogId = req.params.id;
+
+  try {
+    const [rows] = await db.query('SELECT * FROM blog WHERE idblog = ? AND visible = 1', [blogId]);
+    const blog = rows && rows.length > 0 ? rows[0] : null;
+
+    if (blog) {
+      res.json({ blog });
+    } else {
+      console.log('El blog no se encontró en la base de datos.');
+      res.status(404).json({ error: 'Blog no encontrado' });
+    }
+  } catch (error) {
+    console.error('Error obteniendo detalles del blog:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para obtener todas las noticias
+app.get('/noticias', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM noticias WHERE visible = 1 ORDER BY fecha_creacion DESC');
+    res.json({ noticias: rows });
+  } catch (error) {
+    console.error('Error obteniendo noticias:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para obtener una noticia individual
+app.get('/noticias/:id', async (req, res) => {
+  const noticiaId = req.params.id;
+
+  try {
+    const [rows] = await db.query('SELECT * FROM noticias WHERE idnoticia = ? AND visible = 1', [noticiaId]);
+    const noticia = rows && rows.length > 0 ? rows[0] : null;
+
+    if (noticia) {
+      res.json({ noticia });
+    } else {
+      console.log('La noticia no se encontró en la base de datos.');
+      res.status(404).json({ error: 'Noticia no encontrada' });
+    }
+  } catch (error) {
+    console.error('Error obteniendo detalles de la noticia:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
 // jugadores por categoria
 app.get('/squad', async (req, res) => {
   // const categoryIds = req.query.categoryIDs.split(',').map(Number);
@@ -396,7 +495,13 @@ app.get('/squad', async (req, res) => {
       return res.json({ squads: [] });
     }
 
-    const [players] = await db.query('SELECT * FROM jugador WHERE idcategoria IN (?) ORDER BY idcategoria, nombre', [categoryIds]);
+    const [players] = await db.query(`
+      SELECT j.*, c.nombre_categoria 
+      FROM jugador j 
+      LEFT JOIN categoria c ON j.idcategoria = c.idcategoria 
+      WHERE j.idcategoria IN (?) 
+      ORDER BY j.idcategoria, j.nombre
+    `, [categoryIds]);
 
     // const [rows] = await db.query('SELECT * FROM jugador WHERE idcategoria IN (?) ORDER BY idcategoria, nombre', [categoryIds]);
     // console.log("players: ", players);
@@ -411,7 +516,12 @@ app.get('/squad', async (req, res) => {
 // todos los jugadores
 app.get('/squad/all', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM jugador order by idcategoria');
+    const [rows] = await db.query(`
+      SELECT j.*, c.nombre_categoria 
+      FROM jugador j 
+      LEFT JOIN categoria c ON j.idcategoria = c.idcategoria 
+      ORDER BY j.idcategoria, j.nombre
+    `);
     res.json({ squads: rows });
   } catch (error) {
     console.error('Error obteniendo jugadores:', error);
@@ -424,7 +534,12 @@ app.get('/squad/:id', async (req, res) => {
   const playerId = req.params.id;
 
   try {
-    const [rows] = await db.query('SELECT * FROM jugador WHERE idjugador = ?', [playerId]);
+    const [rows] = await db.query(`
+      SELECT j.*, c.nombre_categoria 
+      FROM jugador j 
+      LEFT JOIN categoria c ON j.idcategoria = c.idcategoria 
+      WHERE j.idjugador = ?
+    `, [playerId]);
     const player = rows && rows.length > 0 ? rows[0] : null;
 
     if (player) {
@@ -470,14 +585,13 @@ app.post('/squad', upload.single('imagen'), async (req, res) => {
     cedula,
     fecha_nacimiento,
     sexo,
-    numJugador,
+    numeroClub,
     fecha_ingreso,
-    categoria,
+    idcategoria,
     ciudadania,
     padre,
     madre,
     contacto,
-    hermano,
     hermanos,
     observaciones
   } = req.body;
@@ -485,39 +599,50 @@ app.post('/squad', upload.single('imagen'), async (req, res) => {
   const imagen = req.file;
   let year = null;
 
-  if (!imagen) {
-    return res.status(400).json({ error: 'No se ha cargado ninguna imagen' });
-  }
-
-  if (categoria && /\(\d{4}\)/.test(categoria)) {
-    const match = categoria.match(/\(\d{4}\)/);
-    if (match && match[1]) {
-      year = match[1];
+  // Si hay imagen, necesitamos el año de la categoría para la estructura de carpetas
+  if (imagen && idcategoria) {
+    try {
+      const [categoryRows] = await db.query('SELECT nombre_categoria FROM categoria WHERE idcategoria = ?', [idcategoria]);
+      if (categoryRows && categoryRows.length > 0) {
+        const categoriaNombre = categoryRows[0].nombre_categoria;
+        if (categoriaNombre && /\(\d{4}\)/.test(categoriaNombre)) {
+          const match = categoriaNombre.match(/\((\d{4})\)/);
+          if (match && match[1]) {
+            year = match[1];
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error obteniendo categoría:', error);
     }
   }
 
-  if (!year) {
-    return res.status(400).json({ error: 'Categoría no válida o no contiene año' });
+  if (imagen && !year) {
+    return res.status(400).json({ error: 'Categoría no válida o no contiene año para subir imagen' });
   }
 
-  const client = new ftp.Client();
-  client.ftp.verbose = true;  // Opción para ver más detalles de los logs (opcional)
+  let client = null;
 
   try {
-    // Conectar al servidor FTP
-    await client.access({
-      host: "https://yerbalito.uy",  // Reemplaza por la dirección de tu servidor FTP
-      user: "wwwolima",          // Reemplaza por tu usuario FTP
-      password: "rjW63u0I6n",   // Reemplaza por tu contraseña FTP
-      secure: false                // Cambia a true si usas FTPS
-    });
+    // Conectar al servidor FTP solo si hay imagen
+    if (imagen) {
+      client = new ftp.Client();
+      client.ftp.verbose = true;
+      
+      await client.access({
+        host: "https://yerbalito.uy",
+        user: "wwwolima",
+        password: "rjW63u0I6n",
+        secure: false
+      });
 
-    const playerName = `${nombre} ${apellido}.jpeg`;
-    const remoteFilePath = `/images/${year}/${playerName}`;
+      const playerName = `${nombre} ${apellido}.jpeg`;
+      const remoteFilePath = `/images/${year}/${playerName}`;
 
-    // Asegúrate de que el directorio remoto existe
-    await client.ensureDir(`/images/${year}`);
-    await client.uploadFrom(imagen.path, remoteFilePath);
+      // Asegúrate de que el directorio remoto existe
+      await client.ensureDir(`/images/${year}`);
+      await client.uploadFrom(imagen.path, remoteFilePath);
+    }
 
     const newPlayer = {
       nombre,
@@ -525,34 +650,163 @@ app.post('/squad', upload.single('imagen'), async (req, res) => {
       cedula,
       fecha_nacimiento,
       sexo,
-      numJugador,
-      imagen: `https://yerbalito.uy/images/${year}/${playerName}`, // URL de la imagen
+      numeroClub: numeroClub || null,
+      imagen: imagen ? `https://yerbalito.uy/images/${year}/${nombre} ${apellido}.jpeg` : 'user.jpg',
       fecha_ingreso,
-      categoria,
-      ciudadania,
-      padre,
-      madre,
-      contacto,
-      hermano,
-      hermanos,
-      observaciones
+      idcategoria,
+      ciudadania: ciudadania || null,
+      padre: padre || null,
+      madre: madre || null,
+      contacto: contacto || null,
+      observacionesJugador: observaciones || null
     };
-    await db.query('INSERT INTO jugador SET ?', newPlayer);
+    
+    // Insertar el jugador
+    const [result] = await db.query('INSERT INTO jugador SET ?', newPlayer);
+    const idjugador = result.insertId;
+    
+    // Si hay hermanos, insertarlos en la tabla hermanos
+    if (hermanos && hermanos.trim() !== '') {
+      const hermanosIds = hermanos.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id) && id > 0);
+      
+      // Insertar relaciones bidireccionales (si A es hermano de B, entonces B es hermano de A)
+      for (const idhermano of hermanosIds) {
+        if (idhermano !== idjugador) {
+          // Relación: jugador -> hermano
+          await db.query('INSERT INTO hermanos (idjugador, idhermano) VALUES (?, ?)', [idjugador, idhermano]);
+          // Relación inversa: hermano -> jugador (solo si no existe ya)
+          const [existing] = await db.query('SELECT * FROM hermanos WHERE idjugador = ? AND idhermano = ?', [idhermano, idjugador]);
+          if (existing.length === 0) {
+            await db.query('INSERT INTO hermanos (idjugador, idhermano) VALUES (?, ?)', [idhermano, idjugador]);
+          }
+        }
+      }
+    }
+    
     res.json({ message: 'Jugador agregado' });
   } catch (error) {
     console.error('Error agregando jugador:', error);
-    res.status(500).json({ error: 'Error del servidor' });
+    res.status(500).json({ 
+      error: error.sqlMessage || error.message || 'Error del servidor al agregar el jugador' 
+    });
   } finally {
-    client.close();
+    if (client) {
+      client.close();
+    }
   }
 });
 
-app.put('/squad/:id', async (req, res) => {
+app.put('/squad/:id', upload.single('imagen'), async (req, res) => {
   const playerId = req.params.id;
-  const updateFields = req.body;
+  const {
+    nombre,
+    apellido,
+    cedula,
+    fecha_nacimiento,
+    sexo,
+    numeroClub,
+    fecha_ingreso,
+    idcategoria,
+    ciudadania,
+    padre,
+    madre,
+    contacto,
+    hermanos,
+    observaciones
+  } = req.body;
+
+  const imagen = req.file;
 
   try {
+    // Obtener el jugador actual para preservar la imagen si no se envía una nueva
+    const [currentPlayerRows] = await db.query('SELECT imagen FROM jugador WHERE idjugador = ?', [playerId]);
+    const currentImage = currentPlayerRows && currentPlayerRows.length > 0 ? currentPlayerRows[0].imagen : 'user.jpg';
+
+    let updateFields = {
+      nombre,
+      apellido,
+      cedula,
+      fecha_nacimiento,
+      sexo,
+      numeroClub: numeroClub || null,
+      fecha_ingreso,
+      idcategoria,
+      ciudadania: ciudadania || null,
+      padre: padre || null,
+      madre: madre || null,
+      contacto: contacto || null,
+      observacionesJugador: observaciones || null,
+      imagen: currentImage // Mantener la imagen actual si no se sube una nueva
+    };
+
+    // Si hay nueva imagen, subirla y actualizar la URL
+    if (imagen && idcategoria) {
+      let year = null;
+      try {
+        const [categoryRows] = await db.query('SELECT nombre_categoria FROM categoria WHERE idcategoria = ?', [idcategoria]);
+        if (categoryRows && categoryRows.length > 0) {
+          const categoriaNombre = categoryRows[0].nombre_categoria;
+          if (categoriaNombre && /\(\d{4}\)/.test(categoriaNombre)) {
+            const match = categoriaNombre.match(/\((\d{4})\)/);
+            if (match && match[1]) {
+              year = match[1];
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error obteniendo categoría:', error);
+      }
+      
+      if (year) {
+        const client = new ftp.Client();
+        client.ftp.verbose = true;
+        
+        try {
+          await client.access({
+            host: "https://yerbalito.uy",
+            user: "wwwolima",
+            password: "rjW63u0I6n",
+            secure: false
+          });
+
+          const playerName = `${nombre} ${apellido}.jpeg`;
+          const remoteFilePath = `/images/${year}/${playerName}`;
+          await client.ensureDir(`/images/${year}`);
+          await client.uploadFrom(imagen.path, remoteFilePath);
+          
+          updateFields.imagen = `https://yerbalito.uy/images/${year}/${playerName}`;
+        } catch (ftpError) {
+          console.error('Error subiendo imagen FTP:', ftpError);
+        } finally {
+          client.close();
+        }
+      }
+    }
+
     await db.query('UPDATE jugador SET ? WHERE idjugador = ?', [updateFields, playerId]);
+    
+    // Eliminar todas las relaciones de hermanos existentes
+    await db.query('DELETE FROM hermanos WHERE idjugador = ?', [playerId]);
+    await db.query('DELETE FROM hermanos WHERE idhermano = ?', [playerId]);
+    
+    // Si hay hermanos nuevos, insertarlos
+    if (hermanos && hermanos.trim() !== '') {
+      const hermanosIds = hermanos.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id) && id > 0);
+      
+      // Insertar relaciones bidireccionales
+      for (const idhermano of hermanosIds) {
+        if (idhermano !== playerId) {
+          // Relación: jugador -> hermano
+          await db.query('INSERT INTO hermanos (idjugador, idhermano) VALUES (?, ?)', [playerId, idhermano]);
+          // Relación inversa: hermano -> jugador (solo si no existe ya)
+          const [existing] = await db.query('SELECT * FROM hermanos WHERE idjugador = ? AND idhermano = ?', [idhermano, playerId]);
+          if (existing.length === 0) {
+            await db.query('INSERT INTO hermanos (idjugador, idhermano) VALUES (?, ?)', [idhermano, playerId]);
+          }
+        }
+      }
+    }
+    
     res.json({ message: 'Jugador actualizado' });
   } catch (error) {
     console.error('Error actualizando jugador:', error);
@@ -604,7 +858,7 @@ app.get('/payments', async (req, res) => {
     u.nombre as nombre_usuario
     FROM recibo r 
     JOIN jugador j ON r.idjugador = j.idjugador
-    JOIN usuarios u ON r.idusuario = u.id_usuario
+    JOIN usuario u ON r.idusuario = u.id_usuario
     JOIN categoria c ON j.idcategoria = c.idcategoria
     WHERE monto > 0
     AND c.visible = 1
@@ -642,12 +896,50 @@ app.put('/payments/:id', async (req, res) => {
 
 app.post('/payments', async (req, res) => {
   const newPayment = req.body;
+  const connection = await db.getConnection();
+  
   try {
-    await db.query('INSERT INTO recibo SET ?', newPayment);
-    res.json({ message: 'Pago agregado' });
+    await connection.beginTransaction();
+    
+    // 1. Insertar el pago principal
+    await connection.query('INSERT INTO recibo SET ?', newPayment);
+    
+    // 2. Verificar si el jugador tiene hermanos
+    const [siblings] = await connection.query(
+      'SELECT hermanos FROM jugador WHERE idjugador = ?', 
+      [newPayment.idjugador]
+    );
+    
+    let hermanosAfectados = 0;
+    
+    if (siblings.length > 0 && siblings[0].hermanos) {
+      const hermanosIds = siblings[0].hermanos.split(',').map(id => parseInt(id.trim()));
+      
+      // 3. Crear pagos para TODOS los hermanos (siempre)
+      for (const hermanoId of hermanosIds) {
+        if (hermanoId && hermanoId !== newPayment.idjugador) {
+          const hermanoPayment = {
+            ...newPayment,
+            idjugador: hermanoId,
+            observaciones: `Pago automático por hermano (ID: ${newPayment.idjugador}) - ${newPayment.observaciones}`
+          };
+          await connection.query('INSERT INTO recibo SET ?', hermanoPayment);
+          hermanosAfectados++;
+        }
+      }
+    }
+    
+    await connection.commit();
+    res.json({ 
+      message: 'Pago agregado correctamente',
+      hermanosAfectados: hermanosAfectados
+    });
   } catch (error) {
+    await connection.rollback();
     console.error('Error agregando pago:', error);
     res.status(500).json({ error: 'Error del servidor' });
+  } finally {
+    connection.release();
   }
 });
 
@@ -743,7 +1035,7 @@ app.get('/fc', async (req, res) => {
     u.nombre as nombre_usuario
     FROM fondocampeonato f 
     JOIN jugador j ON f.idjugador = j.idjugador
-    JOIN usuarios u ON f.idusuario = u.id_usuario
+    JOIN usuario u ON f.idusuario = u.id_usuario
     JOIN categoria c ON j.idcategoria = c.idcategoria
     WHERE monto > 0
     AND c.visible = 1
@@ -816,6 +1108,291 @@ GROUP BY
   } catch (error) {
     console.error('Error obteniendo pagos:', error);
     res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para contacto
+app.post('/contact', async (req, res) => {
+  try {
+    const { name, email, message } = req.body;
+    
+    if (!name || !email || !message) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Todos los campos son requeridos' 
+      });
+    }
+
+    const result = await sendEmail({ name, email, message });
+    
+    if (result.success) {
+      res.json({ success: true, message: 'Correo enviado correctamente' });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        error: 'Error al enviar el correo' 
+      });
+    }
+  } catch (error) {
+    console.error('Error en endpoint contact:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Error del servidor' 
+    });
+  }
+});
+
+// Crear tabla valores si no existe
+const createValoresTable = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS valores (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        cuota_club DECIMAL(10,2) NOT NULL,
+        fondo_campeonato DECIMAL(10,2) NOT NULL,
+        ano INT NOT NULL,
+        meses_cuotas JSON,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('Tabla valores creada o verificada');
+  } catch (error) {
+    console.error('Error creando tabla valores:', error);
+  }
+};
+
+// Crear tabla fixture si no existe (modificada para múltiples categorías)
+const createFixtureTable = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS fixture (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        categoria_id INT NOT NULL,
+        categoria_nombre VARCHAR(100) NOT NULL,
+        proximo_partido JSON,
+        ultimo_resultado JSON,
+        horario VARCHAR(20),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (categoria_id) REFERENCES categoria(idcategoria)
+      )
+    `);
+
+    // Verificar esquema: si faltan columnas nuevas, recrear tabla
+    try {
+      await db.query('SELECT categoria_id, categoria_nombre, proximo_partido, ultimo_resultado, horario FROM fixture LIMIT 1');
+    } catch (schemaErr) {
+      console.warn('Esquema antiguo detectado en tabla fixture. Recreando...');
+      await db.query('DROP TABLE IF EXISTS fixture');
+      await db.query(`
+        CREATE TABLE fixture (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          categoria_id INT NOT NULL,
+          categoria_nombre VARCHAR(100) NOT NULL,
+          proximo_partido JSON,
+          ultimo_resultado JSON,
+          horario VARCHAR(20),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          FOREIGN KEY (categoria_id) REFERENCES categoria(idcategoria)
+        )
+      `);
+    }
+    console.log('Tabla fixture creada o verificada');
+  } catch (error) {
+    console.error('Error creando tabla fixture:', error);
+  }
+};
+
+
+// Llamar a las funciones al iniciar
+createValoresTable();
+createFixtureTable();
+
+// Insertar datos por defecto si no existen
+const insertDefaultValores = async () => {
+  try {
+    const [existing] = await db.query('SELECT id FROM valores WHERE ano = ?', [new Date().getFullYear()]);
+    if (existing.length === 0) {
+      await db.query(`
+        INSERT INTO valores (cuota_club, fondo_campeonato, ano, meses_cuotas) 
+        VALUES (?, ?, ?, ?)
+      `, [400, 800, new Date().getFullYear(), JSON.stringify([3, 4, 5, 6, 7, 8, 9, 10, 11])]);
+      console.log('Datos por defecto insertados en valores');
+    }
+  } catch (error) {
+    console.error('Error insertando datos por defecto:', error);
+  }
+};
+
+// Llamar después de crear la tabla
+setTimeout(insertDefaultValores, 1000);
+
+// Endpoints para valores de cuotas y fondo de campeonato
+// Obtener valores actuales
+app.get('/valores', async (req, res) => {
+  try {
+    const [valores] = await db.query('SELECT * FROM valores ORDER BY ao DESC LIMIT 1');
+    res.json({ valores: valores[0] || null });
+  } catch (error) {
+    console.error('Error fetching valores:', error);
+    res.status(500).json({ error: 'Error al obtener valores' });
+  }
+});
+
+// Crear/actualizar valores
+app.post('/valores', async (req, res) => {
+  try {
+    const { cuota_club, fondo_campeonato, ano, meses_cuotas } = req.body;
+    
+    // Verificar si ya existe un registro para este año
+    const [existing] = await db.query('SELECT id FROM valores WHERE ao = ?', [ano]);
+    
+    const mesesJson = JSON.stringify(meses_cuotas || []);
+    
+    if (existing.length > 0) {
+      // Actualizar existente
+      await db.query(
+        'UPDATE valores SET cuota_club = ?, fondo_campeonato = ?, meses_cuotas = ? WHERE ao = ?',
+        [cuota_club, fondo_campeonato, mesesJson, ano]
+      );
+    } else {
+      // Crear nuevo
+      await db.query(
+        'INSERT INTO valores (cuota_club, fondo_campeonato, ao, meses_cuotas) VALUES (?, ?, ?, ?)',
+        [cuota_club, fondo_campeonato, ano, mesesJson]
+      );
+    }
+    
+    res.json({ success: true, message: 'Valores actualizados correctamente' });
+  } catch (error) {
+    console.error('Error updating valores:', error);
+    res.status(500).json({ error: 'Error al actualizar valores' });
+  }
+});
+
+// Endpoints para fixture
+// Obtener datos del fixture para todas las categorías
+app.get('/fixture', async (req, res) => {
+  try {
+    const [fixture] = await db.query(`
+      SELECT f.*, c.nombre_categoria 
+      FROM fixture f 
+      LEFT JOIN categoria c ON f.categoria_id = c.idcategoria 
+      ORDER BY c.nombre_categoria
+    `);
+    res.json({ fixture });
+  } catch (error) {
+    console.error('Error fetching fixture:', error);
+    res.status(500).json({ error: 'Error al obtener fixture' });
+  }
+});
+
+// Obtener categorías para el fixture
+app.get('/fixture/categorias', async (req, res) => {
+  try {
+    const [categorias] = await db.query(`
+      SELECT idcategoria, nombre_categoria 
+      FROM categoria 
+      WHERE visible = 1 AND nombre_categoria != 'SIN FICHAR'
+      ORDER BY nombre_categoria
+    `);
+    res.json({ categorias });
+  } catch (error) {
+    console.error('Error fetching categorias:', error);
+    res.status(500).json({ error: 'Error al obtener categorías' });
+  }
+});
+
+// Actualizar fixture para una categoría específica
+app.post('/fixture', async (req, res) => {
+  try {
+    const { categoria_id, categoria_nombre, proximo_partido, ultimo_resultado, horario } = req.body;
+    
+    // Verificar si ya existe un registro para esta categoría
+    const [existing] = await db.query('SELECT id FROM fixture WHERE categoria_id = ?', [categoria_id]);
+    
+    const proximoJson = JSON.stringify(proximo_partido || {});
+    const ultimoJson = JSON.stringify(ultimo_resultado || {});
+    
+    if (existing.length > 0) {
+      // Actualizar existente
+      await db.query(
+        'UPDATE fixture SET categoria_nombre = ?, proximo_partido = ?, ultimo_resultado = ?, horario = ? WHERE categoria_id = ?',
+        [categoria_nombre, proximoJson, ultimoJson, horario, categoria_id]
+      );
+    } else {
+      // Crear nuevo
+      await db.query(
+        'INSERT INTO fixture (categoria_id, categoria_nombre, proximo_partido, ultimo_resultado, horario) VALUES (?, ?, ?, ?, ?)',
+        [categoria_id, categoria_nombre, proximoJson, ultimoJson, horario]
+      );
+    }
+    
+    res.json({ success: true, message: 'Fixture actualizado correctamente' });
+  } catch (error) {
+    console.error('Error updating fixture:', error);
+    res.status(500).json({ error: 'Error al actualizar fixture' });
+  }
+});
+
+// Actualizar fixture para múltiples categorías
+app.post('/fixture/bulk', async (req, res) => {
+  try {
+    const { fixtures } = req.body; // Array de fixtures
+    
+    // Eliminar todos los registros existentes
+    await db.query('DELETE FROM fixture');
+    
+    // Insertar todos los nuevos registros
+    for (const fixture of fixtures) {
+      const proximoJson = JSON.stringify(fixture.proximo_partido || {});
+      const ultimoJson = JSON.stringify(fixture.ultimo_resultado || {});
+      
+      await db.query(
+        'INSERT INTO fixture (categoria_id, categoria_nombre, proximo_partido, ultimo_resultado, horario) VALUES (?, ?, ?, ?, ?)',
+        [fixture.categoria_id, fixture.categoria_nombre, proximoJson, ultimoJson, fixture.horario]
+      );
+    }
+    
+    res.json({ success: true, message: 'Fixtures actualizados correctamente' });
+  } catch (error) {
+    console.error('Error updating fixtures:', error);
+    res.status(500).json({ error: 'Error al actualizar fixtures' });
+  }
+});
+
+// Endpoint para cumpleaños del día
+app.get('/cumples', async (req, res) => {
+  try {
+    // Usar fecha local de Uruguay (UTC-3)
+    const now = new Date();
+    const uruguayTime = new Date(now.getTime() - (3 * 60 * 60 * 1000)); // UTC-3
+    const month = uruguayTime.getMonth() + 1; // getMonth() devuelve 0-11
+    const day = uruguayTime.getDate();
+    
+    console.log('🎂 Checking birthdays for:', now.toISOString());
+    console.log('🎂 Uruguay time:', uruguayTime.toISOString());
+    console.log('🎂 Month:', month, 'Day:', day);
+    
+    const [cumples] = await db.query(`
+      SELECT j.nombre, j.apellido, j.fecha_nacimiento, c.nombre_categoria as categoria
+      FROM jugador j
+      LEFT JOIN categoria c ON j.idcategoria = c.idcategoria
+      WHERE MONTH(j.fecha_nacimiento) = ? 
+        AND DAY(j.fecha_nacimiento) = ?
+        AND c.visible = 1
+      ORDER BY j.nombre
+    `, [month, day]);
+    
+    console.log('🎂 Query result:', cumples);
+    console.log('🎂 Number of birthdays found:', cumples.length);
+    
+    res.json({ cumples });
+  } catch (error) {
+    console.error('Error fetching cumples:', error);
+    res.status(500).json({ error: 'Error al obtener cumpleaños' });
   }
 });
 

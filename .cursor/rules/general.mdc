@@ -1,0 +1,10 @@
+---
+alwaysApply: true
+---
+rules:
+  - Mantener compatibilidad con Docker Compose.
+  - Usar inglés en variables, funciones y componentes, pero español en textos visibles al usuario.
+  - No crear nuevas carpetas sin justificación clara.
+  - Priorizar librerías ya incluidas en el README.
+  - Documentar funciones exportadas (frontend) y endpoints (backend).
+  - Probar siempre el stack completo con `docker-compose up --build` antes de un commit principal.

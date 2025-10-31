@@ -1,0 +1,11 @@
+---
+alwaysApply: true
+---
+rules:
+  - Commits: type:(scope), mensaje
+    ejemplo: feat:(jugadores), agrega validación automática de categoría
+  - Usar Prettier y ESLint con configuración React estándar.
+  - Nombres de ramas:
+      - feature/..., fix/..., refactor/..., docs/...
+  - Cada PR debe incluir descripción clara del cambio.
+  - Compatibilidad asegurada con Node.js 18 y MySQL 8.

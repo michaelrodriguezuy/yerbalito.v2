@@ -3,21 +3,34 @@ import AuthContextComponent from "./context/AuthContext";
 import { BrowserRouter } from "react-router-dom";
 import Footer from "./components/layout/footer/Footer";
 import Navbar from "./components/layout/navbar/Navbar";
+import MatchResultsModal from "./components/layout/MatchResultsModal";
+import BirthdayNotification from "./components/layout/BirthdayNotification";
+import { ThemeProvider } from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
+import { Toaster } from "sonner";
+import theme from "./theme";
+import "./styles/globals.css";
 import "./App.css";
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthContextComponent>
-        <div className="app-container">
-          <Navbar />
-          <main className="main-content">
-            <AppRouter />
-          </main>
-          <Footer />
-        </div>
-      </AuthContextComponent>
-    </BrowserRouter>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <BrowserRouter>
+        <AuthContextComponent>
+                  <div className="flex flex-col min-h-screen">
+                    <Navbar />
+                    <main className="flex-1 pt-[120px]">
+                      <AppRouter />
+                    </main>
+                    <Footer />
+                    <MatchResultsModal />
+                    <BirthdayNotification />
+                    <Toaster position="top-right" richColors />
+                  </div>
+        </AuthContextComponent>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

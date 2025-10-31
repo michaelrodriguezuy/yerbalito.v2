@@ -1,7 +1,7 @@
 
 const Register = () => {
   return (
-    <div className="page-container">Registro</div>
+    <div className="page-container-scroll">Registro</div>
   )
 }
 

@@ -16,10 +16,10 @@ const Footer = () => {
         justifyContent: "space-between",
         padding: "8px 15px",
         width: "100%",
-        backgroundColor: "rgba(0, 0, 0, 0.7)",
-        backdropFilter: "blur(5px)",
+        backgroundColor: "transparent",
+        backdropFilter: "none",
         color: "whitesmoke",
-        boxShadow: "0px -2px 10px rgba(0, 0, 0, 0.2)",
+        boxShadow: "none",
         height: "40px",
         marginTop: "auto"
       }}
@@ -37,22 +37,29 @@ const Footer = () => {
           padding: "0"
         }}
       >
-        <Box
-          sx={{
-            display: "flex",
-            gap: "40px",
-            justifyContent: "space-between",
-          }}
-        >
+                <Box
+                  sx={{
+                    display: "flex",
+                    gap: "40px",
+                    justifyContent: "space-between",
+                    "& > *": {
+                      transition: "all 0.3s ease",
+                      "&:hover": {
+                        transform: "scale(1.2) rotate(10deg)",
+                        animation: "bounce 0.6s ease-in-out",
+                      }
+                    }
+                  }}
+                >
           <Link
-            href="https://api.whatsapp.com/send?phone=59899163200&text=Hola%20Yerbalito"
+            href="https://api.whatsapp.com/send?phone=59895524038&text=Hola%20Yerbalito"
             target="_blank"
             rel="noopener noreferrer"
             style={{ color: "whitesmoke", textDecoration: "none" }}
           >
-            <Tooltip title="Envia un whatsapp">
-              <WhatsAppIcon sx={{ color: "whitesmoke" }} />
-            </Tooltip>
+                    <Tooltip title="Envia un whatsapp">
+                      <WhatsAppIcon sx={{ color: "whitesmoke" }} className="social-icon" />
+                    </Tooltip>
           </Link>
 
           <Link
@@ -61,9 +68,9 @@ const Footer = () => {
             rel="noopener noreferrer"
             style={{ color: "whitesmoke", textDecoration: "none" }}
           >
-            <Tooltip title="Contactanos por facebook">
-              <FacebookIcon sx={{ color: "whitesmoke" }} />
-            </Tooltip>
+                    <Tooltip title="Contactanos por facebook">
+                      <FacebookIcon sx={{ color: "whitesmoke" }} className="social-icon" />
+                    </Tooltip>
           </Link>
 
           <Link
@@ -72,9 +79,9 @@ const Footer = () => {
             rel="noopener noreferrer"
             style={{ color: "whitesmoke", textDecoration: "none" }}
           >
-            <Tooltip title="Contactanos por instagram">
-              <InstagramIcon sx={{ color: "whitesmoke" }} />
-            </Tooltip>
+                    <Tooltip title="Instagram del Club Yerbalito">
+                      <InstagramIcon sx={{ color: "whitesmoke" }} className="social-icon" />
+                    </Tooltip>
           </Link>
 
           <Link
@@ -83,9 +90,9 @@ const Footer = () => {
             rel="noopener noreferrer"
             style={{ color: "whitesmoke", textDecoration: "none" }}
           >
-            <Tooltip title="Contactanos por instagram">
-              <InstagramIcon sx={{ color: "whitesmoke" }} />
-            </Tooltip>
+                    <Tooltip title="Instagram Yerbalito Femenino">
+                      <InstagramIcon sx={{ color: "whitesmoke" }} className="social-icon" />
+                    </Tooltip>
           </Link>
         </Box>
       </Toolbar>

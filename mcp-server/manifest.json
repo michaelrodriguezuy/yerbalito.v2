@@ -1,0 +1,13 @@
+{
+  "name": "yerbalito-mcp",
+  "version": "1.0.0",
+  "description": "Servidor MCP de Yerbalito",
+  "commands": {
+    "mysql listar tablas": {
+      "description": "Lista las tablas de la base de datos MySQL"
+    },
+    "notepads mostrar lista": {
+      "description": "Muestra la lista de notas disponibles"
+    }
+  }
+}

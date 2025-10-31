@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "yerbalito-local": {
+      "command": "node",
+      "args": [
+        "server.js"
+      ],
+      "cwd": "/Users/michaelrodriguez/Desktop/yerbalito react/yerbalito.v2/mcp-server",
+      "env": {
+        "NODE_ENV": "development"
+      }
+    }
+  }
+}

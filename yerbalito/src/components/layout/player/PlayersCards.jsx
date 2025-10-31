@@ -1,3 +1,4 @@
+import { API_ENDPOINTS } from "../../../config/api";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import {
@@ -15,7 +16,7 @@ import {
   TableBody,
   CircularProgress,
   Box,
-  Typography
+  Typography,
 } from "@mui/material";
 
 const PlayersCard = () => {
@@ -33,9 +34,7 @@ const PlayersCard = () => {
   const fetchSquads = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        "http://localhost:3001/squad"
-      );
+      const response = await axios.get(API_ENDPOINTS.SQUAD);
 
       // console.log("response: ", response.data.squads);
 
@@ -66,7 +65,7 @@ const PlayersCard = () => {
   const fetchCategory = async (idcategoria) => {
     try {
       const response = await axios.get(
-        `http://localhost:3001/categories/${idcategoria}`
+        `${API_ENDPOINTS.CATEGORIES}/${idcategoria}`
       );
 
       return response.data.categoria.nombre_categoria;
@@ -78,9 +77,7 @@ const PlayersCard = () => {
 
   const fetchEstado = async (idestado) => {
     try {
-      const response = await axios.get(
-        `http://localhost:3001/estados/${idestado}`
-      );
+      const response = await axios.get(`${API_ENDPOINTS.ESTADOS}/${idestado}`);
       return response.data.estado;
     } catch (error) {
       console.error("Error fetching estado: ", error);
@@ -91,7 +88,7 @@ const PlayersCard = () => {
   const fetchUltimoPago = async (idjugador) => {
     try {
       const response = await axios.get(
-        `http://localhost:3001/ultimoPago/${idjugador}`
+        `${API_ENDPOINTS.ULTIMO_PAGO(idjugador)}`
       );
 
       const ultimoMesPago = response.data.ultimoMesPago;
@@ -106,9 +103,7 @@ const PlayersCard = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get(
-        "http://localhost:3001/categories"
-      );
+      const response = await axios.get(API_ENDPOINTS.CATEGORIES);
       setCategories(response.data.categorias);
       // console.log("response.data.categorias: ", response.data.categorias);
     } catch (error) {
@@ -152,44 +147,29 @@ const PlayersCard = () => {
   });
 
   return (
-    <Paper
-      elevation={3}
-      style={{
-        backgroundColor: "rgba(0, 0, 0, 0.7)",
-        padding: "20px",
-        maxWidth: "95%",
-        width: "1300px",
-        margin: "0 auto",
-        color: "white"
-      }}
-    >
-      {/* Título de la sección */}
-      <h1 style={{ 
-        fontSize: "2rem", 
-        margin: "20px 0 30px 0",
-        color: "white",
-        textShadow: "2px 2px 4px rgba(0, 0, 0, 0.7)"
-      }}>
-        LISTA DE JUGADOR@S
-      </h1>
-    
+    <>
       {/* Contenedor para los filtros con mejor alineación */}
-      <div style={{ 
-        display: "flex", 
-        justifyContent: "center", 
-        gap: "20px", 
-        marginBottom: "30px", 
-        marginTop: "10px"
-      }}>
-        <FormControl 
-          variant="outlined" 
-          style={{ 
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: "20px",
+          marginBottom: "30px",
+          marginTop: "10px",
+        }}
+      >
+        <FormControl
+          variant="outlined"
+          style={{
             minWidth: "200px",
             backgroundColor: "rgba(255, 255, 255, 0.05)",
-            borderRadius: "8px"
+            borderRadius: "8px",
           }}
         >
-          <InputLabel id="status-filter-label" style={{ color: "white", fontWeight: "bold" }}>
+          <InputLabel
+            id="status-filter-label"
+            style={{ color: "white", fontWeight: "bold" }}
+          >
             Estado
           </InputLabel>
           <Select
@@ -200,15 +180,15 @@ const PlayersCard = () => {
             label="Estado"
             style={{ color: "white" }}
             sx={{
-              '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(255, 255, 255, 0.3)',
+              "& .MuiOutlinedInput-notchedOutline": {
+                borderColor: "rgba(255, 255, 255, 0.3)",
               },
-              '&:hover .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(255, 255, 255, 0.6)',
+              "&:hover .MuiOutlinedInput-notchedOutline": {
+                borderColor: "rgba(255, 255, 255, 0.6)",
               },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(255, 255, 255, 0.8)',
-              }
+              "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                borderColor: "rgba(255, 255, 255, 0.8)",
+              },
             }}
           >
             <MenuItem value="all">Todos</MenuItem>
@@ -218,15 +198,18 @@ const PlayersCard = () => {
           </Select>
         </FormControl>
 
-        <FormControl 
-          variant="outlined" 
-          style={{ 
+        <FormControl
+          variant="outlined"
+          style={{
             minWidth: "200px",
             backgroundColor: "rgba(255, 255, 255, 0.05)",
-            borderRadius: "8px"
+            borderRadius: "8px",
           }}
         >
-          <InputLabel id="category-filter-label" style={{ color: "white", fontWeight: "bold" }}>
+          <InputLabel
+            id="category-filter-label"
+            style={{ color: "white", fontWeight: "bold" }}
+          >
             Categoría
           </InputLabel>
           <Select
@@ -237,15 +220,15 @@ const PlayersCard = () => {
             label="Categoría"
             style={{ color: "white" }}
             sx={{
-              '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(255, 255, 255, 0.3)',
+              "& .MuiOutlinedInput-notchedOutline": {
+                borderColor: "rgba(255, 255, 255, 0.3)",
               },
-              '&:hover .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(255, 255, 255, 0.6)',
+              "&:hover .MuiOutlinedInput-notchedOutline": {
+                borderColor: "rgba(255, 255, 255, 0.6)",
               },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(255, 255, 255, 0.8)',
-              }
+              "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                borderColor: "rgba(255, 255, 255, 0.8)",
+              },
             }}
           >
             <MenuItem key="all" value="all">
@@ -260,63 +243,84 @@ const PlayersCard = () => {
         </FormControl>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "center" }}>
-        <div style={{ width: "100%", maxHeight: 350, overflow: "auto" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          overflowX: "auto",
+        }}
+      >
+        <div style={{ width: "100%", maxHeight: 350, minWidth: "800px", overflowY: 'auto' }}>
           <TableContainer
             component={Paper}
-            style={{ backgroundColor: "transparent" }}
+            className="consistency-table"
+            style={{ backgroundColor: "transparent", minWidth: "800px" }}
           >
             <Table>
               <TableHead>
-                <TableRow sx={{ 
-                  backgroundColor: "rgba(0, 0, 0, 0.5)",
-                  borderBottom: "2px solid rgba(255, 255, 255, 0.2)"
-                }}>
-                  <TableCell style={{ 
-                    color: "white", 
-                    fontWeight: "bold",
-                    fontSize: "1rem",
-                    paddingTop: "12px",
-                    paddingBottom: "12px"
-                  }}>NOMBRE</TableCell>
-                  <TableCell style={{ 
-                    color: "white", 
-                    textAlign: "center",
-                    fontWeight: "bold",
-                    fontSize: "1rem",
-                    paddingTop: "12px",
-                    paddingBottom: "12px"
-                  }}>
+                <TableRow
+                  sx={{
+                    backgroundColor: "rgba(0, 0, 0, 0.5)",
+                    borderBottom: "2px solid rgba(255, 255, 255, 0.2)",
+                  }}
+                >
+                  <TableCell
+                    style={{
+                      color: "white",
+                      fontWeight: "bold",
+                      fontSize: "1rem",
+                      paddingTop: "12px",
+                      paddingBottom: "12px",
+                    }}
+                  >
+                    NOMBRE
+                  </TableCell>
+                  <TableCell
+                    style={{
+                      color: "white",
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      fontSize: "1rem",
+                      paddingTop: "12px",
+                      paddingBottom: "12px",
+                    }}
+                  >
                     CATEGORÍA
                   </TableCell>
-                  <TableCell style={{ 
-                    color: "white", 
-                    textAlign: "center",
-                    fontWeight: "bold",
-                    fontSize: "1rem",
-                    paddingTop: "12px",
-                    paddingBottom: "12px"
-                  }}>
+                  <TableCell
+                    style={{
+                      color: "white",
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      fontSize: "1rem",
+                      paddingTop: "12px",
+                      paddingBottom: "12px",
+                    }}
+                  >
                     ESTADO
                   </TableCell>
-                  <TableCell style={{ 
-                    color: "white", 
-                    textAlign: "center",
-                    fontWeight: "bold",
-                    fontSize: "1rem",
-                    paddingTop: "12px",
-                    paddingBottom: "12px"
-                  }}>
+                  <TableCell
+                    style={{
+                      color: "white",
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      fontSize: "1rem",
+                      paddingTop: "12px",
+                      paddingBottom: "12px",
+                    }}
+                  >
                     ÚLTIMO MES PAGO
                   </TableCell>
-                  <TableCell style={{ 
-                    color: "white", 
-                    textAlign: "center",
-                    fontWeight: "bold",
-                    fontSize: "1rem",
-                    paddingTop: "12px",
-                    paddingBottom: "12px"
-                  }}>
+                  <TableCell
+                    style={{
+                      color: "white",
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      fontSize: "1rem",
+                      paddingTop: "12px",
+                      paddingBottom: "12px",
+                    }}
+                  >
                     AÑO
                   </TableCell>
                 </TableRow>
@@ -324,71 +328,90 @@ const PlayersCard = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} style={{ textAlign: "center", padding: "40px" }}>
-                      <CircularProgress style={{ color: "white" }} />
-                      <Typography variant="body1" style={{ color: "white", marginTop: "20px" }}>
+                    <TableCell colSpan={5} className="loading-container">
+                      <CircularProgress className="loading-spinner" />
+                      <Typography className="consistency-caption">
                         Cargando jugadores...
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ) : filteredSquads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} style={{ textAlign: "center", padding: "40px" }}>
-                      <Typography variant="body1" style={{ color: "white" }}>
-                        No se encontraron jugadores con los filtros seleccionados
+                    <TableCell colSpan={5} className="empty-state">
+                      <Typography className="consistency-caption">
+                        No se encontraron jugadores con los filtros
+                        seleccionados
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredSquads.map((row, index) => (
-                    <TableRow 
+                    <TableRow
                       key={row.idjugador}
-                      sx={{ 
-                        backgroundColor: index % 2 === 0 ? "rgba(255, 255, 255, 0.03)" : "rgba(255, 255, 255, 0.07)",
-                        '&:hover': {
+                      sx={{
+                        backgroundColor:
+                          index % 2 === 0
+                            ? "rgba(255, 255, 255, 0.03)"
+                            : "rgba(255, 255, 255, 0.07)",
+                        "&:hover": {
                           backgroundColor: "rgba(255, 255, 255, 0.1)",
-                        }
+                        },
                       }}
                     >
-                      <TableCell style={{ 
-                        color: "white",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.1)"
-                      }}>
+                      <TableCell
+                        style={{
+                          color: "white",
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                        }}
+                      >
                         {row.nombre} {row.apellido}
                       </TableCell>
-                      <TableCell style={{ 
-                        color: "white", 
-                        textAlign: "center",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.1)"
-                      }}>
+                      <TableCell
+                        style={{
+                          color: "white",
+                          textAlign: "center",
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                        }}
+                      >
                         <Tooltip
                           title={handleCategoryTooltip(row.idcategoria)}
                           arrow
                         >
-                          <span style={{ color: "white" }}>{row.categoria}</span>
+                          <span style={{ color: "white" }}>
+                            {row.categoria}
+                          </span>
                         </Tooltip>
                       </TableCell>
-                      <TableCell style={{ 
-                        textAlign: "center",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-                        color: row.estado === "Habilitado" ? "#4caf50" : 
-                               row.estado === "Deshabilitado" ? "#f44336" : 
-                               "#ff9800"
-                      }}>
+                      <TableCell
+                        style={{
+                          textAlign: "center",
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                          color:
+                            row.estado === "Habilitado"
+                              ? "#4caf50"
+                              : row.estado === "Deshabilitado"
+                              ? "#f44336"
+                              : "#ff9800",
+                        }}
+                      >
                         {row.estado}
                       </TableCell>
-                      <TableCell style={{ 
-                        color: "white", 
-                        textAlign: "center",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.1)"
-                      }}>
+                      <TableCell
+                        style={{
+                          color: "white",
+                          textAlign: "center",
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                        }}
+                      >
                         {row.ultimoMesPago}
                       </TableCell>
-                      <TableCell style={{ 
-                        color: "white", 
-                        textAlign: "center",
-                        borderBottom: "1px solid rgba(255, 255, 255, 0.1)"
-                      }}>
+                      <TableCell
+                        style={{
+                          color: "white",
+                          textAlign: "center",
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                        }}
+                      >
                         {row.anioPago}
                       </TableCell>
                     </TableRow>
@@ -399,7 +422,7 @@ const PlayersCard = () => {
           </TableContainer>
         </div>
       </div>
-    </Paper>
+    </>
   );
 };
 

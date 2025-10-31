@@ -1,0 +1,11 @@
+---
+alwaysApply: true
+---
+notepad:
+  name: "Ideas UI/UX"
+  description: "Diseño, interacciones y componentes visuales"
+  items:
+    - "Modal de fixture flotante con framer-motion"
+    - "Cards de blog, noticias tipo alexandergarcia.me (animación hover + gradient overlay)"
+    - "Uso de Tremor para dashboard financiero (barras + donut)"
+    - "Layout responsive: dos columnas en desktop para poco contenido, si hay mucho contenido agrego mas columnas, una en mobile"

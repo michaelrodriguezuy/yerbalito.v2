@@ -2,7 +2,7 @@ import { Route, Routes } from "react-router-dom";
 
 import ProtectedUsers from "./ProtectedUsers";
 import { routes2 } from "./routes2";
-import { routes } from "./routes";
+import { routes, protectedRoutes, dynamicRoutes } from "./routes";
 import Dashboard from "../components/pages/dashboard/Dashboard";
 import Register from "../components/pages/register/Register";
 import ForgotPassword from "../components/pages/forgotPassword/ForgotPassword";
@@ -28,6 +28,11 @@ const AppRouter = () => {
           <Route key={id} path={path} element={<Element />} />
         ))}
 
+      {/* Rutas dinámicas (no aparecen en navbar) */}
+      {dynamicRoutes.map(({ id, path, Element }) => (
+        <Route key={id} path={path} element={<Element />} />
+      ))}
+
       {/* Usuario logueado */}
       <Route element={<ProtectedUsers />}>
         {routes2.map(({ id, path, Element }) => (
@@ -38,6 +43,9 @@ const AppRouter = () => {
       {/* Admin */}
       <Route element={<ProtectedAdmin />}>
         <Route path="/dashboard" element={<Dashboard />} />
+        {protectedRoutes.map(({ id, path, Element }) => (
+          <Route key={id} path={path} element={<Element />} />
+        ))}
       </Route>
     </Routes>
   );

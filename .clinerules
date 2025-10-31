@@ -1,0 +1,28 @@
+# Yerbalito - Reglas de desarrollo
+
+## Stack
+
+- React 18 + Vite + MUI + Tailwind CSS
+- Node.js 18 + Express + MySQL 8
+- Docker Compose
+
+## Convenciones
+
+- Componentes: PascalCase
+- Hooks: usePrefijo
+- Variables: camelCase
+- CSS: Tailwind utilities first, MUI sx prop second
+- Commits: español, formato convencional
+
+## No tocar
+
+- Estructura Docker (docker-compose.yml)
+- Schema MySQL (sin migraciones manuales)
+- Endpoints existentes del backend
+
+## Al generar código
+
+- Async/await obligatorio
+- Validación con Yup
+- Manejo de errores con try/catch + SweetAlert2
+- TypeScript JSDoc para componentes complejos

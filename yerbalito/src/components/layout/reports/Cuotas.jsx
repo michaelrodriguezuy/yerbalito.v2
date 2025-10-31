@@ -1,3 +1,4 @@
+import { API_ENDPOINTS } from "../../../config/api";
 import { LineChart, Card } from "@tremor/react";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -159,7 +160,7 @@ export function AreaChartCuotas() {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get("http://localhost:3001/categories");
+      const response = await axios.get(API_ENDPOINTS.CATEGORIES);
       setCategories(response.data.categorias);
     } catch (error) {
       console.error("Error fetching categories: ", error);
@@ -168,7 +169,7 @@ export function AreaChartCuotas() {
   
   const fetchCuotasXCat = async () => {
     try {
-      const response = await axios.get("http://localhost:3001/cuotasXcat");
+      const response = await axios.get(API_ENDPOINTS.CUOTAS_X_CAT);
       const payments = response.data.payments;
 
       // Obtener todas las categorías disponibles
