@@ -36,14 +36,20 @@ const MatchResultsModal = () => {
   const fetchFixtures = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(API_ENDPOINTS.FIXTURE);
+      const response = await axios.get(API_ENDPOINTS.FIXTURE, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
       const fixturesData = response.data.fixture || [];
       
-      // Procesar datos de fixture
+      // Procesar datos de fixture (ya vienen ordenados del backend)
       const processedFixtures = fixturesData.map(fixture => ({
         ...fixture,
-        proximo_partido: fixture.proximo_partido ? JSON.parse(fixture.proximo_partido) : {},
-        ultimo_resultado: fixture.ultimo_resultado ? JSON.parse(fixture.ultimo_resultado) : {}
+        proximo_partido: fixture.proximo_partido 
+          ? (typeof fixture.proximo_partido === 'string' ? JSON.parse(fixture.proximo_partido) : fixture.proximo_partido)
+          : {},
+        ultimo_resultado: fixture.ultimo_resultado 
+          ? (typeof fixture.ultimo_resultado === 'string' ? JSON.parse(fixture.ultimo_resultado) : fixture.ultimo_resultado)
+          : {}
       }));
       
       setFixtures(processedFixtures);
@@ -108,7 +114,7 @@ const MatchResultsModal = () => {
         sx={{
           width: 400,
           maxHeight: '80vh',
-          overflow: 'auto',
+          overflow: 'hidden',
           borderRadius: 2,
           backgroundColor: 'rgba(0, 0, 0, 0.9)',
           color: 'white',
@@ -143,7 +149,7 @@ const MatchResultsModal = () => {
         </Box>
 
         {/* Content */}
-        <Box sx={{ p: 1.5, maxHeight: '80vh', overflow: 'auto' }}>
+        <Box sx={{ p: 1.5 }}>
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
               <CircularProgress color="primary" />
@@ -155,7 +161,7 @@ const MatchResultsModal = () => {
                 <Typography variant="subtitle1" sx={{ color: '#ffffff', fontWeight: 'bold', mb: 2, textAlign: 'center' }}>
                   ⚽ Resultados Anteriores
                 </Typography>
-                <Box sx={{ maxHeight: '200px', overflow: 'auto' }}>
+                <Box sx={{ maxHeight: '200px', overflowY: 'auto', overflowX: 'hidden', pb: 4 }}>
                   {fixtures
                     .filter(f => f.ultimo_resultado && f.ultimo_resultado.resultado)
                     .map((fixture, index) => (
@@ -190,7 +196,7 @@ const MatchResultsModal = () => {
                 <Typography variant="subtitle1" sx={{ color: '#ffffff', fontWeight: 'bold', mb: 2, textAlign: 'center' }}>
                   📅 Próximos Partidos
                 </Typography>
-                <Box sx={{ maxHeight: '300px', overflow: 'auto' }}>
+                <Box sx={{ maxHeight: '300px', overflowY: 'auto', overflowX: 'hidden', pb: 12 }}>
                   {fixtures
                     .filter(f => f.proximo_partido && f.proximo_partido.equipos)
                     .map((fixture, index) => (
@@ -201,14 +207,6 @@ const MatchResultsModal = () => {
                           size="small" 
                           sx={{ backgroundColor: '#4CAF50', color: 'white', fontSize: '0.7rem' }}
                         />
-                        {fixture.horario && (
-                          <Chip 
-                            label={fixture.horario} 
-                            size="small" 
-                            variant="outlined"
-                            sx={{ color: '#4CAF50', borderColor: '#4CAF50', fontSize: '0.7rem' }}
-                          />
-                        )}
                       </Box>
                       
                       <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold', mb: 1 }}>

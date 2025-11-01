@@ -4,21 +4,14 @@ import {
   Typography,
   Button,
   TextField,
-  Paper,
   Alert,
   CircularProgress,
   Grid,
   Card,
   CardContent,
-  Divider,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Chip,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { toast } from "sonner";
@@ -38,7 +31,9 @@ const FixtureManager = () => {
 
   const fetchCategorias = async () => {
     try {
-      const response = await axios.get(API_ENDPOINTS.FIXTURE_CATEGORIAS);
+      const response = await axios.get(API_ENDPOINTS.FIXTURE_CATEGORIAS, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
       setCategorias(response.data.categorias);
     } catch (error) {
       console.error("Error fetching categorias:", error);
@@ -49,7 +44,9 @@ const FixtureManager = () => {
   const fetchFixtures = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(API_ENDPOINTS.FIXTURE);
+      const response = await axios.get(API_ENDPOINTS.FIXTURE, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
       const fixturesData = response.data.fixture || [];
 
       // Crear un mapa de fixtures por categoría
@@ -58,10 +55,10 @@ const FixtureManager = () => {
         fixturesMap[fixture.categoria_id] = {
           ...fixture,
           proximo_partido: fixture.proximo_partido
-            ? JSON.parse(fixture.proximo_partido)
+            ? (typeof fixture.proximo_partido === 'string' ? JSON.parse(fixture.proximo_partido) : fixture.proximo_partido)
             : {},
           ultimo_resultado: fixture.ultimo_resultado
-            ? JSON.parse(fixture.ultimo_resultado)
+            ? (typeof fixture.ultimo_resultado === 'string' ? JSON.parse(fixture.ultimo_resultado) : fixture.ultimo_resultado)
             : {},
         };
       });
@@ -73,16 +70,6 @@ const FixtureManager = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleFixtureChange = (categoriaId, field, value) => {
-    setFixtures((prev) => ({
-      ...prev,
-      [categoriaId]: {
-        ...prev[categoriaId],
-        [field]: value,
-      },
-    }));
   };
 
   const handlePartidoChange = (categoriaId, tipo, field, value) => {
@@ -102,33 +89,52 @@ const FixtureManager = () => {
     try {
       setSaving(true);
 
-      // Preparar datos para envío
-      const fixturesToSave = categorias.map((categoria) => {
-        const fixture = fixtures[categoria.idcategoria] || {
-          categoria_id: categoria.idcategoria,
-          categoria_nombre: categoria.nombre_categoria,
-          proximo_partido: {},
-          ultimo_resultado: {},
-          horario: "",
-        };
+      // Preparar datos para envío - SOLO categorías con datos reales
+      const fixturesToSave = categorias
+        .map((categoria) => {
+          const fixture = fixtures[categoria.idcategoria];
+          
+          // Si no existe fixture para esta categoría, saltar
+          if (!fixture) return null;
+          
+          const hasProximoPartido = fixture.proximo_partido?.equipos || 
+                                    fixture.proximo_partido?.fecha || 
+                                    fixture.proximo_partido?.hora || 
+                                    fixture.proximo_partido?.lugar;
+          
+          const hasUltimoResultado = fixture.ultimo_resultado?.resultado || 
+                                     fixture.ultimo_resultado?.fecha;
+          
+          // Solo incluir si tiene al menos un dato
+          if (!hasProximoPartido && !hasUltimoResultado) {
+            return null;
+          }
 
-        return {
-          categoria_id: fixture.categoria_id,
-          categoria_nombre: fixture.categoria_nombre,
-          proximo_partido: fixture.proximo_partido || {},
-          ultimo_resultado: fixture.ultimo_resultado || {},
-          horario: fixture.horario || "",
-        };
-      });
+          return {
+            categoria_id: categoria.idcategoria,
+            categoria_nombre: categoria.nombre_categoria,
+            proximo_partido: fixture.proximo_partido || {},
+            ultimo_resultado: fixture.ultimo_resultado || {},
+          };
+        })
+        .filter(Boolean); // Eliminar nulls
+
+      if (fixturesToSave.length === 0) {
+        toast.warning("No hay datos para guardar");
+        return;
+      }
+
+      console.log("Enviando fixtures:", fixturesToSave);
 
       await axios.post(API_ENDPOINTS.FIXTURE_BULK, {
         fixtures: fixturesToSave,
       });
-      toast.success("Fixture actualizado correctamente");
+      toast.success(`${fixturesToSave.length} fixture(s) actualizado(s) correctamente`);
       fetchFixtures();
     } catch (error) {
       console.error("Error saving fixtures:", error);
-      toast.error("Error al guardar fixtures");
+      const errorMsg = error.response?.data?.details || error.response?.data?.error || "Error al guardar fixtures";
+      toast.error(errorMsg);
     } finally {
       setSaving(false);
     }
@@ -172,7 +178,7 @@ const FixtureManager = () => {
             "&:hover": { backgroundColor: "#45a049" },
           }}
         >
-          {saving ? "Guardando..." : "Guardar el Fixture"}
+          {saving ? "Guardando..." : "Actualizar el Fixture"}
         </Button>
       </Box>
 
@@ -182,56 +188,17 @@ const FixtureManager = () => {
           categoria_nombre: categoria.nombre_categoria,
           proximo_partido: {},
           ultimo_resultado: {},
-          horario: "",
         };
 
         return (
           <Accordion key={categoria.idcategoria} sx={{ mb: 2 }}>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                <Typography variant="h6">
-                  {categoria.nombre_categoria}
-                </Typography>
-                {fixture.horario && (
-                  <Chip
-                    label={`Horario: ${fixture.horario}`}
-                    size="small"
-                    sx={{ backgroundColor: "#4CAF50", color: "white" }}
-                  />
-                )}
-              </Box>
+              <Typography variant="h6">
+                {categoria.nombre_categoria}
+              </Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Grid container spacing={3}>
-                {/* Horario */}
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Horario de Juego"
-                    value={fixture.horario || ""}
-                    onChange={(e) =>
-                      handleFixtureChange(
-                        categoria.idcategoria,
-                        "horario",
-                        e.target.value
-                      )
-                    }
-                    fullWidth
-                    placeholder="Ej: Sábados 10:00"
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        backgroundColor: "rgba(255, 255, 255, 0.95)",
-                        "& input": { color: "#000000 !important" },
-                      },
-                      "& .MuiInputLabel-root": {
-                        color: "rgba(0, 0, 0, 0.7) !important",
-                      },
-                      "& .MuiOutlinedInput-notchedOutline": {
-                        borderColor: "rgba(0, 0, 0, 0.6) !important",
-                      },
-                    }}
-                  />
-                </Grid>
-
                 {/* Último Resultado */}
                 <Grid item xs={12}>
                   <Card sx={{ mb: 2 }}>
@@ -242,7 +209,6 @@ const FixtureManager = () => {
                       <Grid container spacing={2}>
                         <Grid item xs={12} sm={6}>
                           <TextField
-                            label="Resultado"
                             value={fixture.ultimo_resultado?.resultado || ""}
                             onChange={(e) =>
                               handlePartidoChange(
@@ -253,14 +219,11 @@ const FixtureManager = () => {
                               )
                             }
                             fullWidth
-                            placeholder="Ej: Yerbalito 2-1 Central"
+                            placeholder="Resultado (Ej: Yerbalito 2-1 Central)"
                             sx={{
                               "& .MuiOutlinedInput-root": {
                                 backgroundColor: "rgba(255, 255, 255, 0.95)",
                                 "& input": { color: "#000000 !important" },
-                              },
-                              "& .MuiInputLabel-root": {
-                                color: "rgba(0, 0, 0, 0.7) !important",
                               },
                               "& .MuiOutlinedInput-notchedOutline": {
                                 borderColor: "rgba(0, 0, 0, 0.6) !important",
@@ -269,8 +232,8 @@ const FixtureManager = () => {
                           />
                         </Grid>
                         <Grid item xs={12} sm={6}>
+                          <Typography variant="subtitle2" sx={{ color: '#ffffff', mb: 0.5 }}>Fecha</Typography>
                           <TextField
-                            label="Fecha"
                             type="date"
                             value={fixture.ultimo_resultado?.fecha || ""}
                             onChange={(e) =>
@@ -282,14 +245,10 @@ const FixtureManager = () => {
                               )
                             }
                             fullWidth
-                            InputLabelProps={{ shrink: true }}
                             sx={{
                               "& .MuiOutlinedInput-root": {
                                 backgroundColor: "rgba(255, 255, 255, 0.95)",
                                 "& input": { color: "#000000 !important" },
-                              },
-                              "& .MuiInputLabel-root": {
-                                color: "rgba(0, 0, 0, 0.7) !important",
                               },
                               "& .MuiOutlinedInput-notchedOutline": {
                                 borderColor: "rgba(0, 0, 0, 0.6) !important",
@@ -312,7 +271,6 @@ const FixtureManager = () => {
                       <Grid container spacing={2}>
                         <Grid item xs={12} sm={6}>
                           <TextField
-                            label="Equipos"
                             value={fixture.proximo_partido?.equipos || ""}
                             onChange={(e) =>
                               handlePartidoChange(
@@ -323,14 +281,11 @@ const FixtureManager = () => {
                               )
                             }
                             fullWidth
-                            placeholder="Ej: Yerbalito vs Deportivo"
+                            placeholder="Equipos (Ej: Yerbalito vs Deportivo)"
                             sx={{
                               "& .MuiOutlinedInput-root": {
                                 backgroundColor: "rgba(255, 255, 255, 0.95)",
                                 "& input": { color: "#000000 !important" },
-                              },
-                              "& .MuiInputLabel-root": {
-                                color: "rgba(0, 0, 0, 0.7) !important",
                               },
                               "& .MuiOutlinedInput-notchedOutline": {
                                 borderColor: "rgba(0, 0, 0, 0.6) !important",
@@ -339,8 +294,8 @@ const FixtureManager = () => {
                           />
                         </Grid>
                         <Grid item xs={12} sm={6}>
+                          <Typography variant="subtitle2" sx={{ color: '#ffffff', mb: 0.5 }}>Fecha</Typography>
                           <TextField
-                            label="Fecha"
                             type="date"
                             value={fixture.proximo_partido?.fecha || ""}
                             onChange={(e) =>
@@ -352,14 +307,10 @@ const FixtureManager = () => {
                               )
                             }
                             fullWidth
-                            InputLabelProps={{ shrink: true }}
                             sx={{
                               "& .MuiOutlinedInput-root": {
                                 backgroundColor: "rgba(255, 255, 255, 0.95)",
                                 "& input": { color: "#000000 !important" },
-                              },
-                              "& .MuiInputLabel-root": {
-                                color: "rgba(0, 0, 0, 0.7) !important",
                               },
                               "& .MuiOutlinedInput-notchedOutline": {
                                 borderColor: "rgba(0, 0, 0, 0.6) !important",
@@ -368,8 +319,8 @@ const FixtureManager = () => {
                           />
                         </Grid>
                         <Grid item xs={12} sm={6}>
+                          <Typography variant="subtitle2" sx={{ color: '#ffffff', mb: 0.5 }}>Hora</Typography>
                           <TextField
-                            label="Hora"
                             type="time"
                             value={fixture.proximo_partido?.hora || ""}
                             onChange={(e) =>
@@ -381,14 +332,10 @@ const FixtureManager = () => {
                               )
                             }
                             fullWidth
-                            InputLabelProps={{ shrink: true }}
                             sx={{
                               "& .MuiOutlinedInput-root": {
                                 backgroundColor: "rgba(255, 255, 255, 0.95)",
                                 "& input": { color: "#000000 !important" },
-                              },
-                              "& .MuiInputLabel-root": {
-                                color: "rgba(0, 0, 0, 0.7) !important",
                               },
                               "& .MuiOutlinedInput-notchedOutline": {
                                 borderColor: "rgba(0, 0, 0, 0.6) !important",
@@ -398,7 +345,6 @@ const FixtureManager = () => {
                         </Grid>
                         <Grid item xs={12} sm={6}>
                           <TextField
-                            label="Lugar"
                             value={fixture.proximo_partido?.lugar || ""}
                             onChange={(e) =>
                               handlePartidoChange(
@@ -409,14 +355,11 @@ const FixtureManager = () => {
                               )
                             }
                             fullWidth
-                            placeholder="Ej: Cancha Principal - Club Yerbalito"
+                            placeholder="Lugar (Ej: Cancha de Yerbalito)"
                             sx={{
                               "& .MuiOutlinedInput-root": {
                                 backgroundColor: "rgba(255, 255, 255, 0.95)",
                                 "& input": { color: "#000000 !important" },
-                              },
-                              "& .MuiInputLabel-root": {
-                                color: "rgba(0, 0, 0, 0.7) !important",
                               },
                               "& .MuiOutlinedInput-notchedOutline": {
                                 borderColor: "rgba(0, 0, 0, 0.6) !important",

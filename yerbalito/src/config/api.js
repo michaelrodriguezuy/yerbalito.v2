@@ -27,6 +27,7 @@ export const API_ENDPOINTS = {
   
   // Fondo común
   FC: `${API_BASE_URL}/fc`,
+  FC_MULTIPLE: `${API_BASE_URL}/fc/multiple`, // Pagar múltiples cuotas
   FC_ANUAL: `${API_BASE_URL}/fcAnual`,
   FC_X_CUOTAS: `${API_BASE_URL}/fcXcuotas`,
   
@@ -37,10 +38,16 @@ export const API_ENDPOINTS = {
   POSTS: `${API_BASE_URL}/posts`,
   POSTS_BY_ID: (id) => `${API_BASE_URL}/posts/${id}`,
   BLOG_BY_ID: (id) => `${API_BASE_URL}/blog/${id}`,
+  BLOGS: `${API_BASE_URL}/blogs`,
+  BLOGS_BY_ID: (id) => `${API_BASE_URL}/blogs/${id}`,
   
   // Noticias
   NOTICIAS: `${API_BASE_URL}/noticias`,
+  NOTICIAS_ALL: `${API_BASE_URL}/noticias/all`,
   NOTICIAS_BY_ID: (id) => `${API_BASE_URL}/noticias/${id}`,
+  NOTICIAS_CREATE: `${API_BASE_URL}/noticias/create`,
+  NOTICIAS_UPDATE: (id) => `${API_BASE_URL}/noticias/update/${id}`,
+  NOTICIAS_DELETE: (id) => `${API_BASE_URL}/noticias/delete/${id}`,
   
   // Contacto
   CONTACT: `${API_BASE_URL}/contact`,

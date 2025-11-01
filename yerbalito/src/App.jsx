@@ -26,7 +26,19 @@ function App() {
                     <Footer />
                     <MatchResultsModal />
                     <BirthdayNotification />
-                    <Toaster position="top-right" richColors />
+                    <Toaster 
+                      position="top-right" 
+                      richColors 
+                      toastOptions={{
+                        className: 'sonner-toast-high-z',
+                        style: {
+                          zIndex: 10000,
+                        },
+                      }}
+                      style={{
+                        zIndex: 10000,
+                      }}
+                    />
                   </div>
         </AuthContextComponent>
       </BrowserRouter>

@@ -1,315 +1,195 @@
 import { API_ENDPOINTS } from "../../../config/api";
-import { BarChart, Card } from "@tremor/react";
 import { useEffect, useState } from "react";
 import axios from "axios";
-
-// const chartdata = [
-//   {
-//     name: "2018",
-//     Cuota1: 17,
-//     Cuota2: 5,
-//   },
-
-//   {
-//     name: "2017",
-//     Cuota1: 12,
-//     Cuota2: 11,
-//   },
-
-//   {
-//     name: "2016",
-//     Cuota1: 8,
-//     Cuota2: 3,
-//   },
-
-//   {
-//     date: "2015",
-//     Cuota1: 13,
-//     Cuota2: 10,
-//   },
-
-//   {
-//     date: "2014",
-//     Cuota1: 8,
-//     Cuota2: 3,
-//   },
-
-//   {
-//     date: "2013",
-//     Cuota1: 16,
-//     Cuota2: 12,
-//   },
-
-//   {
-//     date: 'Dec 23',
-//     Cuota1: 20,
-//     Cuota2: 13,
-//   },
-
-//   {
-//     date: 'Dec 23',
-//     Cuota1: 8,
-//     Cuota2: 2,
-//   },
-
-//   {
-//     date: "Sub 9",
-//     Cuota1: 10,
-//     Cuota2: 8,
-//   },
-
-//   {
-//     date: "Sub 11",
-//     Cuota1: 19,
-//     Cuota2: 12,
-//   },
-
-//   {
-//     name: "Sub 13",
-//     Cuota1: 24,
-//     Cuota2: 9,
-//   },
-// ];
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import { Card } from "@tremor/react";
 
 export function BarChartFC() {
-  const [value, setValue] = useState(null);
   const [chartdata, setChartdata] = useState([]);
-  // Estados para los contadores animados
   const [totalCuota1, setTotalCuota1] = useState(0);
   const [totalCuota2, setTotalCuota2] = useState(0);
   const [contadorCuota1, setContadorCuota1] = useState(0);
   const [contadorCuota2, setContadorCuota2] = useState(0);
-  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("Todos");
-  const [isAnimatingCuota1, setIsAnimatingCuota1] = useState(false);
-  const [isAnimatingCuota2, setIsAnimatingCuota2] = useState(false);
+  const [isAnimating1, setIsAnimating1] = useState(false);
+  const [isAnimating2, setIsAnimating2] = useState(false);
 
-  // const fetchCategories = async () => {
-  //   try {
-  //     const response = await axios.get("API_ENDPOINTS.CATEGORIES");
-  //     const formattedCategories = response.data.categorias.map((categoria) => {
-  //       const match = categoria.nombre_categoria.match(/\((\d{4})\)$/);
-  //       return match ? match[1] : categoria.nombre_categoria;
-  //     });
-  //     setCategories(formattedCategories);
-  //   } catch (error) {
-  //     console.error("Error fetching categories: ", error);
-  //   }
-  // };
+  useEffect(() => {
+    fetchFC();
+  }, []);
 
-  // const categoryNames = categories
+  // Animación contador cuota 1
+  useEffect(() => {
+    if (isAnimating1 && contadorCuota1 < totalCuota1) {
+      const timer = setTimeout(() => {
+        const incremento = Math.ceil((totalCuota1 - contadorCuota1) / 10);
+        setContadorCuota1(Math.min(contadorCuota1 + incremento, totalCuota1));
+      }, 30);
+      return () => clearTimeout(timer);
+    } else if (contadorCuota1 >= totalCuota1) {
+      setIsAnimating1(false);
+    }
+  }, [contadorCuota1, totalCuota1, isAnimating1]);
 
-  const fetchPaymentsByQuota = async () => {
+  // Animación contador cuota 2
+  useEffect(() => {
+    if (isAnimating2 && contadorCuota2 < totalCuota2) {
+      const timer = setTimeout(() => {
+        const incremento = Math.ceil((totalCuota2 - contadorCuota2) / 10);
+        setContadorCuota2(Math.min(contadorCuota2 + incremento, totalCuota2));
+      }, 30);
+      return () => clearTimeout(timer);
+    } else if (contadorCuota2 >= totalCuota2) {
+      setIsAnimating2(false);
+    }
+  }, [contadorCuota2, totalCuota2, isAnimating2]);
+
+  const fetchFC = async () => {
     try {
       const response = await axios.get(API_ENDPOINTS.FC_X_CUOTAS);
-      const chartDataArray = response.data.payments.map((payment) => {
-        const {
-          categoria,
-          "Total Cuota 1": Cuota1,
-          "Total Cuota 2": Cuota2,
-        } = payment;
+      const payments = response.data.payments;
 
-        const match = categoria.match(/^(.*?)\s?\((\d{4}(?:-\d{4})*)\)?$/);
-        let categoryText = categoria;
+      if (!payments || payments.length === 0) {
+        return;
+      }
 
-        if (match) {
-          const [, text, years] = match;
-          if (years) {
-            if (years.includes("-")) {
-              categoryText = text.trim();
-            } else {
-              categoryText = years;
-            }
-          } else {
-            categoryText = text.trim();
-          }
-        }
+      // Transformar datos para el gráfico
+      const chartArray = payments.map((item) => ({
+        categoria: item.categoria,
+        "Cuota 1": parseInt(item["Total Cuota 1"]) || 0,
+        "Cuota 2": parseInt(item["Total Cuota 2"]) || 0,
+      }));
 
-        return {
-          date: categoryText,
-          Cuota1: parseInt(Cuota1, 10),
-          Cuota2: parseInt(Cuota2, 10),
-        };
-      });
+      setChartdata(chartArray);
 
-      // console.log("chartDataArray: ", chartDataArray);
+      // Calcular totales
+      const total1 = payments.reduce((acc, p) => acc + (parseInt(p["Total Cuota 1"]) || 0), 0);
+      const total2 = payments.reduce((acc, p) => acc + (parseInt(p["Total Cuota 2"]) || 0), 0);
 
-      setChartdata(chartDataArray);
-      
-      // Calcular totales de ambas cuotas
-      let sumaCuota1 = 0;
-      let sumaCuota2 = 0;
-      
-      chartDataArray.forEach(item => {
-        sumaCuota1 += item.Cuota1 || 0;
-        sumaCuota2 += item.Cuota2 || 0;
-      });
-      
-      setTotalCuota1(sumaCuota1);
-      setTotalCuota2(sumaCuota2);
-      
-      // Resetear contadores para animación
+      setTotalCuota1(total1);
+      setTotalCuota2(total2);
       setContadorCuota1(0);
       setContadorCuota2(0);
+      setIsAnimating1(true);
+      setIsAnimating2(true);
     } catch (error) {
-      console.error("Error fetching data: ", error);
+      console.error("Error fetching FC:", error);
     }
   };
 
-  useEffect(() => {
-    // fetchCategories();
-    fetchPaymentsByQuota();
-  }, []);
-  
-  // Efecto para animar el contador de cuota 1
-  useEffect(() => {
-    if (totalCuota1 > 0 && contadorCuota1 < totalCuota1) {
-      setIsAnimatingCuota1(true);
-      const intervalo = Math.max(5, Math.floor(1000 / totalCuota1));
-      
-      const timer = setTimeout(() => {
-        setContadorCuota1(prev => 
-          prev < totalCuota1 ? prev + Math.max(1, Math.floor(totalCuota1 / 50)) : totalCuota1
-        );
-      }, intervalo);
-      
-      return () => clearTimeout(timer);
-    } else if (contadorCuota1 >= totalCuota1 && totalCuota1 > 0) {
-      setContadorCuota1(totalCuota1);
-      setIsAnimatingCuota1(false);
-    }
-  }, [contadorCuota1, totalCuota1]);
-  
-  // Efecto para animar el contador de cuota 2
-  useEffect(() => {
-    if (totalCuota2 > 0 && contadorCuota2 < totalCuota2) {
-      setIsAnimatingCuota2(true);
-      const intervalo = Math.max(5, Math.floor(1000 / totalCuota2));
-      
-      const timer = setTimeout(() => {
-        setContadorCuota2(prev => 
-          prev < totalCuota2 ? prev + Math.max(1, Math.floor(totalCuota2 / 50)) : totalCuota2
-        );
-      }, intervalo);
-      
-      return () => clearTimeout(timer);
-    } else if (contadorCuota2 >= totalCuota2 && totalCuota2 > 0) {
-      setContadorCuota2(totalCuota2);
-      setIsAnimatingCuota2(false);
-    }
-  }, [contadorCuota2, totalCuota2]);
-
-  const valueFormatter = function (number) {
-    return "$ " + new Intl.NumberFormat("us").format(number).toString();
-  };
-  
-  // Manejar cuando se selecciona una barra en el gráfico
-  const handleValueChange = (v) => {
-    setValue(v);
-    
-    if (v) {
-      setCategoriaSeleccionada(v.date);
-      setContadorCuota1(0);
-      setContadorCuota2(0);
-      
-      setTotalCuota1(v.Cuota1 || 0);
-      setTotalCuota2(v.Cuota2 || 0);
-    } else {
-      // Si se deselecciona, volver a mostrar los totales
-      let sumaCuota1 = 0;
-      let sumaCuota2 = 0;
-      
-      chartdata.forEach(item => {
-        sumaCuota1 += item.Cuota1 || 0;
-        sumaCuota2 += item.Cuota2 || 0;
-      });
-      
-      setCategoriaSeleccionada("Todos");
-      setContadorCuota1(0);
-      setContadorCuota2(0);
-      
-      setTotalCuota1(sumaCuota1);
-      setTotalCuota2(sumaCuota2);
-    }
-  };
+  const valueFormatter = (value) =>
+    `$ ${new Intl.NumberFormat("es-UY").format(value)}`;
 
   return (
     <>
-      {/* Contadores animados */}
-      <div className="grid grid-cols-2 gap-4 mb-4 mt-2">
-        <Card className="p-4 shadow-sm">
-          <div className="flex flex-col items-center justify-center">
-            <div className="text-center mb-2">
-              <span className="text-gray-500 text-sm">Cuota 1 ({categoriaSeleccionada})</span>
+      {/* Contadores */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        {/* Contador Cuota 1 */}
+        <Card
+          className="p-4"
+          style={{
+            backgroundColor: "#F8FAFC",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+          }}
+        >
+          <div className="flex flex-col">
+            <div className="text-sm font-medium text-gray-600 mb-2">
+              Total Cuota 1/2
             </div>
-            <div 
-              className={`text-2xl font-bold ${isAnimatingCuota1 ? 'text-gray-600' : 'text-gray-700'}`}
-              style={{ 
-                transition: 'color 0.5s, transform 0.3s',
-                transform: isAnimatingCuota1 ? 'scale(1.1)' : 'scale(1)'
-              }}
-            >
-              {valueFormatter(contadorCuota1)}
+            <div className="text-3xl font-bold text-gray-700 mb-2">
+              $ {contadorCuota1.toLocaleString("es-UY")}
             </div>
-            <div 
-              className="w-full h-1 bg-gray-200 mt-2 rounded overflow-hidden"
-              style={{ maxWidth: '100px' }}
-            >
-              <div 
-                className="h-full bg-gray-600 rounded" 
-                style={{ 
-                  width: `${totalCuota1 > 0 ? (contadorCuota1 / totalCuota1) * 100 : 0}%`,
-                  transition: 'width 0.3s ease-out'
+            <div className="w-full bg-gray-300 rounded-full h-2 overflow-hidden">
+              <div
+                className="h-full bg-gray-700 rounded-full transition-all duration-500 ease-out"
+                style={{
+                  width: totalCuota1 + totalCuota2
+                    ? `${Math.min(
+                        (contadorCuota1 / (totalCuota1 + totalCuota2)) * 100,
+                        100
+                      )}%`
+                    : "0%",
                 }}
               ></div>
             </div>
           </div>
         </Card>
-        
-        <Card className="p-4 shadow-sm">
-          <div className="flex flex-col items-center justify-center">
-            <div className="text-center mb-2">
-              <span className="text-gray-500 text-sm">Cuota 2 ({categoriaSeleccionada})</span>
+
+        {/* Contador Cuota 2 */}
+        <Card
+          className="p-4"
+          style={{
+            backgroundColor: "#F8FAFC",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+          }}
+        >
+          <div className="flex flex-col">
+            <div className="text-sm font-medium text-gray-600 mb-2">
+              Total Cuota 2/2
             </div>
-            <div 
-              className={`text-2xl font-bold ${isAnimatingCuota2 ? 'text-blue-500' : 'text-gray-700'}`}
-              style={{ 
-                transition: 'color 0.5s, transform 0.3s',
-                transform: isAnimatingCuota2 ? 'scale(1.1)' : 'scale(1)'
-              }}
-            >
-              {valueFormatter(contadorCuota2)}
+            <div className="text-3xl font-bold text-blue-600 mb-2">
+              $ {contadorCuota2.toLocaleString("es-UY")}
             </div>
-            <div 
-              className="w-full h-1 bg-gray-200 mt-2 rounded overflow-hidden"
-              style={{ maxWidth: '100px' }}
-            >
-              <div 
-                className="h-full bg-blue-500 rounded" 
-                style={{ 
-                  width: `${totalCuota2 > 0 ? (contadorCuota2 / totalCuota2) * 100 : 0}%`,
-                  transition: 'width 0.3s ease-out'
+            <div className="w-full bg-gray-300 rounded-full h-2 overflow-hidden">
+              <div
+                className="h-full bg-blue-600 rounded-full transition-all duration-500 ease-out"
+                style={{
+                  width: totalCuota1 + totalCuota2
+                    ? `${Math.min(
+                        (contadorCuota2 / (totalCuota1 + totalCuota2)) * 100,
+                        100
+                      )}%`
+                    : "0%",
                 }}
               ></div>
             </div>
           </div>
         </Card>
       </div>
-      
-      <BarChart
-        className="mt-6"
-        data={chartdata}
-        index="date"
-        categories={["Cuota1", "Cuota2"]}
-        colors={["gray", "blue"]}
-        yAxisWidth={70}
-        valueFormatter={valueFormatter}
-        onValueChange={handleValueChange}
-      />
-      {/* {value && (
-        <pre className="mt-8 bg-gray-800 text-white p-4 rounded">
-          {JSON.stringify(value, null, 2)}
-        </pre>
-      )} */}
+
+      {/* Gráfico */}
+      <div style={{ width: "100%", height: "400px" }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={chartdata}
+            margin={{ top: 5, right: 30, left: 20, bottom: 60 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+            <XAxis
+              dataKey="categoria"
+              angle={-45}
+              textAnchor="end"
+              height={100}
+              stroke="#666"
+              style={{ fontSize: "11px" }}
+            />
+            <YAxis
+              stroke="#666"
+              style={{ fontSize: "12px" }}
+              tickFormatter={valueFormatter}
+            />
+            <Tooltip
+              formatter={valueFormatter}
+              contentStyle={{
+                backgroundColor: "#fff",
+                border: "1px solid #ddd",
+                borderRadius: "4px",
+              }}
+            />
+            <Legend wrapperStyle={{ paddingTop: "10px" }} />
+            <Bar dataKey="Cuota 1" fill="#374151" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="Cuota 2" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </>
   );
 }

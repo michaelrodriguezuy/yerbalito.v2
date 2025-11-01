@@ -2,11 +2,15 @@ services:
   db:
     image: mysql:8.0
     container_name: mysql_container
+    command: 
+      - --default-time-zone=-03:00
+      - --log-bin-trust-function-creators=1
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: wwwolima_yerbalito
       MYSQL_USER: wwwolima
       MYSQL_PASSWORD: rjW63u0I6n
+      TZ: America/Montevideo
     ports:
       - "3308:3306"
     volumes:
@@ -25,6 +29,7 @@ services:
       - MYSQL_PASSWORD=rjW63u0I6n
       - MYSQL_DATABASE=wwwolima_yerbalito
       - PORT=5001
+      - TZ=America/Montevideo
     ports:
       - "5001:5001"
     volumes:

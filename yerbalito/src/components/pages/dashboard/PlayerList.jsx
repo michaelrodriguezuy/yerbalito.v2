@@ -16,6 +16,7 @@ import {
   styled,
   TextField,
   Typography,
+  CircularProgress,
 } from "@mui/material";
 import TableCell, { tableCellClasses } from "@mui/material/TableCell";
 
@@ -80,6 +81,7 @@ const PlayerList = () => {
   const [isChange, setIsChange] = useState(false);
   const [open, setOpen] = useState(false);
   const [playerSelected, setPlayerSelected] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   // Estilos comunes para TextField
   const textFieldStyles = {
@@ -111,12 +113,14 @@ const PlayerList = () => {
     setIsChange(false);
     const fetchAllPlayer = async () => {
       try {
+        setLoading(true);
         console.log("Fetching players from:", API_ENDPOINTS.SQUAD_ALL);
         const response = await axios.get(API_ENDPOINTS.SQUAD_ALL);
         console.log("Raw response:", response.data);
 
         if (!response.data.squads || !Array.isArray(response.data.squads)) {
           console.error("Invalid response format:", response.data);
+          setLoading(false);
           return;
         }
 
@@ -145,8 +149,10 @@ const PlayerList = () => {
         );
         console.log("Formatted Response:", formattedResponse);
         setPlayers(formattedResponse);
+        setLoading(false);
       } catch (error) {
         console.error("Error fetching players: ", error);
+        setLoading(false);
         // Mostrar mensaje de error al usuario
         Swal.fire({
           icon: "error",
@@ -359,7 +365,25 @@ const PlayerList = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredPlayers.map((player) => (
+            {loading ? (
+              <StyledTableRow>
+                <StyledTableCell colSpan={16} align="center" style={{ padding: "40px" }}>
+                  <CircularProgress style={{ color: "#4CAF50" }} />
+                  <Typography variant="body1" style={{ marginTop: "20px" }}>
+                    Cargando jugadores...
+                  </Typography>
+                </StyledTableCell>
+              </StyledTableRow>
+            ) : filteredPlayers.length === 0 ? (
+              <StyledTableRow>
+                <StyledTableCell colSpan={16} align="center" style={{ padding: "40px" }}>
+                  <Typography variant="body1">
+                    No se encontraron jugadores
+                  </Typography>
+                </StyledTableCell>
+              </StyledTableRow>
+            ) : (
+              filteredPlayers.map((player) => (
               <StyledTableRow key={player.idjugador}>
                 <StyledTableCell align="left">{player.nombre}</StyledTableCell>
                 <StyledTableCell align="left">
@@ -417,7 +441,8 @@ const PlayerList = () => {
                   </IconButton>
                 </StyledTableCell>
               </StyledTableRow>
-            ))}
+              ))
+            )}
           </TableBody>
         </Table>
       </TableContainer>

@@ -271,6 +271,26 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
     formData.append("numeroClub", values.numJugador || "");
     formData.append("fecha_ingreso", formattedFechaIngreso);
     formData.append("idcategoria", idcategoria);
+    
+    // Lógica de estado:
+    // - Si el checkbox está MARCADO → estado=3 (Exonerado)
+    // - Si el checkbox está DESMARCADO y el jugador ERA exonerado (estado=3) → estado=2 (Habilitado)
+    // - En CUALQUIER otro caso → NO enviar idestado (mantener estado actual: 1, 2, etc.)
+    const checkboxEstaMarcado = values.esExonerado;
+    const jugadorEraExonerado = playerSelected?.idestado === 3;
+    const checkboxCambio = checkboxEstaMarcado !== jugadorEraExonerado;
+    
+    if (checkboxCambio) {
+      if (checkboxEstaMarcado) {
+        // Usuario MARCÓ el checkbox → convertir a Exonerado
+        formData.append("idestado", 3);
+      } else {
+        // Usuario DESMARCÓ el checkbox (era exonerado) → convertir a Habilitado
+        formData.append("idestado", 2);
+      }
+    }
+    // Si no cambió el checkbox, NO enviar idestado (mantener estado actual)
+    
     formData.append("ciudadania", values.ciudadania || "");
     formData.append("padre", values.padre || "");
     formData.append("madre", values.madre || "");
@@ -415,6 +435,7 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
             playerSelected?.categoria?.nombre_categoria ||
             playerSelected?.categoria ||
             "",
+          esExonerado: playerSelected?.idestado === 3, // Checkbox marcado si estado=3
           ciudadania: playerSelected?.ciudadania || "",
           padre: playerSelected?.padre || "",
           madre: playerSelected?.madre || "",
@@ -815,6 +836,35 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
                         </MenuItem>
                       ))}
                   </Field>
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', height: '100%', pt: 2 }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={values.esExonerado}
+                          onChange={(e) => setFieldValue("esExonerado", e.target.checked)}
+                          sx={{
+                            color: "#1E8732",
+                            '&.Mui-checked': {
+                              color: "#1E8732",
+                            },
+                          }}
+                        />
+                      }
+                      label={
+                        <Typography
+                          sx={{
+                            color: "#222222",
+                            fontWeight: 600,
+                            fontSize: "0.85rem",
+                          }}
+                        >
+                          Exonerado de cuota del club
+                        </Typography>
+                      }
+                    />
+                  </Box>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
                   <Typography

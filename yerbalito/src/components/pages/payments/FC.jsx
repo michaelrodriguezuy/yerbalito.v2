@@ -19,6 +19,8 @@ import {
   Typography,
   CircularProgress,
   FormControl,
+  Checkbox,
+  FormControlLabel,
 } from "@mui/material";
 import { Link } from "react-router-dom";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -58,9 +60,14 @@ const FondoCamp = () => {
 
   const [selectedPlayer, setSelectedPlayer] = useState("");
   const [playerPayments, setPlayerPayments] = useState([]);
+  const [paidQuotas, setPaidQuotas] = useState([]); // Cuotas ya pagadas del jugador seleccionado
+  const [availableYears, setAvailableYears] = useState([]); // años con deudas disponibles
+  const [pagarAmbasCuotas, setPagarAmbasCuotas] = useState(false); // Checkbox para pagar ambas cuotas
   const [formData, setFormData] = useState({
     idjugador: "",
     monto: "",
+    cuota_paga: "",
+    anio: new Date().getFullYear(),
     observaciones: "",
   });
   const [valores, setValores] = useState(null);
@@ -138,45 +145,234 @@ const FondoCamp = () => {
 
   const handleCloseModal = () => {
     setShowModal(false);
+    setSelectedPlayer("");
+    setPaidQuotas([]);
+    setAvailableYears([]);
+    setPagarAmbasCuotas(false);
+    setFormData({
+      idjugador: "",
+      monto: "",
+      cuota_paga: "",
+      anio: new Date().getFullYear(),
+      observaciones: "",
+    });
   };
 
-  const handlePlayerSelectChange = (event) => {
+  const handlePlayerSelectChange = async (event) => {
     const playerId = event.target.value;
     setSelectedPlayer(playerId);
-    setFormData((prev) => ({
-      ...prev,
-      idjugador: playerId,
-      monto: valores ? valores.fondo_campeonato.toString() : "",
-    }));
+    
+    // Verificar qué cuotas ya tiene pagadas el jugador (revisar todos los años)
+    if (playerId) {
+      try {
+        // Obtener todos los pagos del jugador (sin filtrar por año inicialmente)
+        const response = await axios.get(`${API_ENDPOINTS.FC}?playerId=${playerId}`);
+        const allPlayerFCPayments = response.data.payments || [];
+        
+        // Determinar el año a sugerir:
+        // 1. Revisar desde el año más antiguo con pagos hasta el año actual
+        const currentYear = new Date().getFullYear();
+        const yearsWithPayments = [...new Set(allPlayerFCPayments.map(p => parseInt(p.anio)))].sort();
+        const startYear = yearsWithPayments.length > 0 ? Math.min(...yearsWithPayments) : currentYear;
+        
+        let suggestedYear = currentYear;
+        let availableQuotas = [1, 2];
+        let paidQuotasForYear = [];
+        const yearsWithDebt = [];
+        
+        // Revisar desde el año más antiguo hasta el actual
+        for (let year = startYear; year <= currentYear; year++) {
+          const paidQuotasThisYear = allPlayerFCPayments
+            .filter(payment => parseInt(payment.anio) === year)
+            .map((payment) => parseInt(payment.cuota_paga))
+            .filter(cuota => !isNaN(cuota) && (cuota === 1 || cuota === 2))
+            .sort((a, b) => a - b);
+          
+          const availableForYear = [1, 2].filter(cuota => !paidQuotasThisYear.includes(cuota));
+          
+          if (availableForYear.length > 0) {
+            yearsWithDebt.push(year);
+            if (!suggestedYear || year < suggestedYear) {
+              suggestedYear = year;
+              availableQuotas = availableForYear;
+              paidQuotasForYear = paidQuotasThisYear;
+            }
+          }
+        }
+        
+        // Siempre incluir el año actual en la lista
+        if (!yearsWithDebt.includes(currentYear)) {
+          yearsWithDebt.push(currentYear);
+        }
+        
+        setAvailableYears(yearsWithDebt.sort((a, b) => a - b));
+        
+        // Si no hay cuotas sin pagar en ningún año, revisar el año actual
+        if (availableQuotas.length === 0) {
+          suggestedYear = currentYear;
+          const paidQuotasThisYear = allPlayerFCPayments
+            .filter(payment => parseInt(payment.anio) === currentYear)
+            .map((payment) => parseInt(payment.cuota_paga))
+            .filter(cuota => !isNaN(cuota) && (cuota === 1 || cuota === 2));
+          
+          paidQuotasForYear = paidQuotasThisYear;
+          availableQuotas = [1, 2].filter(cuota => !paidQuotasThisYear.includes(cuota));
+          
+          if (availableQuotas.length === 0) {
+            setPaidQuotas(paidQuotasThisYear);
+            setFormData((prev) => ({
+              ...prev,
+              idjugador: playerId,
+              monto: "0",
+              cuota_paga: "",
+              anio: currentYear,
+            }));
+            // Cerrar el modal primero y luego mostrar el toast
+            handleCloseModal();
+            setTimeout(() => {
+              toast.info("Este jugador ya tiene las 2 cuotas del Fondo de Campeonato pagadas para este año");
+            }, 100);
+            return;
+          }
+        }
+        
+        setPaidQuotas(paidQuotasForYear);
+        const suggestedQuota = availableQuotas[0] || 1;
+        
+        // Calcular el monto: el fondo de campeonato se paga en 2 cuotas iguales (mitad cada una)
+        const montoTotal = valores?.fondo_campeonato || 0;
+        const montoPorCuota = montoTotal / 2;
+        
+        setFormData((prev) => ({
+          ...prev,
+          idjugador: playerId,
+          monto: montoPorCuota.toString(),
+          cuota_paga: suggestedQuota.toString(),
+          anio: suggestedYear,
+        }));
+      } catch (error) {
+        console.error("Error checking FC payments:", error);
+        // Si hay error, sugerir cuota 1 del año actual
+        setPaidQuotas([]);
+        setAvailableYears([new Date().getFullYear()]);
+        
+        // Calcular el monto: el fondo de campeonato se paga en 2 cuotas iguales (mitad cada una)
+        const montoTotal = valores?.fondo_campeonato || 0;
+        const montoPorCuota = montoTotal / 2;
+        
+        setFormData((prev) => ({
+          ...prev,
+          idjugador: playerId,
+          monto: montoPorCuota.toString(),
+          cuota_paga: "1",
+          anio: new Date().getFullYear(),
+        }));
+      }
+    } else {
+      setPaidQuotas([]);
+      setAvailableYears([]);
+    }
   };
 
-  const handleFormChange = (field, value) => {
+  const handleFormChange = async (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    
+    // Si cambia el año manualmente, actualizar las cuotas pagadas de ese año
+    if (field === "anio" && formData.idjugador) {
+      try {
+        const response = await axios.get(
+          `${API_ENDPOINTS.FC}?playerId=${formData.idjugador}&year=${value}`
+        );
+        const playerFCPayments = response.data.payments || [];
+        const paidQuotasList = playerFCPayments
+          .map((payment) => parseInt(payment.cuota_paga))
+          .filter(cuota => !isNaN(cuota) && (cuota === 1 || cuota === 2));
+        setPaidQuotas(paidQuotasList);
+      } catch (error) {
+        console.error("Error fetching FC payments for year:", error);
+        setPaidQuotas([]);
+      }
+    }
+    
+    // Si cambia la cuota, NO cambiar el monto (ya está calculado como mitad del total)
+    // El usuario puede editarlo manualmente si es necesario
   };
 
   const handleSubmitPayment = async () => {
     try {
-      const payment = {
-        idjugador: formData.idjugador,
-        monto: formData.monto,
-        observaciones: formData.observaciones,
-        idusuario: user.id,
-      };
+      if (!formData.idjugador || !formData.monto) {
+        toast.error("Completa todos los campos obligatorios");
+        return;
+      }
 
-      await axios.post(API_ENDPOINTS.FC, payment);
-      toast.success("¡Recibo de fondo de campeonato creado correctamente!");
+      if (pagarAmbasCuotas) {
+        // Pagar ambas cuotas: enviar array con ambas cuotas no pagadas
+        const cuotasAPagar = [1, 2].filter(cuota => !paidQuotas.includes(cuota));
+        
+        if (cuotasAPagar.length === 0) {
+          toast.error("Todas las cuotas ya están pagadas.");
+          return;
+        }
+
+        const payment = {
+          idjugador: formData.idjugador,
+          monto: parseFloat(formData.monto),
+          cuotas: cuotasAPagar, // Array de cuotas a pagar
+          anio: formData.anio,
+          observaciones: formData.observaciones,
+          idusuario: user.id,
+        };
+
+        await axios.post(API_ENDPOINTS.FC_MULTIPLE, payment);
+        toast.success(`¡Recibos de fondo de campeonato creados correctamente! (${cuotasAPagar.length} cuota${cuotasAPagar.length > 1 ? 's' : ''})`);
+      } else {
+        // Pagar una sola cuota
+        if (!formData.cuota_paga) {
+          toast.error("Por favor, seleccione una cuota.");
+          return;
+        }
+
+        // Verificar que no esté intentando pagar una cuota ya pagada
+        if (paidQuotas.includes(parseInt(formData.cuota_paga))) {
+          toast.error(`La cuota ${formData.cuota_paga}/2 ya está pagada para este jugador en el año ${formData.anio}`);
+          return;
+        }
+
+        const payment = {
+          idjugador: formData.idjugador,
+          monto: formData.monto,
+          cuota_paga: parseInt(formData.cuota_paga),
+          anio: formData.anio,
+          observaciones: formData.observaciones,
+          idusuario: user.id,
+        };
+
+        await axios.post(API_ENDPOINTS.FC, payment);
+        toast.success(`¡Recibo de fondo de campeonato (Cuota ${formData.cuota_paga}/2) creado correctamente!`);
+      }
+      
       handleCloseModal();
       fetchPayments();
     } catch (error) {
       console.error("Error creating payment:", error);
-      toast.error("No se pudo crear el recibo.");
+      const errorMsg = error.response?.data?.error || "No se pudo crear el recibo.";
+      toast.error(errorMsg);
     }
   };
 
   const fetchPlayers = async () => {
     try {
       const response = await axios.get(API_ENDPOINTS.SQUAD_ALL);
-      setPlayerPayments(response.data.squads);
+      // NOTA: Todos los jugadores deben pagar fondo de campeonato, incluso los exonerados
+      // La exoneración (estado=3) solo aplica a la cuota del club, no al fondo de campeonato
+      const players = response.data.squads || [];
+      // Ordenar alfabéticamente por apellido y luego por nombre
+      const sortedPlayers = players.sort((a, b) => {
+        const apellidoComparison = a.apellido.localeCompare(b.apellido);
+        if (apellidoComparison !== 0) return apellidoComparison;
+        return a.nombre.localeCompare(b.nombre);
+      });
+      setPlayerPayments(sortedPlayers);
     } catch (error) {
       console.error("Error fetching players: ", error);
     }
@@ -548,6 +744,7 @@ const FondoCamp = () => {
               transform: "translate(-50%, -50%)",
               width: 400,
               maxHeight: "90vh",
+              overflow: "auto",
               bgcolor: "white",
               border: "2px solid #000",
               boxShadow: 24,
@@ -598,17 +795,162 @@ const FondoCamp = () => {
                 </Select>
               </FormControl>
 
-              {/* Campo de monto (solo lectura) */}
+              {/* Selección de cuota (1/2 o 2/2) */}
+              <FormControl fullWidth>
+                <Typography variant="subtitle2" gutterBottom>
+                  Cuota
+                </Typography>
+                {selectedPlayer && paidQuotas.length > 0 && paidQuotas.length < 2 && (
+                  <Typography variant="caption" sx={{ color: '#666', mb: 0.5 }}>
+                    Cuotas ya pagadas: {paidQuotas.join(', ')}/2
+                  </Typography>
+                )}
+                
+                {/* Checkbox para pagar ambas cuotas */}
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={pagarAmbasCuotas}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setPagarAmbasCuotas(checked);
+                        
+                        if (checked) {
+                          // Si marca "Pagar ambas cuotas", calcular el monto total
+                          const cuotasPendientes = [1, 2].filter(c => !paidQuotas.includes(c));
+                          const montoTotal = valores?.fondo_campeonato || 0;
+                          const montoPorCuota = montoTotal / 2;
+                          const montoFinal = montoPorCuota * cuotasPendientes.length;
+                          
+                          setFormData((prev) => ({
+                            ...prev,
+                            monto: montoFinal.toString(),
+                            cuota_paga: "", // Limpiar cuota individual
+                          }));
+                        } else {
+                          // Si desmarca, volver al monto por cuota
+                          const montoTotal = valores?.fondo_campeonato || 0;
+                          const montoPorCuota = montoTotal / 2;
+                          
+                          setFormData((prev) => ({
+                            ...prev,
+                            monto: montoPorCuota.toString(),
+                          }));
+                        }
+                      }}
+                      disabled={!selectedPlayer || paidQuotas.length === 2}
+                      sx={{
+                        color: '#000',
+                        '&.Mui-checked': { color: '#1E8732' },
+                      }}
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" sx={{ color: '#000', fontWeight: 500 }}>
+                      Pagar todas las cuotas pendientes juntas
+                    </Typography>
+                  }
+                  sx={{ mb: 1 }}
+                />
+                
+                <Select
+                  value={formData.cuota_paga}
+                  onChange={(e) => handleFormChange("cuota_paga", e.target.value)}
+                  displayEmpty
+                  variant="outlined"
+                  disabled={!selectedPlayer || pagarAmbasCuotas}
+                  sx={{
+                    backgroundColor: "#ffffff",
+                    color: "#000000",
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        backgroundColor: "#ffffff",
+                        "& .MuiMenuItem-root": {
+                          color: "#000000",
+                        },
+                      },
+                    },
+                  }}
+                >
+                  <MenuItem value="" disabled>
+                    Seleccione una cuota
+                  </MenuItem>
+                  {[1, 2].map((cuota) => {
+                    const isPaid = paidQuotas.includes(cuota);
+                    return (
+                      <MenuItem key={cuota} value={cuota.toString()}>
+                        Cuota {cuota}/2 {isPaid && "✓ (Paga)"}
+                      </MenuItem>
+                    );
+                  })}
+                </Select>
+              </FormControl>
+
+              {/* Año */}
+              <FormControl fullWidth>
+                <Typography variant="subtitle2" gutterBottom>
+                  Año
+                </Typography>
+                <Select
+                  value={formData.anio}
+                  onChange={(e) => handleFormChange("anio", parseInt(e.target.value))}
+                  displayEmpty
+                  variant="outlined"
+                  disabled={!selectedPlayer}
+                  sx={{
+                    backgroundColor: "#ffffff",
+                    color: "#000000",
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        backgroundColor: "#ffffff",
+                        "& .MuiMenuItem-root": { color: "#000000" },
+                      },
+                    },
+                  }}
+                >
+                  {availableYears.length > 0 ? (
+                    availableYears.map((year) => (
+                      <MenuItem key={year} value={year}>
+                        {year}
+                      </MenuItem>
+                    ))
+                  ) : (
+                    <MenuItem value={new Date().getFullYear()}>
+                      {new Date().getFullYear()}
+                    </MenuItem>
+                  )}
+                </Select>
+              </FormControl>
+
+              {/* Campo de monto (editable) */}
               <TextField
-                label="Monto"
+                label={pagarAmbasCuotas ? "Monto total (ambas cuotas)" : "Monto por cuota"}
                 variant="outlined"
                 type="number"
                 value={formData.monto}
+                onChange={(e) => handleFormChange("monto", e.target.value)}
                 fullWidth
                 required
-                disabled
-                helperText="Monto fijo establecido por administración"
-                sx={textFieldStyles}
+                helperText={
+                  pagarAmbasCuotas
+                    ? `Monto sugerido: ${[1, 2].filter(c => !paidQuotas.includes(c)).length} cuota(s) × $${(valores?.fondo_campeonato || 0) / 2} = $${(valores?.fondo_campeonato || 0) / 2 * [1, 2].filter(c => !paidQuotas.includes(c)).length}. Editable si es necesario.`
+                    : `Monto sugerido: $${valores?.fondo_campeonato || 0} total ÷ 2 cuotas = $${(valores?.fondo_campeonato || 0) / 2} por cuota. Editable si es necesario.`
+                }
+                InputProps={{
+                  sx: {
+                    color: '#000',
+                    '& .MuiInputBase-input': { color: '#000' }
+                  }
+                }}
+                sx={{
+                  ...textFieldStyles,
+                  '& .MuiInputBase-input': { color: '#000' },
+                  '& .MuiFormHelperText-root': { color: '#666' }
+                }}
               />
 
               {/* Campo de observaciones */}
@@ -649,9 +991,13 @@ const FondoCamp = () => {
                 <Button
                   variant="contained"
                   onClick={handleSubmitPayment}
-                  disabled={!formData.idjugador || !formData.monto}
+                  disabled={!formData.idjugador || !formData.monto || (!pagarAmbasCuotas && !formData.cuota_paga)}
+                  sx={{
+                    backgroundColor: '#1E8732',
+                    '&:hover': { backgroundColor: '#166025' },
+                  }}
                 >
-                  Crear Recibo
+                  {pagarAmbasCuotas ? 'Crear Recibos' : 'Crear Recibo'}
                 </Button>
               </Box>
             </Box>

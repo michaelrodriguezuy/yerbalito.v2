@@ -164,6 +164,20 @@ const theme = createTheme({
         },
       },
     },
+    // Configuración de z-index para diferentes componentes
+    // Menus y Popovers (navbar) - alta prioridad
+    MuiMenu: {
+      defaultProps: {
+        // Asegurar que los menús funcionen correctamente
+        disablePortal: false,
+      },
+    },
+    MuiPopover: {
+      defaultProps: {
+        // Los Popovers (usados por Menus) no deben ser afectados por restricciones de modal
+        disablePortal: false,
+      },
+    },
   },
   shape: {
     borderRadius: 8,

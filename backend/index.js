@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 require('dotenv').config();
 const sendEmail = require("./sendEmail");
+const cron = require('node-cron');
 
 //para cargar archivos
 const ftp = require('basic-ftp');
@@ -21,6 +22,7 @@ const db = mysql.createPool({
   user: process.env.MYSQL_USER,
   password: process.env.MYSQL_PASSWORD,
   database: process.env.MYSQL_DATABASE,
+  timezone: '-03:00', // Configurar zona horaria UTC-3 (Uruguay)
 });
 
 // console.log("db: ", db);
@@ -433,6 +435,17 @@ app.get('/posts/:id', async (req, res) => {
   }
 });
 
+// Endpoint para obtener todos los blogs (para dashboard)
+app.get('/blogs', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM blog ORDER BY fecha_creacion DESC');
+    res.json({ blogs: rows });
+  } catch (error) {
+    console.error('Error obteniendo blogs:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
 // Endpoint para obtener un blog individual
 app.get('/blog/:id', async (req, res) => {
   const blogId = req.params.id;
@@ -453,10 +466,88 @@ app.get('/blog/:id', async (req, res) => {
   }
 });
 
-// Endpoint para obtener todas las noticias
+// Endpoint para crear un nuevo blog
+app.post('/blogs', async (req, res) => {
+  try {
+    const { titulo, contenido, autor, imagen, visible } = req.body;
+    
+    if (!titulo || !contenido || !autor) {
+      return res.status(400).json({ error: 'Faltan datos requeridos' });
+    }
+
+    const [result] = await db.query(
+      'INSERT INTO blog (titulo, contenido, autor, imagen, visible) VALUES (?, ?, ?, ?, ?)',
+      [titulo, contenido, autor, imagen || null, visible !== undefined ? visible : 1]
+    );
+
+    res.json({ 
+      success: true, 
+      message: 'Blog creado correctamente',
+      idblog: result.insertId 
+    });
+  } catch (error) {
+    console.error('Error creando blog:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para actualizar un blog
+app.put('/blogs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { titulo, contenido, autor, imagen, visible } = req.body;
+    
+    if (!titulo || !contenido || !autor) {
+      return res.status(400).json({ error: 'Faltan datos requeridos' });
+    }
+
+    await db.query(
+      'UPDATE blog SET titulo = ?, contenido = ?, autor = ?, imagen = ?, visible = ? WHERE idblog = ?',
+      [titulo, contenido, autor, imagen || null, visible !== undefined ? visible : 1, id]
+    );
+
+    res.json({ 
+      success: true, 
+      message: 'Blog actualizado correctamente' 
+    });
+  } catch (error) {
+    console.error('Error actualizando blog:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para eliminar un blog
+app.delete('/blogs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    await db.query('DELETE FROM blog WHERE idblog = ?', [id]);
+
+    res.json({ 
+      success: true, 
+      message: 'Blog eliminado correctamente' 
+    });
+  } catch (error) {
+    console.error('Error eliminando blog:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para obtener todas las noticias (públicas)
 app.get('/noticias', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM noticias WHERE visible = 1 ORDER BY fecha_creacion DESC');
+    res.json({ noticias: rows });
+  } catch (error) {
+    console.error('Error obteniendo noticias:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para obtener todas las noticias (para dashboard - incluye ocultas)
+app.get('/noticias/all', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM noticias ORDER BY fecha_creacion DESC');
     res.json({ noticias: rows });
   } catch (error) {
     console.error('Error obteniendo noticias:', error);
@@ -480,6 +571,73 @@ app.get('/noticias/:id', async (req, res) => {
     }
   } catch (error) {
     console.error('Error obteniendo detalles de la noticia:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para crear una nueva noticia
+app.post('/noticias/create', async (req, res) => {
+  try {
+    const { titulo, contenido, autor, imagen, visible } = req.body;
+    
+    if (!titulo || !contenido || !autor) {
+      return res.status(400).json({ error: 'Faltan datos requeridos' });
+    }
+
+    const [result] = await db.query(
+      'INSERT INTO noticias (titulo, contenido, autor, imagen, visible) VALUES (?, ?, ?, ?, ?)',
+      [titulo, contenido, autor, imagen || null, visible !== undefined ? visible : 1]
+    );
+
+    res.json({ 
+      success: true, 
+      message: 'Noticia creada correctamente',
+      idnoticia: result.insertId 
+    });
+  } catch (error) {
+    console.error('Error creando noticia:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para actualizar una noticia
+app.put('/noticias/update/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { titulo, contenido, autor, imagen, visible } = req.body;
+    
+    if (!titulo || !contenido || !autor) {
+      return res.status(400).json({ error: 'Faltan datos requeridos' });
+    }
+
+    await db.query(
+      'UPDATE noticias SET titulo = ?, contenido = ?, autor = ?, imagen = ?, visible = ? WHERE idnoticia = ?',
+      [titulo, contenido, autor, imagen || null, visible !== undefined ? visible : 1, id]
+    );
+
+    res.json({ 
+      success: true, 
+      message: 'Noticia actualizada correctamente' 
+    });
+  } catch (error) {
+    console.error('Error actualizando noticia:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para eliminar una noticia
+app.delete('/noticias/delete/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    await db.query('DELETE FROM noticias WHERE idnoticia = ?', [id]);
+
+    res.json({ 
+      success: true, 
+      message: 'Noticia eliminada correctamente' 
+    });
+  } catch (error) {
+    console.error('Error eliminando noticia:', error);
     res.status(500).json({ error: 'Error del servidor' });
   }
 });
@@ -516,10 +674,12 @@ app.get('/squad', async (req, res) => {
 // todos los jugadores
 app.get('/squad/all', async (req, res) => {
   try {
+    // Solo devolver jugadores de categorías públicas (visible = 1)
     const [rows] = await db.query(`
       SELECT j.*, c.nombre_categoria 
       FROM jugador j 
       LEFT JOIN categoria c ON j.idcategoria = c.idcategoria 
+      WHERE c.visible = 1
       ORDER BY j.idcategoria, j.nombre
     `);
     res.json({ squads: rows });
@@ -588,6 +748,7 @@ app.post('/squad', upload.single('imagen'), async (req, res) => {
     numeroClub,
     fecha_ingreso,
     idcategoria,
+    idestado,
     ciudadania,
     padre,
     madre,
@@ -661,6 +822,14 @@ app.post('/squad', upload.single('imagen'), async (req, res) => {
       observacionesJugador: observaciones || null
     };
     
+    // Solo agregar idestado si se proporciona explícitamente
+    if (idestado) {
+      newPlayer.idestado = idestado;
+    } else {
+      // Estado por defecto: 2 (Habilitado) para nuevos jugadores
+      newPlayer.idestado = 2;
+    }
+    
     // Insertar el jugador
     const [result] = await db.query('INSERT INTO jugador SET ?', newPlayer);
     const idjugador = result.insertId;
@@ -707,6 +876,7 @@ app.put('/squad/:id', upload.single('imagen'), async (req, res) => {
     numeroClub,
     fecha_ingreso,
     idcategoria,
+    idestado,
     ciudadania,
     padre,
     madre,
@@ -738,6 +908,12 @@ app.put('/squad/:id', upload.single('imagen'), async (req, res) => {
       observacionesJugador: observaciones || null,
       imagen: currentImage // Mantener la imagen actual si no se sube una nueva
     };
+    
+    // Solo actualizar idestado si se proporciona explícitamente
+    // Esto permite cambios manuales mientras el sistema automático sigue funcionando
+    if (idestado !== undefined && idestado !== null && idestado !== '') {
+      updateFields.idestado = idestado;
+    }
 
     // Si hay nueva imagen, subirla y actualizar la URL
     if (imagen && idcategoria) {
@@ -851,19 +1027,38 @@ app.get('/squad/search/:ci', async (req, res) => {
 // recibos de pagos
 app.get('/payments', async (req, res) => {
   try {
-    const [rows] = await db.query(`
-    SELECT r.*, 
-    j.nombre as nombre_jugador,
-    j.apellido as apellido_jugador,
-    u.nombre as nombre_usuario
-    FROM recibo r 
-    JOIN jugador j ON r.idjugador = j.idjugador
-    JOIN usuario u ON r.idusuario = u.id_usuario
-    JOIN categoria c ON j.idcategoria = c.idcategoria
-    WHERE monto > 0
-    AND c.visible = 1
-    ORDER BY r.idrecibo DESC
-    `);
+    const { playerId, year } = req.query;
+    let query = `
+      SELECT r.*, 
+      j.nombre as nombre_jugador,
+      j.apellido as apellido_jugador,
+      u.nombre as nombre_usuario
+      FROM recibo r 
+      JOIN jugador j ON r.idjugador = j.idjugador
+      JOIN usuario u ON r.idusuario = u.id_usuario
+      JOIN categoria c ON j.idcategoria = c.idcategoria
+      WHERE monto > 0
+      AND c.visible = 1
+      AND r.visible = 1
+    `;
+    
+    const params = [];
+    
+    // Filtrar por jugador si se proporciona playerId
+    if (playerId) {
+      query += ` AND r.idjugador = ?`;
+      params.push(playerId);
+    }
+    
+    // Filtrar por año si se proporciona year
+    if (year) {
+      query += ` AND r.anio = ?`;
+      params.push(year);
+    }
+    
+    query += ` ORDER BY r.idrecibo DESC`;
+    
+    const [rows] = await db.query(query, params);
     res.json({ payments: rows });
   } catch (error) {
     console.error('Error obteniendo pagos:', error);
@@ -894,39 +1089,290 @@ app.put('/payments/:id', async (req, res) => {
   }
 });
 
+/**
+ * Función auxiliar para actualizar el estado de una categoría basado en sus jugadores
+ * Si hay al menos 1 jugador en estado=1 (Deshabilitado), la categoría pasa a estado=5
+ * Si no hay ningún jugador en estado=1, la categoría pasa a estado=6
+ */
+async function updateCategoryState(connection, categoryId) {
+  try {
+    // Contar cuántos jugadores de esta categoría están deshabilitados (estado=1)
+    const [result] = await connection.query(
+      `SELECT COUNT(*) as deshabilitados 
+       FROM jugador 
+       WHERE idcategoria = ? AND idestado = 1`,
+      [categoryId]
+    );
+    
+    const jugadoresDeshabilitados = result[0].deshabilitados;
+    
+    // Determinar el nuevo estado de la categoría
+    let nuevoEstadoCategoria = null;
+    
+    if (jugadoresDeshabilitados > 0) {
+      // Hay al menos un jugador deshabilitado
+      nuevoEstadoCategoria = 5;
+    } else {
+      // No hay jugadores deshabilitados
+      nuevoEstadoCategoria = 6;
+    }
+    
+    // Actualizar el estado de la categoría
+    await connection.query(
+      'UPDATE categoria SET idestado = ? WHERE idcategoria = ?',
+      [nuevoEstadoCategoria, categoryId]
+    );
+  } catch (error) {
+    console.error('Error actualizando estado de la categoría:', categoryId, error);
+    // No lanzar el error para no afectar el flujo principal
+  }
+}
+
+/**
+ * Función auxiliar para actualizar el estado de un jugador basado en sus pagos
+ * Un jugador debe tener pagado el mes anterior (cuota a mes vencido)
+ * Si no lo tiene pagado y ya pasó el día 10 del mes actual, pasa a estado=1 (Deshabilitado)
+ * Si lo paga, vuelve a estado=2 (Habilitado)
+ */
+async function updatePlayerState(connection, playerId) {
+  try {
+    // Obtener el jugador
+    const [player] = await connection.query(
+      'SELECT idestado, fecha_ingreso FROM jugador WHERE idjugador = ?',
+      [playerId]
+    );
+    
+    if (player.length === 0 || player[0].idestado === 3) {
+      // No existe o está exonerado, no hacer nada
+      return;
+    }
+    
+    // Obtener configuración de meses habilitados
+    const [valores] = await connection.query('SELECT meses_cuotas FROM valores ORDER BY idvalores DESC LIMIT 1');
+    const mesesHabilitados = valores.length > 0 && valores[0].meses_cuotas ? valores[0].meses_cuotas : [1,2,3,4,5,6,7,8,9,10,11,12];
+    
+    // Obtener fecha actual
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // 0-11 -> 1-12
+    const currentDay = now.getDate();
+    
+    // Determinar el mes que debería estar pagado (mes anterior)
+    let mesVencido = currentMonth - 1;
+    let anioVencido = currentYear;
+    
+    if (mesVencido === 0) {
+      mesVencido = 12;
+      anioVencido = currentYear - 1;
+    }
+    
+    // Verificar si el mes vencido está en los meses habilitados
+    // Si no está habilitado, buscar el mes habilitado anterior más cercano
+    while (!mesesHabilitados.includes(mesVencido) && mesVencido > 0) {
+      mesVencido--;
+      if (mesVencido === 0) {
+        mesVencido = 12;
+        anioVencido--;
+      }
+    }
+    
+    // Verificar si el jugador ingresó después del mes vencido que se está verificando
+    if (player[0].fecha_ingreso) {
+      const fechaIngreso = new Date(player[0].fecha_ingreso);
+      const ingresoYear = fechaIngreso.getFullYear();
+      const ingresoMonth = fechaIngreso.getMonth() + 1;
+      
+      // Si el año y mes vencido es anterior al ingreso, no verificar este mes
+      if (anioVencido < ingresoYear || (anioVencido === ingresoYear && mesVencido < ingresoMonth)) {
+        // El jugador no debe este mes porque aún no estaba en el club
+        // Por lo tanto, debe estar habilitado (estado=2)
+        await connection.query(
+          'UPDATE jugador SET idestado = 2 WHERE idjugador = ? AND idestado != 3',
+          [playerId]
+        );
+        return;
+      }
+    }
+    
+    // Verificar si tiene pagado el mes vencido
+    const [pagos] = await connection.query(
+      `SELECT * FROM recibo 
+       WHERE idjugador = ? 
+       AND mes_pago = ? 
+       AND anio = ? 
+       AND visible = 1
+       LIMIT 1`,
+      [playerId, mesVencido, anioVencido]
+    );
+    
+    const tieneMesVencidoPago = pagos.length > 0;
+    
+    // Determinar el nuevo estado
+    let nuevoEstado = null;
+    
+    if (tieneMesVencidoPago) {
+      // Tiene el mes vencido pagado, debe estar habilitado (estado=2)
+      nuevoEstado = 2;
+    } else {
+      // No tiene el mes vencido pagado
+      // Si ya pasó el día 10 del mes actual, debe estar deshabilitado (estado=1)
+      if (currentDay > 10) {
+        nuevoEstado = 1;
+      } else {
+        // Todavía está dentro del plazo de pago (días 1-10), mantener habilitado
+        nuevoEstado = 2;
+      }
+    }
+    
+    // Actualizar el estado solo si cambió (y no es exonerado)
+    await connection.query(
+      'UPDATE jugador SET idestado = ? WHERE idjugador = ? AND idestado != 3',
+      [nuevoEstado, playerId]
+    );
+  } catch (error) {
+    console.error('Error actualizando estado del jugador:', playerId, error);
+    // No lanzar el error para no afectar el flujo principal
+  }
+}
+
 app.post('/payments', async (req, res) => {
-  const newPayment = req.body;
+  const paymentData = req.body;
   const connection = await db.getConnection();
   
   try {
     await connection.beginTransaction();
     
+    // Validar que el jugador existe, pertenece a una categoría activa (visible = 1) y no está exonerado (estado=3)
+    const [playerStatus] = await connection.query(
+      `SELECT j.idestado, c.visible 
+       FROM jugador j 
+       LEFT JOIN categoria c ON j.idcategoria = c.idcategoria 
+       WHERE j.idjugador = ?`, 
+      [paymentData.idjugador]
+    );
+    
+    if (playerStatus.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Jugador no encontrado' });
+    }
+    
+    if (!playerStatus[0].visible || playerStatus[0].visible !== 1) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'El jugador debe pertenecer a una categoría activa' });
+    }
+    
+    if (playerStatus[0].idestado === 3) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'No se pueden crear recibos para jugadores exonerados (estado=3)' });
+    }
+    
+    // Generar número de recibo si no viene (usar el máximo + 1)
+    let numeroRecibo = paymentData.numero;
+    if (!numeroRecibo) {
+      const [maxNum] = await connection.query('SELECT MAX(numero) as maxNum FROM recibo');
+      numeroRecibo = (maxNum[0]?.maxNum || 0) + 1;
+    }
+    
+    // Normalizar el objeto: mapear cuota_paga -> mes_pago si existe
+    const newPayment = {
+      ...paymentData,
+      numero: numeroRecibo,
+      mes_pago: paymentData.cuota_paga || paymentData.mes_pago, // Mapear cuota_paga a mes_pago
+      anio: paymentData.anio || new Date().getFullYear(), // Asegurar año si no viene
+      fecha_recibo: paymentData.fecha_recibo || new Date().toISOString().split('T')[0], // Fecha actual si no viene
+      visible: paymentData.visible !== undefined ? paymentData.visible : 1, // Visible por defecto
+    };
+    // Eliminar cuota_paga si existe para evitar confusión
+    delete newPayment.cuota_paga;
+    
     // 1. Insertar el pago principal
     await connection.query('INSERT INTO recibo SET ?', newPayment);
     
-    // 2. Verificar si el jugador tiene hermanos
+    // 2. Verificar si el jugador tiene hermanos (consultar tabla relacional hermanos)
+    // Buscar hermanos en ambas direcciones (bidireccional)
     const [siblings] = await connection.query(
-      'SELECT hermanos FROM jugador WHERE idjugador = ?', 
-      [newPayment.idjugador]
+      `SELECT DISTINCT 
+        CASE 
+          WHEN idjugador = ? THEN idhermano 
+          ELSE idjugador 
+        END as idhermano
+      FROM hermanos 
+      WHERE idjugador = ? OR idhermano = ?`, 
+      [newPayment.idjugador, newPayment.idjugador, newPayment.idjugador]
     );
     
     let hermanosAfectados = 0;
     
-    if (siblings.length > 0 && siblings[0].hermanos) {
-      const hermanosIds = siblings[0].hermanos.split(',').map(id => parseInt(id.trim()));
-      
-      // 3. Crear pagos para TODOS los hermanos (siempre)
-      for (const hermanoId of hermanosIds) {
+    // 3. Crear pagos para TODOS los hermanos encontrados (excepto los exonerados)
+    if (siblings.length > 0) {
+      let numeroReciboActual = numeroRecibo;
+      for (const sibling of siblings) {
+        const hermanoId = sibling.idhermano;
         if (hermanoId && hermanoId !== newPayment.idjugador) {
-          const hermanoPayment = {
-            ...newPayment,
-            idjugador: hermanoId,
-            observaciones: `Pago automático por hermano (ID: ${newPayment.idjugador}) - ${newPayment.observaciones}`
-          };
-          await connection.query('INSERT INTO recibo SET ?', hermanoPayment);
-          hermanosAfectados++;
+          // Validar que el hermano existe, pertenece a categoría activa y NO está exonerado
+          const [hermanoStatus] = await connection.query(
+            `SELECT j.idestado, c.visible 
+             FROM jugador j 
+             LEFT JOIN categoria c ON j.idcategoria = c.idcategoria 
+             WHERE j.idjugador = ?`, 
+            [hermanoId]
+          );
+          
+          // Solo crear recibo si el hermano existe, pertenece a categoría activa y NO está exonerado
+          if (hermanoStatus.length > 0 && 
+              hermanoStatus[0].visible === 1 && 
+              hermanoStatus[0].idestado !== 3) {
+            numeroReciboActual++; // Cada hermano tiene un número de recibo único e incremental
+            const hermanoPayment = {
+              ...newPayment,
+              numero: numeroReciboActual,
+              idjugador: hermanoId,
+              observaciones: `Pago automático por hermano (ID: ${newPayment.idjugador})${newPayment.observaciones ? ' - ' + newPayment.observaciones : ''}`
+            };
+            // Eliminar idrecibo si existe (es autoincremental)
+            delete hermanoPayment.idrecibo;
+            await connection.query('INSERT INTO recibo SET ?', hermanoPayment);
+            hermanosAfectados++;
+          }
         }
       }
+    }
+    
+    // 4. Actualizar el estado del jugador y hermanos después de crear el recibo
+    // Verificar si el jugador ahora tiene todos los meses necesarios pagados
+    await updatePlayerState(connection, newPayment.idjugador);
+    
+    // Obtener la categoría del jugador para actualizar su estado
+    const [jugadorData] = await connection.query(
+      'SELECT idcategoria FROM jugador WHERE idjugador = ?',
+      [newPayment.idjugador]
+    );
+    const categoriasAfectadas = new Set();
+    if (jugadorData.length > 0) {
+      categoriasAfectadas.add(jugadorData[0].idcategoria);
+    }
+    
+    // También actualizar el estado de los hermanos afectados
+    if (siblings.length > 0) {
+      for (const sibling of siblings) {
+        const hermanoId = sibling.idhermano;
+        if (hermanoId && hermanoId !== newPayment.idjugador) {
+          const [hermanoStatus] = await connection.query(
+            'SELECT idestado, idcategoria FROM jugador WHERE idjugador = ?',
+            [hermanoId]
+          );
+          // Solo actualizar si no está exonerado
+          if (hermanoStatus.length > 0 && hermanoStatus[0].idestado !== 3) {
+            await updatePlayerState(connection, hermanoId);
+            categoriasAfectadas.add(hermanoStatus[0].idcategoria);
+          }
+        }
+      }
+    }
+    
+    // 5. Actualizar el estado de todas las categorías afectadas
+    for (const categoriaId of categoriasAfectadas) {
+      await updateCategoryState(connection, categoriaId);
     }
     
     await connection.commit();
@@ -937,6 +1383,53 @@ app.post('/payments', async (req, res) => {
   } catch (error) {
     await connection.rollback();
     console.error('Error agregando pago:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  } finally {
+    connection.release();
+  }
+});
+
+/**
+ * Endpoint para actualizar los estados de todos los jugadores
+ * Puede ser llamado manualmente o mediante un cron job diario
+ * Actualiza el estado de cada jugador según sus pagos
+ */
+app.get('/update-player-states', async (req, res) => {
+  const connection = await db.getConnection();
+  
+  try {
+    // Obtener todos los jugadores de categorías activas (excepto exonerados)
+    const [players] = await connection.query(`
+      SELECT j.idjugador, j.idcategoria
+      FROM jugador j
+      LEFT JOIN categoria c ON j.idcategoria = c.idcategoria
+      WHERE c.visible = 1 AND j.idestado != 3
+    `);
+    
+    let jugadoresActualizados = 0;
+    const categoriasAfectadas = new Set();
+    
+    // Actualizar el estado de cada jugador
+    for (const player of players) {
+      await updatePlayerState(connection, player.idjugador);
+      categoriasAfectadas.add(player.idcategoria);
+      jugadoresActualizados++;
+    }
+    
+    // Actualizar el estado de todas las categorías afectadas
+    let categoriasActualizadas = 0;
+    for (const categoriaId of categoriasAfectadas) {
+      await updateCategoryState(connection, categoriaId);
+      categoriasActualizadas++;
+    }
+    
+    res.json({ 
+      message: 'Estados de jugadores y categorías actualizados correctamente',
+      jugadoresActualizados: jugadoresActualizados,
+      categoriasActualizadas: categoriasActualizadas
+    });
+  } catch (error) {
+    console.error('Error actualizando estados de jugadores:', error);
     res.status(500).json({ error: 'Error del servidor' });
   } finally {
     connection.release();
@@ -1028,19 +1521,37 @@ app.get('/fcAnual', async (req, res) => {
 
 app.get('/fc', async (req, res) => {
   try {
-    const [rows] = await db.query(`
-    SELECT f.*, 
-    j.nombre as nombre_jugador,
-    j.apellido as apellido_jugador,
-    u.nombre as nombre_usuario
-    FROM fondocampeonato f 
-    JOIN jugador j ON f.idjugador = j.idjugador
-    JOIN usuario u ON f.idusuario = u.id_usuario
-    JOIN categoria c ON j.idcategoria = c.idcategoria
-    WHERE monto > 0
-    AND c.visible = 1
-    ORDER BY f.id_fondo DESC
-    `);
+    const { playerId, year } = req.query;
+    let query = `
+      SELECT f.*, 
+      j.nombre as nombre_jugador,
+      j.apellido as apellido_jugador,
+      u.nombre as nombre_usuario
+      FROM fondocampeonato f 
+      JOIN jugador j ON f.idjugador = j.idjugador
+      JOIN usuario u ON f.idusuario = u.id_usuario
+      JOIN categoria c ON j.idcategoria = c.idcategoria
+      WHERE monto > 0
+      AND c.visible = 1
+    `;
+    
+    const params = [];
+    
+    // Filtrar por jugador si se proporciona playerId
+    if (playerId) {
+      query += ` AND f.idjugador = ?`;
+      params.push(playerId);
+    }
+    
+    // Filtrar por año si se proporciona year
+    if (year) {
+      query += ` AND f.anio = ?`;
+      params.push(year);
+    }
+    
+    query += ` ORDER BY f.id_fondo DESC`;
+    
+    const [rows] = await db.query(query, params);
     res.json({ payments: rows });
   } catch (error) {
     console.error('Error obteniendo pagos:', error);
@@ -1073,12 +1584,168 @@ app.put('/fc/:id', async (req, res) => {
 
 app.post('/fc', async (req, res) => {
   const newPayment = req.body;
+  const connection = await db.getConnection();
+  
   try {
-    await db.query('INSERT INTO fondocampeonato SET ?', newPayment);
-    res.json({ message: 'Pago agregado' });
+    await connection.beginTransaction();
+    
+    // Validar que el jugador existe y pertenece a una categoría activa (visible = 1)
+    const [playerStatus] = await connection.query(
+      `SELECT j.idestado, c.visible 
+       FROM jugador j 
+       LEFT JOIN categoria c ON j.idcategoria = c.idcategoria 
+       WHERE j.idjugador = ?`, 
+      [newPayment.idjugador]
+    );
+    
+    if (playerStatus.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Jugador no encontrado' });
+    }
+    
+    if (!playerStatus[0].visible || playerStatus[0].visible !== 1) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'El jugador debe pertenecer a una categoría activa' });
+    }
+    
+    // NOTA: Los jugadores exonerados (estado=3) SÍ deben pagar fondo de campeonato
+    // La exoneración solo aplica a la cuota del club, no al fondo de campeonato
+    
+    // Validar que no se duplique la cuota para el mismo año
+    const currentYear = newPayment.anio || new Date().getFullYear();
+    const cuota = newPayment.cuota_paga || 1;
+    
+    const [existingPayment] = await connection.query(
+      'SELECT id_fondo FROM fondocampeonato WHERE idjugador = ? AND anio = ? AND cuota_paga = ?',
+      [newPayment.idjugador, currentYear, cuota]
+    );
+    
+    if (existingPayment.length > 0) {
+      await connection.rollback();
+      return res.status(400).json({ error: `Este jugador ya tiene la cuota ${cuota}/2 pagada para el año ${currentYear}` });
+    }
+    
+    // Validar que el jugador no tenga ya las 2 cuotas pagadas
+    const [allQuotas] = await connection.query(
+      'SELECT COUNT(*) as total FROM fondocampeonato WHERE idjugador = ? AND anio = ?',
+      [newPayment.idjugador, currentYear]
+    );
+    
+    if (allQuotas[0].total >= 2) {
+      await connection.rollback();
+      return res.status(400).json({ error: `Este jugador ya tiene las 2 cuotas pagadas para el año ${currentYear}` });
+    }
+    
+    // Normalizar datos
+    const paymentData = {
+      ...newPayment,
+      anio: currentYear,
+      fecha: newPayment.fecha || new Date().toISOString().split('T')[0],
+      cuota_paga: cuota,
+    };
+    
+    // Generar número de recibo si no viene
+    if (!paymentData.numero) {
+      const [maxNum] = await connection.query('SELECT MAX(numero) as maxNum FROM fondocampeonato');
+      paymentData.numero = (maxNum[0]?.maxNum || 0) + 1;
+    }
+    
+    await connection.query('INSERT INTO fondocampeonato SET ?', paymentData);
+    await connection.commit();
+    res.json({ message: 'Pago agregado correctamente' });
   } catch (error) {
+    await connection.rollback();
     console.error('Error agregando pago:', error);
-    res.status(500).json({ error: 'Error del servidor' });
+    res.status(500).json({ error: 'Error del servidor', details: error.message });
+  } finally {
+    connection.release();
+  }
+});
+
+// Endpoint para pagar MÚLTIPLES cuotas de fondo de campeonato (1 o 2 cuotas juntas)
+app.post('/fc/multiple', async (req, res) => {
+  const { idjugador, monto, cuotas, anio, observaciones, idusuario } = req.body;
+  const connection = await db.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+    
+    // Validar que el jugador existe y pertenece a una categoría activa (visible = 1)
+    const [playerStatus] = await connection.query(
+      `SELECT j.idestado, c.visible 
+       FROM jugador j 
+       LEFT JOIN categoria c ON j.idcategoria = c.idcategoria 
+       WHERE j.idjugador = ?`, 
+      [idjugador]
+    );
+    
+    if (playerStatus.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Jugador no encontrado' });
+    }
+    
+    if (!playerStatus[0].visible || playerStatus[0].visible !== 1) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'El jugador debe pertenecer a una categoría activa' });
+    }
+    
+    // Validar que cuotas sea un array válido
+    if (!Array.isArray(cuotas) || cuotas.length === 0 || cuotas.length > 2) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Debes especificar entre 1 y 2 cuotas a pagar' });
+    }
+    
+    const currentYear = anio || new Date().getFullYear();
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    // Verificar que las cuotas no estén ya pagadas
+    for (const cuota of cuotas) {
+      const [existingPayment] = await connection.query(
+        'SELECT id_fondo FROM fondocampeonato WHERE idjugador = ? AND anio = ? AND cuota_paga = ?',
+        [idjugador, currentYear, cuota]
+      );
+      
+      if (existingPayment.length > 0) {
+        await connection.rollback();
+        return res.status(400).json({ error: `La cuota ${cuota}/2 ya está pagada para el año ${currentYear}` });
+      }
+    }
+    
+    // Obtener el número máximo actual de recibo
+    const [maxNum] = await connection.query('SELECT MAX(numero) as maxNum FROM fondocampeonato');
+    let numeroRecibo = (maxNum[0]?.maxNum || 0) + 1;
+    
+    // Calcular el monto por cuota
+    const montoPorCuota = monto / cuotas.length;
+    
+    // Crear un recibo por cada cuota
+    for (const cuota of cuotas) {
+      const paymentData = {
+        idjugador,
+        monto: montoPorCuota,
+        cuota_paga: cuota,
+        anio: currentYear,
+        fecha: currentDate,
+        observaciones: observaciones || null,
+        idusuario,
+        numero: numeroRecibo,
+      };
+      
+      await connection.query('INSERT INTO fondocampeonato SET ?', paymentData);
+      numeroRecibo++; // Incrementar para el siguiente recibo
+    }
+    
+    await connection.commit();
+    res.json({ 
+      message: `${cuotas.length} recibo(s) de fondo de campeonato creado(s) correctamente`,
+      cuotas_pagadas: cuotas 
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error creando recibos de FC múltiples:', error);
+    res.status(500).json({ error: 'Error del servidor', details: error.message });
+  } finally {
+    connection.release();
   }
 });
 
@@ -1233,7 +1900,7 @@ setTimeout(insertDefaultValores, 1000);
 // Obtener valores actuales
 app.get('/valores', async (req, res) => {
   try {
-    const [valores] = await db.query('SELECT * FROM valores ORDER BY ao DESC LIMIT 1');
+    const [valores] = await db.query('SELECT * FROM valores ORDER BY id DESC LIMIT 1');
     res.json({ valores: valores[0] || null });
   } catch (error) {
     console.error('Error fetching valores:', error);
@@ -1247,20 +1914,20 @@ app.post('/valores', async (req, res) => {
     const { cuota_club, fondo_campeonato, ano, meses_cuotas } = req.body;
     
     // Verificar si ya existe un registro para este año
-    const [existing] = await db.query('SELECT id FROM valores WHERE ao = ?', [ano]);
+    const [existing] = await db.query('SELECT id FROM valores WHERE ano = ?', [ano]);
     
     const mesesJson = JSON.stringify(meses_cuotas || []);
     
     if (existing.length > 0) {
       // Actualizar existente
       await db.query(
-        'UPDATE valores SET cuota_club = ?, fondo_campeonato = ?, meses_cuotas = ? WHERE ao = ?',
+        'UPDATE valores SET cuota_club = ?, fondo_campeonato = ?, meses_cuotas = ? WHERE ano = ?',
         [cuota_club, fondo_campeonato, mesesJson, ano]
       );
     } else {
       // Crear nuevo
       await db.query(
-        'INSERT INTO valores (cuota_club, fondo_campeonato, ao, meses_cuotas) VALUES (?, ?, ?, ?)',
+        'INSERT INTO valores (cuota_club, fondo_campeonato, ano, meses_cuotas) VALUES (?, ?, ?, ?)',
         [cuota_club, fondo_campeonato, ano, mesesJson]
       );
     }
@@ -1280,7 +1947,20 @@ app.get('/fixture', async (req, res) => {
       SELECT f.*, c.nombre_categoria 
       FROM fixture f 
       LEFT JOIN categoria c ON f.categoria_id = c.idcategoria 
-      ORDER BY c.nombre_categoria
+      ORDER BY CASE c.nombre_categoria
+        WHEN 'ABEJAS' THEN 1
+        WHEN 'GRILLOS' THEN 2
+        WHEN 'CHATAS' THEN 3
+        WHEN 'CHURRINCHES' THEN 4
+        WHEN 'GORRIONES' THEN 5
+        WHEN 'SEMILLAS' THEN 6
+        WHEN 'CEBOLLAS' THEN 7
+        WHEN 'BABYS' THEN 8
+        WHEN 'SUB9' THEN 9
+        WHEN 'SUB11' THEN 10
+        WHEN 'SUB13' THEN 11
+        ELSE 99
+      END
     `);
     res.json({ fixture });
   } catch (error) {
@@ -1296,7 +1976,20 @@ app.get('/fixture/categorias', async (req, res) => {
       SELECT idcategoria, nombre_categoria 
       FROM categoria 
       WHERE visible = 1 AND nombre_categoria != 'SIN FICHAR'
-      ORDER BY nombre_categoria
+      ORDER BY CASE nombre_categoria
+        WHEN 'ABEJAS' THEN 1
+        WHEN 'GRILLOS' THEN 2
+        WHEN 'CHATAS' THEN 3
+        WHEN 'CHURRINCHES' THEN 4
+        WHEN 'GORRIONES' THEN 5
+        WHEN 'SEMILLAS' THEN 6
+        WHEN 'CEBOLLAS' THEN 7
+        WHEN 'BABYS' THEN 8
+        WHEN 'SUB9' THEN 9
+        WHEN 'SUB11' THEN 10
+        WHEN 'SUB13' THEN 11
+        ELSE 99
+      END
     `);
     res.json({ categorias });
   } catch (error) {
@@ -1308,7 +2001,7 @@ app.get('/fixture/categorias', async (req, res) => {
 // Actualizar fixture para una categoría específica
 app.post('/fixture', async (req, res) => {
   try {
-    const { categoria_id, categoria_nombre, proximo_partido, ultimo_resultado, horario } = req.body;
+    const { categoria_id, categoria_nombre, proximo_partido, ultimo_resultado } = req.body;
     
     // Verificar si ya existe un registro para esta categoría
     const [existing] = await db.query('SELECT id FROM fixture WHERE categoria_id = ?', [categoria_id]);
@@ -1319,14 +2012,14 @@ app.post('/fixture', async (req, res) => {
     if (existing.length > 0) {
       // Actualizar existente
       await db.query(
-        'UPDATE fixture SET categoria_nombre = ?, proximo_partido = ?, ultimo_resultado = ?, horario = ? WHERE categoria_id = ?',
-        [categoria_nombre, proximoJson, ultimoJson, horario, categoria_id]
+        'UPDATE fixture SET categoria_nombre = ?, proximo_partido = ?, ultimo_resultado = ? WHERE categoria_id = ?',
+        [categoria_nombre, proximoJson, ultimoJson, categoria_id]
       );
     } else {
       // Crear nuevo
       await db.query(
-        'INSERT INTO fixture (categoria_id, categoria_nombre, proximo_partido, ultimo_resultado, horario) VALUES (?, ?, ?, ?, ?)',
-        [categoria_id, categoria_nombre, proximoJson, ultimoJson, horario]
+        'INSERT INTO fixture (categoria_id, categoria_nombre, proximo_partido, ultimo_resultado) VALUES (?, ?, ?, ?)',
+        [categoria_id, categoria_nombre, proximoJson, ultimoJson]
       );
     }
     
@@ -1342,24 +2035,50 @@ app.post('/fixture/bulk', async (req, res) => {
   try {
     const { fixtures } = req.body; // Array de fixtures
     
-    // Eliminar todos los registros existentes
-    await db.query('DELETE FROM fixture');
+    if (!fixtures || !Array.isArray(fixtures)) {
+      return res.status(400).json({ error: 'Datos de fixtures inválidos' });
+    }
     
-    // Insertar todos los nuevos registros
+    console.log('Updating fixtures:', fixtures.length, 'fixtures received');
+    
+    // Procesar cada fixture individualmente con UPSERT
     for (const fixture of fixtures) {
-      const proximoJson = JSON.stringify(fixture.proximo_partido || {});
-      const ultimoJson = JSON.stringify(fixture.ultimo_resultado || {});
+      const { categoria_id, categoria_nombre, proximo_partido, ultimo_resultado } = fixture;
       
-      await db.query(
-        'INSERT INTO fixture (categoria_id, categoria_nombre, proximo_partido, ultimo_resultado, horario) VALUES (?, ?, ?, ?, ?)',
-        [fixture.categoria_id, fixture.categoria_nombre, proximoJson, ultimoJson, fixture.horario]
-      );
+      // Validar datos básicos
+      if (!categoria_id || !categoria_nombre) {
+        console.warn('Fixture sin categoria_id o categoria_nombre:', fixture);
+        continue; // Saltar este fixture
+      }
+      
+      const proximoJson = JSON.stringify(proximo_partido || {});
+      const ultimoJson = JSON.stringify(ultimo_resultado || {});
+      
+      // Verificar si existe
+      const [existing] = await db.query('SELECT id FROM fixture WHERE categoria_id = ?', [categoria_id]);
+      
+      if (existing.length > 0) {
+        // Actualizar existente
+        await db.query(
+          'UPDATE fixture SET categoria_nombre = ?, proximo_partido = ?, ultimo_resultado = ? WHERE categoria_id = ?',
+          [categoria_nombre, proximoJson, ultimoJson, categoria_id]
+        );
+        console.log('Updated fixture for:', categoria_nombre);
+      } else {
+        // Insertar nuevo
+        await db.query(
+          'INSERT INTO fixture (categoria_id, categoria_nombre, proximo_partido, ultimo_resultado) VALUES (?, ?, ?, ?)',
+          [categoria_id, categoria_nombre, proximoJson, ultimoJson]
+        );
+        console.log('Inserted new fixture for:', categoria_nombre);
+      }
     }
     
     res.json({ success: true, message: 'Fixtures actualizados correctamente' });
   } catch (error) {
     console.error('Error updating fixtures:', error);
-    res.status(500).json({ error: 'Error al actualizar fixtures' });
+    console.error('Error details:', error.message);
+    res.status(500).json({ error: 'Error al actualizar fixtures', details: error.message });
   }
 });
 
@@ -1395,6 +2114,50 @@ app.get('/cumples', async (req, res) => {
     res.status(500).json({ error: 'Error al obtener cumpleaños' });
   }
 });
+
+// Configurar cron job para actualizar estados automáticamente
+// Se ejecuta el día 11 de cada mes a las 00:05
+cron.schedule('5 0 11 * *', async () => {
+  console.log('🔄 [CRON] Iniciando actualización automática de estados de jugadores...');
+  const connection = await db.getConnection();
+  
+  try {
+    // Obtener todos los jugadores de categorías activas (excepto exonerados)
+    const [players] = await connection.query(`
+      SELECT j.idjugador, j.idcategoria
+      FROM jugador j
+      LEFT JOIN categoria c ON j.idcategoria = c.idcategoria
+      WHERE c.visible = 1 AND j.idestado != 3
+    `);
+    
+    let jugadoresActualizados = 0;
+    const categoriasAfectadas = new Set();
+    
+    // Actualizar el estado de cada jugador
+    for (const player of players) {
+      await updatePlayerState(connection, player.idjugador);
+      categoriasAfectadas.add(player.idcategoria);
+      jugadoresActualizados++;
+    }
+    
+    // Actualizar el estado de todas las categorías afectadas
+    let categoriasActualizadas = 0;
+    for (const categoriaId of categoriasAfectadas) {
+      await updateCategoryState(connection, categoriaId);
+      categoriasActualizadas++;
+    }
+    
+    console.log(`✅ [CRON] Actualización completa: ${jugadoresActualizados} jugadores, ${categoriasActualizadas} categorías`);
+  } catch (error) {
+    console.error('❌ [CRON] Error actualizando estados:', error);
+  } finally {
+    connection.release();
+  }
+}, {
+  timezone: "America/Montevideo" // UTC-3 (Uruguay)
+});
+
+console.log('⏰ Cron job configurado: actualización de estados el día 11 de cada mes a las 00:05 (Uruguay)');
 
 app.listen(port, () => {
   console.log(`Servidor escuchando en http://localhost:${port}`);

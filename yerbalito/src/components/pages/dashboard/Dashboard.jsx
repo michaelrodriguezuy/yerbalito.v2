@@ -3,6 +3,7 @@ import CategoryList from "./CategoryList";
 import UserList from "./UserList";
 import ValoresManager from "./ValoresManager";
 import FixtureManager from "./FixtureManager";
+import ContentManager from "./ContentManager";
 import { Box, Button, Typography, Paper } from "@mui/material";
 import { useState } from "react";
 
@@ -19,6 +20,8 @@ const Dashboard = () => {
         return <ValoresManager />;
       case "fixture":
         return <FixtureManager />;
+      case "content":
+        return <ContentManager />;
       case "players":
       default:
         return <PlayerList />;
@@ -153,6 +156,22 @@ const Dashboard = () => {
                   }}
                 >
                   Fixture
+                </Button>
+                <Button 
+                  variant="contained" 
+                  onClick={() => setCurrentView("content")}
+                  sx={{
+                    backgroundColor: currentView === "content" ? "#4CAF50" : "rgba(255,255,255,0.1)",
+                    color: "white",
+                    fontWeight: "bold",
+                    borderRadius: "20px",
+                    px: 3,
+                    "&:hover": {
+                      backgroundColor: currentView === "content" ? "#388E3C" : "rgba(255,255,255,0.2)"
+                    }
+                  }}
+                >
+                  Contenido
                 </Button>
               </Box>
 

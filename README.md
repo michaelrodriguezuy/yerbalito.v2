@@ -25,6 +25,7 @@ Sistema web completo para la gestión del Club Yerbalito de Baby Fútbol, desarr
 - Nodemailer para envío de correos
 - CORS para manejo de peticiones cross-origin
 - MySQL2 para conexión a base de datos
+- node-cron para tareas programadas (actualización automática de estados)
 
 ### Infraestructura
 - Docker & Docker Compose
@@ -325,6 +326,51 @@ docker-compose restart backend
 # Reconstruir frontend si hay problemas de UI
 docker-compose build --no-cache frontend
 ```
+
+## Sistema de Actualización Automática de Estados
+
+El sistema incluye un **cron job** que se ejecuta automáticamente el **día 11 de cada mes a las 00:05 (hora Uruguay)** para actualizar los estados de jugadores y categorías.
+
+### Funcionamiento
+
+1. **Actualización automática de jugadores:**
+   - Verifica si cada jugador tiene pagado el **mes anterior (mes vencido)**
+   - Si NO lo tiene pagado y ya pasó el día 10 del mes actual → `estado = 1` (Deshabilitado)
+   - Si lo tiene pagado → `estado = 2` (Habilitado)
+   - Los jugadores con `estado = 3` (Exonerado) NO se modifican
+
+2. **Actualización automática de categorías:**
+   - Si hay al menos 1 jugador deshabilitado → `categoria.idestado = 5`
+   - Si todos los jugadores están habilitados → `categoria.idestado = 6`
+
+3. **Actualización manual:**
+   ```bash
+   # También puedes actualizar manualmente en cualquier momento:
+   curl http://localhost:5001/update-player-states
+   ```
+
+### Lógica de Estados (Cuota a Mes Vencido)
+
+**Ejemplo:**
+- Hoy es 15 de Noviembre
+- Mes vencido: Octubre
+- Jugador debe: Agosto, Septiembre, Octubre
+- Jugador paga: Agosto
+
+**Resultado:** Como NO pagó Octubre (mes vencido), queda en `estado = 1` (Deshabilitado)
+
+**Importante:** El sistema solo verifica el **mes anterior**, no todos los meses adeudados. Un jugador puede deber varios meses anteriores, pero si tiene pagado el mes vencido, estará habilitado.
+
+### Estados de Jugadores
+
+- **Estado 1 (Deshabilitado):** No tiene el mes anterior pagado
+- **Estado 2 (Habilitado):** Tiene el mes anterior pagado
+- **Estado 3 (Exonerado):** No paga cuota del club (manual, solo vía Dashboard)
+
+### Estados de Categorías
+
+- **Estado 5:** Hay jugadores deshabilitados en la categoría
+- **Estado 6:** No hay jugadores deshabilitados en la categoría
 
 ### Credenciales de prueba
 - **Admin**: admin@gmail.com / yago4356

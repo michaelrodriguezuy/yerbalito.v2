@@ -169,3 +169,26 @@ body {
   padding: 3rem;
   color: rgba(255, 255, 255, 0.8);
 }
+
+/* Estilos para Sonner Toasts - Prioridad máxima sobre modales (z-index 10000) */
+[data-sonner-toaster] {
+  z-index: 10000 !important;
+  position: fixed !important;
+}
+
+[data-sonner-toast],
+.sonner-toast-high-z {
+  z-index: 10000 !important;
+  position: relative;
+}
+
+/* Asegurar que el portal de toasts tenga z-index alto */
+#sonner-toaster,
+body > [data-sonner-toaster] {
+  z-index: 10000 !important;
+}
+
+/* Asegurar que los toasts individuales también tengan z-index alto */
+[data-sonner-toast] {
+  z-index: 10000 !important;
+}

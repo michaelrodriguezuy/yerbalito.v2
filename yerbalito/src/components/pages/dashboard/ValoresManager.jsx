@@ -46,7 +46,7 @@ const ValoresManager = () => {
         setValores({
           cuota_club: valoresData.cuota_club ?? "",
           fondo_campeonato: valoresData.fondo_campeonato ?? "",
-          ano: valoresData.ao ?? new Date().getFullYear(),
+          ano: valoresData.ano ?? new Date().getFullYear(),
           meses_cuotas: valoresData.meses_cuotas || [
             3, 4, 5, 6, 7, 8, 9, 10, 11,
           ],
@@ -142,7 +142,7 @@ const ValoresManager = () => {
         año seleccionado. Estos valores se utilizarán al crear recibos de pago.
       </Alert>
 
-      <Card sx={{ mb: 3 }}>
+      
         <CardContent>
           <Typography variant="h6" gutterBottom>
             Valores para {valores.ano}
@@ -299,7 +299,7 @@ const ValoresManager = () => {
             </Button>
           </Box>
         </CardContent>
-      </Card>
+      
 
       <Alert
         severity="warning"

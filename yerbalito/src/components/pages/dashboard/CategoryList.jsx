@@ -14,6 +14,8 @@ import {
   IconButton,
   Tooltip,
   styled,
+  CircularProgress,
+  Typography,
 } from "@mui/material";
 import TableCell, { tableCellClasses } from "@mui/material/TableCell";
 
@@ -68,6 +70,7 @@ const CategoryList = () => {
   const [isChange, setIsChange] = useState(false);
   const [open, setOpen] = useState(false);
   const [categorySelected, setCategorySelected] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setIsChange(false);
@@ -142,6 +145,7 @@ const CategoryList = () => {
 
   const fetchAllCategory = async () => {
     try {
+      setLoading(true);
       const response = await axios.get(API_ENDPOINTS.CATEGORIES_ALL, {
         headers: { 'x-role': user?.rol || 'usuario' },
         params: user?.rol === 'admin' ? { role: 'admin' } : {}
@@ -157,8 +161,10 @@ const CategoryList = () => {
         })
       );
       setCategories(formattedResponse);
+      setLoading(false);
     } catch (error) {
       console.error("Error fetching categories: ", error);
+      setLoading(false);
     }
   };
 
@@ -215,7 +221,25 @@ const CategoryList = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {categories.map((category) => (
+            {loading ? (
+              <StyledTableRow>
+                <StyledTableCell colSpan={6} align="center" style={{ padding: "40px" }}>
+                  <CircularProgress style={{ color: "#4CAF50" }} />
+                  <Typography variant="body1" style={{ marginTop: "20px" }}>
+                    Cargando categorías...
+                  </Typography>
+                </StyledTableCell>
+              </StyledTableRow>
+            ) : categories.length === 0 ? (
+              <StyledTableRow>
+                <StyledTableCell colSpan={6} align="center" style={{ padding: "40px" }}>
+                  <Typography variant="body1">
+                    No se encontraron categorías
+                  </Typography>
+                </StyledTableCell>
+              </StyledTableRow>
+            ) : (
+              categories.map((category) => (
               <StyledTableRow key={category.idcategoria}>
                 <StyledTableCell align="center">
                   {category.nombre_categoria}
@@ -247,7 +271,8 @@ const CategoryList = () => {
                   </IconButton>
                 </StyledTableCell>
               </StyledTableRow>
-            ))}
+              ))
+            )}
           </TableBody>
         </Table>
       </TableContainer>

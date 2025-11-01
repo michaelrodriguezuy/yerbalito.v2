@@ -11,3 +11,157 @@ notepad:
     - "SELECT COUNT(*) FROM recibo WHERE categoria_id = 2;"
     - "DELETE FROM hermanos WHERE id = ?;"
     - "ALTER TABLE jugador ADD COLUMN foto_url VARCHAR(255);"
+
+  Algunas tablas mas importantes:
+    mysql> describe jugador;
++----------------------+--------------+------+-----+---------+----------------+
+| Field                | Type         | Null | Key | Default | Extra          |
++----------------------+--------------+------+-----+---------+----------------+
+| idjugador            | int          | NO   | PRI | NULL    | auto_increment |
+| nombre               | varchar(30)  | NO   |     | NULL    |                |
+| apellido             | varchar(50)  | NO   |     | NULL    |                |
+| fecha_nacimiento     | date         | NO   |     | NULL    |                |
+| cedula               | bigint       | NO   |     | NULL    |                |
+| imagen               | varchar(200) | YES  |     | NULL    |                |
+| padre                | varchar(50)  | YES  |     | NULL    |                |
+| madre                | varchar(50)  | YES  |     | NULL    |                |
+| contacto             | varchar(9)   | YES  |     | NULL    |                |
+| fecha_ingreso        | date         | YES  |     | NULL    |                |
+| idcategoria          | int          | NO   |     | NULL    |                |
+| idestado             | int          | NO   |     | 1       |                |
+| observacionesJugador | varchar(500) | YES  |     | NULL    |                |
+| numeroClub           | bigint       | YES  |     | NULL    |                |
+| sexo                 | varchar(20)  | YES  |     | NULL    |                |
+| ciudadania           | varchar(100) | NO   |     | Uruguay |                |
++----------------------+--------------+------+-----+---------+----------------+
+16 rows in set (0.00 sec)
+
+mysql> describe hermanos;
++-----------+------+------+-----+---------+----------------+
+| Field     | Type | Null | Key | Default | Extra          |
++-----------+------+------+-----+---------+----------------+
+| id        | int  | NO   | PRI | NULL    | auto_increment |
+| idjugador | int  | NO   | MUL | NULL    |                |
+| idhermano | int  | NO   | MUL | NULL    |                |
++-----------+------+------+-----+---------+----------------+
+3 rows in set (0.01 sec)
+
+mysql> describe recibo;
++---------------------+---------------+------+-----+---------+----------------+
+| Field               | Type          | Null | Key | Default | Extra          |
++---------------------+---------------+------+-----+---------+----------------+
+| idrecibo            | int           | NO   | PRI | NULL    | auto_increment |
+| numero              | bigint        | NO   |     | NULL    |                |
+| mes_pago            | int           | NO   |     | NULL    |                |
+| monto               | decimal(10,0) | NO   |     | NULL    |                |
+| fecha_recibo        | date          | NO   |     | NULL    |                |
+| idjugador           | int           | YES  |     | NULL    |                |
+| idlibreta           | int           | YES  |     | NULL    |                |
+| anio                | int           | NO   |     | NULL    |                |
+| observacionesRecibo | varchar(500)  | YES  |     | NULL    |                |
+| visible             | tinyint(1)    | NO   |     | 1       |                |
+| idusuario           | int           | NO   |     | NULL    |                |
++---------------------+---------------+------+-----+---------+----------------+
+11 rows in set (0.01 sec)
+
+mysql> describe fondocampeonato;
++---------------+---------------+------+-----+---------+----------------+
+| Field         | Type          | Null | Key | Default | Extra          |
++---------------+---------------+------+-----+---------+----------------+
+| id_fondo      | int           | NO   | PRI | NULL    | auto_increment |
+| numero        | int           | NO   |     | NULL    |                |
+| fecha         | date          | NO   |     | NULL    |                |
+| anio          | int           | NO   |     | NULL    |                |
+| cuota_paga    | int           | NO   |     | NULL    |                |
+| monto         | decimal(10,0) | NO   |     | NULL    |                |
+| idjugador     | int           | NO   |     | NULL    |                |
+| idusuario     | int           | NO   |     | NULL    |                |
+| observaciones | varchar(200)  | YES  |     | NULL    |                |
++---------------+---------------+------+-----+---------+----------------+
+9 rows in set (0.02 sec)
+
+mysql> describe valores;
++------------------+---------------+------+-----+-------------------+-----------------------------------------------+
+| Field            | Type          | Null | Key | Default           | Extra                                         |
++------------------+---------------+------+-----+-------------------+-----------------------------------------------+
+| id               | int           | NO   | PRI | NULL              | auto_increment                                |
+| cuota_club       | decimal(10,2) | NO   |     | NULL              |                                               |
+| fondo_campeonato | decimal(10,2) | NO   |     | NULL              |                                               |
+| ano              | int           | YES  | UNI | NULL              |                                               |
+| meses_cuotas     | json          | YES  |     | NULL              |                                               |
+| created_at       | timestamp     | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updated_at       | timestamp     | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++------------------+---------------+------+-----+-------------------+-----------------------------------------------+
+7 rows in set (0.01 sec)
+
+mysql> describe blog;
++---------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| Field               | Type         | Null | Key | Default           | Extra                                         |
++---------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| idblog              | int          | NO   | PRI | NULL              | auto_increment                                |
+| titulo              | varchar(255) | NO   |     | NULL              |                                               |
+| contenido           | text         | NO   |     | NULL              |                                               |
+| fecha_creacion      | datetime     | NO   |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| fecha_actualizacion | datetime     | NO   |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| autor               | varchar(100) | NO   |     | NULL              |                                               |
+| imagen              | varchar(255) | YES  |     | NULL              |                                               |
+| visible             | tinyint(1)   | NO   |     | 1                 |                                               |
++---------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+8 rows in set (0.01 sec)
+
+mysql> describe fixture;
++------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| Field            | Type         | Null | Key | Default           | Extra                                         |
++------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| id               | int          | NO   | PRI | NULL              | auto_increment                                |
+| categoria_id     | int          | NO   | MUL | NULL              |                                               |
+| categoria_nombre | varchar(100) | NO   |     | NULL              |                                               |
+| proximo_partido  | json         | YES  |     | NULL              |                                               |
+| ultimo_resultado | json         | YES  |     | NULL              |                                               |
+| created_at       | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updated_at       | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+7 rows in set (0.01 sec)
+
+mysql> describe hermanos;
++-----------+------+------+-----+---------+----------------+
+| Field     | Type | Null | Key | Default | Extra          |
++-----------+------+------+-----+---------+----------------+
+| id        | int  | NO   | PRI | NULL    | auto_increment |
+| idjugador | int  | NO   | MUL | NULL    |                |
+| idhermano | int  | NO   | MUL | NULL    |                |
++-----------+------+------+-----+---------+----------------+
+3 rows in set (0.03 sec)
+
+mysql> select * from estado;
++----------+---------------+
+| idestado | tipo_estado   |
++----------+---------------+
+|        1 | Deshabilitado |
+|        2 | Habilitado    |
+|        3 | Exonerado     |
+|        5 | Deuda         |
+|        6 | Al dia        |
+|        7 | ********      |
++----------+---------------+
+6 rows in set (0.00 sec)
+
+mysql> select * from categoria;
++-------------+-----------------------+--------------------+-------------+----------+------+---------+
+| idcategoria | nombre_categoria      | tecnico            | telefono    | idestado | edad | visible |
++-------------+-----------------------+--------------------+-------------+----------+------+---------+
+|           1 | ABEJAS(2019)          | JULIO MARTINEZ     | 095 524 038 |        5 |    6 |       1 |
+|           2 | GRILLOS(2018)         | WILINTON RODRIGUEZ | 091 808 022 |        5 |    7 |       1 |
+|           3 | CHATAS(2017)          | MATIAS DENIS       | 091 522 218 |        5 |    8 |       1 |
+|           4 | CHURRINCHES(2016)     | NICOLAS OLIVERA    | 098 215 673 |        5 |    9 |       1 |
+|           5 | GORRIONES(2015)       | GUILLERMO ABOGADRO | 091 451 214 |        5 |   10 |       1 |
+|           6 | SEMILLAS(2014)        | PABLO CUENCA       | 091 653 281 |        5 |   11 |       1 |
+|           7 | CEBOLLAS(2013)        | JULIO MARTINEZ     | 095 524 038 |        5 |   12 |       1 |
+|           8 | BABYS(2012)           | MANUEL MEDINA      | 095 154 043 |        5 |   13 |       1 |
+|           9 | SIN FICHAR            |                    |             |        5 |    5 |       0 |
+|          10 | EX JUGADORES          |                    | NULL        |        5 |   14 |       0 |
+|          11 | SUB9 (2016-2017-2018) | PEDRO VILLAR       |             |        5 |    9 |       1 |
+|          12 | SUB11 (2014-2015)     | KATHERINE ALVAREZ  | 098 191 648 |        5 |   11 |       1 |
+|          13 | SUB13 (2012-2013)     | MARCELA FERREIRA   | 091 749 397 |        5 |   13 |       1 |
++-------------+-----------------------+--------------------+-------------+----------+------+---------+
+13 rows in set (0.02 sec)

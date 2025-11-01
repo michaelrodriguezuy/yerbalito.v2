@@ -1,6 +1,6 @@
 import { AreaChartCuotas } from "../../layout/reports/Cuotas";
 import { BarChartFC } from "../../layout/reports/FC";
-import { BarListCantxCategoria } from "../../layout/reports/CantidadesXcat";
+import { CantidadesXcat } from "../../layout/reports/CantidadesXcat";
 import { BarChartCuotasYfcXcategoria } from "../../layout/reports/CyFCxCat";
 import { Card } from "@tremor/react";
 import { Paper, Box, Typography } from "@mui/material";
@@ -45,7 +45,7 @@ const Reports = () => {
           elevation={3}
           className="content-paper slide-up"
           sx={{
-            backgroundColor: "rgba(0, 0, 0, 0.2)",
+            backgroundColor: "rgba(255, 255, 255, 0.05)",
             padding: "40px",
             maxWidth: "95%",
             margin: "0 auto",
@@ -55,33 +55,66 @@ const Reports = () => {
           }}
         >
         
-        <div className="grid grid-cols-1 gap-4 max-w-5xl mx-auto px-4" style={{ 
+        {/* Grid de 2x2 en pantallas grandes, 1 columna en móviles */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-7xl mx-auto px-4" style={{ 
           paddingBottom: "10px"
         }}>
-          <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300" decoration="top" decorationColor="blue">
+          <Card 
+            className="shadow-lg hover:shadow-xl transition-shadow duration-300" 
+            decoration="top" 
+            decorationColor="blue"
+            style={{ 
+              backgroundColor: '#FFFFFF',
+              minHeight: '500px'
+            }}
+          >
             <div className="p-4">
-              <h2 className="text-lg font-semibold mb-3 text-white-800 border-b pb-1">Cuotas del club por mes, por categoría</h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-800 border-b border-gray-300 pb-2">Cuotas del club por mes, por categoría</h2>
               <AreaChartCuotas />
             </div>
           </Card>
 
-          <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300" decoration="top" decorationColor="green">
+          <Card 
+            className="shadow-lg hover:shadow-xl transition-shadow duration-300" 
+            decoration="top" 
+            decorationColor="green"
+            style={{ 
+              backgroundColor: '#FFFFFF',
+              minHeight: '500px'
+            }}
+          >
             <div className="p-4">
-              <h2 className="text-lg font-semibold mb-3 text-white-800 border-b pb-1">Fondo de campeonato</h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-800 border-b border-gray-300 pb-2">Fondo de campeonato</h2>
               <BarChartFC />
             </div>
           </Card>
           
-          <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300" decoration="top" decorationColor="orange">
+          <Card 
+            className="shadow-lg hover:shadow-xl transition-shadow duration-300" 
+            decoration="top" 
+            decorationColor="orange"
+            style={{ 
+              backgroundColor: '#FFFFFF',
+              minHeight: '500px'
+            }}
+          >
             <div className="p-4">
-              <h2 className="text-lg font-semibold mb-3 text-white-800 border-b pb-1">Cantidad de jugador@s por categoría</h2>
-              <BarListCantxCategoria />
+              <h2 className="text-lg font-semibold mb-3 text-gray-800 border-b border-gray-300 pb-2">Cantidad de jugador@s por categoría</h2>
+              <CantidadesXcat />
             </div>
           </Card>
           
-          <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300" decoration="top" decorationColor="purple">
+          <Card 
+            className="shadow-lg hover:shadow-xl transition-shadow duration-300" 
+            decoration="top" 
+            decorationColor="purple"
+            style={{ 
+              backgroundColor: '#FFFFFF',
+              minHeight: '500px'
+            }}
+          >
             <div className="p-4">
-              <h2 className="text-lg font-semibold mb-3 text-white-800 border-b pb-1">Cuotas y Fondo de campeonato porcentual, por categoría</h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-800 border-b border-gray-300 pb-2">Cuotas y Fondo de campeonato porcentual, por categoría</h2>
               <BarChartCuotasYfcXcategoria />
             </div>
           </Card>

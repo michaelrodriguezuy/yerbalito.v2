@@ -1,387 +1,207 @@
 import { API_ENDPOINTS } from "../../../config/api";
-import { LineChart, Card } from "@tremor/react";
 import { useEffect, useState } from "react";
 import axios from "axios";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import { Card } from "@tremor/react";
 
-// const chartdata = [
-//   {
-//     date: "Mar",
-//     Abejas: 3322,
-//     Grillos: 2194,
-//     Chatas: 2397,
-//     Churrinches: 3346,
-//     Gorriones: 1656,
-//     Semillas: 3444,
-//     Cebollas: 2333,
-//     Babys: 2777,
-//     "Sub 9": 1334,
-//     "Sub 11": 2956,
-//     "Sub 13": 1989,
-//   },
-//   {
-//     date: "Apr",
-//     Abejas: 3470,
-//     Grillos: 2108,
-//     Chatas: 1987,
-//     Churrinches: 3456,
-//     Gorriones: 2345,
-//     Semillas: 3456,
-//     Cebollas: 1421,
-//     Babys: 988,
-//     "Sub 9": 1124,
-//     "Sub 11": 2412,
-//     "Sub 13": 990,
-//   },
-//   {
-//     date: "May",
-//     Abejas: 3475,
-//     Grillos: 1812,
-//     Chatas: 1892,
-//     Churrinches: 2345,
-//     Gorriones: 1644,
-//     Semillas: 1545,
-//     Cebollas: 1333,
-//     Babys: 986,
-//     "Sub 9": 860,
-//     "Sub 11": 1050,
-//     "Sub 13": 1130,
-//   },
-//   {
-//     date: "Jun",
-//     Abejas: 3129,
-//     Grillos: 1726,
-//     Chatas: 4565,
-//     Churrinches: 650,
-//     Gorriones: 6232,
-//     Semillas: 680,
-//     Cebollas: 1460,
-//     Babys: 2001,
-//     "Sub 9": 2160,
-//     "Sub 11": 2250,
-//     "Sub 13": 2360,
-//   },
-//   {
-//     date: "Jul",
-//     Abejas: 3490,
-//     Grillos: 1982,
-//     Chatas: 996,
-//     Churrinches: 890,
-//     Gorriones: 1068,
-//     Semillas: 2068,
-//     Cebollas: 3068,
-//     Babys: 3454,
-//     "Sub 9": 3420,
-//     "Sub 11": 2290,
-//     "Sub 13": 2305,
-//   },
-//   {
-//     date: "Aug",
-//     Abejas: 2903,
-//     Grillos: 2012,
-//     Chatas: 2345,
-//     Churrinches: 2345,
-//     Gorriones: 2345,
-//     Semillas: 2345,
-//     Cebollas: 2345,
-//     Babys: 2345,
-//     "Sub 9": 2345,
-//     "Sub 11": 2345,
-//     "Sub 13": 2345,
-//   },
-//   {
-//     date: "Sep",
-//     Abejas: 2643,
-//     Grillos: 2342,
-//     Chatas: 2345,
-//     Churrinches: 2345,
-//     Gorriones: 2345,
-//     Semillas: 2345,
-//     Cebollas: 2345,
-//     Babys: 2345,
-//     "Sub 9": 2345,
-//     "Sub 11": 2345,
-//     "Sub 13": 2345,
-//   },
-//   {
-//     date: "Oct",
-//     Abejas: 2837,
-//     Grillos: 2473,
-//     Chatas: 2345,
-//     Churrinches: 2345,
-//     Gorriones: 2345,
-//     Semillas: 2345,
-//     Cebollas: 1122,
-//     Babys: 2345,
-//     "Sub 9": 2343,
-//     "Sub 11": 2345,
-//     "Sub 13": 2345,
-//   },
-//   {
-//     date: "Nov",
-//     Abejas: 2954,
-//     Grillos: 3848,
-//     Chatas: 2345,
-//     Churrinches: 2345,
-//     Gorriones: 2345,
-//     Semillas: 2345,
-//     Cebollas: 2345,
-//     Babys: 2332,
-//     "Sub 9": 1122,
-//     "Sub 11": 653,
-//     "Sub 13": 2345,
-//   },
-// ];
+const COLORES_CATEGORIAS = [
+  "#4F46E5", // indigo
+  "#06B6D4", // cyan
+  "#F59E0B", // amber
+  "#10B981", // emerald
+  "#EF4444", // red
+  "#8B5CF6", // violet
+  "#EC4899", // pink
+  "#F97316", // orange
+  "#14B8A6", // teal
+  "#6366F1", // indigo-500
+  "#0EA5E9", // sky
+];
+
+const MESES_NOMBRES = {
+  "Enero": 1,
+  "Febrero": 2,
+  "Marzo": 3,
+  "Abril": 4,
+  "Mayo": 5,
+  "Junio": 6,
+  "Julio": 7,
+  "Agosto": 8,
+  "Septiembre": 9,
+  "Octubre": 10,
+  "Noviembre": 11,
+  "Diciembre": 12,
+};
 
 export function AreaChartCuotas() {
-  const [categories, setCategories] = useState([]);
   const [chartdata, setChartdata] = useState([]);
+  const [categoryNames, setCategoryNames] = useState([]);
   // Estados para los contadores animados
   const [totalMes, setTotalMes] = useState(0);
   const [totalAnio, setTotalAnio] = useState(0);
   const [contadorMes, setContadorMes] = useState(0);
   const [contadorAnio, setContadorAnio] = useState(0);
-  const [mesSeleccionado, setMesSeleccionado] = useState("Actual");
   const [isAnimatingMes, setIsAnimatingMes] = useState(false);
   const [isAnimatingAnio, setIsAnimatingAnio] = useState(false);
 
-  const colors = [
-    "indigo",
-    "cyan",
-    "amber",
-    "rose",
-    "blue",
-    "fuchsia",
-    "red",
-    "lime",
-    "violet",
-    "green",
-    "pink",
-  ];
+  useEffect(() => {
+    fetchPayments();
+  }, []);
 
-  const fetchCategories = async () => {
-    try {
-      const response = await axios.get(API_ENDPOINTS.CATEGORIES);
-      setCategories(response.data.categorias);
-    } catch (error) {
-      console.error("Error fetching categories: ", error);
+  // Animación contador mes
+  useEffect(() => {
+    if (isAnimatingMes && contadorMes < totalMes) {
+      const timer = setTimeout(() => {
+        const incremento = Math.ceil((totalMes - contadorMes) / 10);
+        setContadorMes(Math.min(contadorMes + incremento, totalMes));
+      }, 30);
+      return () => clearTimeout(timer);
+    } else if (contadorMes >= totalMes) {
+      setIsAnimatingMes(false);
     }
-  };
-  
-  const fetchCuotasXCat = async () => {
+  }, [contadorMes, totalMes, isAnimatingMes]);
+
+  // Animación contador año
+  useEffect(() => {
+    if (isAnimatingAnio && contadorAnio < totalAnio) {
+      const timer = setTimeout(() => {
+        const incremento = Math.ceil((totalAnio - contadorAnio) / 10);
+        setContadorAnio(Math.min(contadorAnio + incremento, totalAnio));
+      }, 30);
+      return () => clearTimeout(timer);
+    } else if (contadorAnio >= totalAnio) {
+      setIsAnimatingAnio(false);
+    }
+  }, [contadorAnio, totalAnio, isAnimatingAnio]);
+
+  const fetchPayments = async () => {
     try {
       const response = await axios.get(API_ENDPOINTS.CUOTAS_X_CAT);
       const payments = response.data.payments;
 
-      // Obtener todas las categorías disponibles
-      const categories = [
-        ...new Set(payments.map((payment) => payment.categoria)),
-      ];
+      if (!payments || payments.length === 0) {
+        return;
+      }
 
-      // Usar nombres de meses abreviados para mejor visualización
-      const mesesDelAnio = [
-        "Ene", "Feb", "Mar", "Abr", "May", "Jun",
-        "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
-      ];
-
-      // Transformar los datos para el formato esperado por el gráfico
-      const chartDataFormatted = {};
-
-      // Pre-inicializar el objeto para todos los meses
-      mesesDelAnio.forEach(mes => {
-        chartDataFormatted[mes] = {};
-      });
-
-      // Mapeo para convertir nombres de meses completos a abreviados
-      const mesMapping = {
-        "Enero": "Ene",
-        "Febrero": "Feb", 
-        "Marzo": "Mar", 
-        "Abril": "Abr", 
-        "Mayo": "May", 
-        "Junio": "Jun",
-        "Julio": "Jul", 
-        "Agosto": "Ago", 
-        "Septiembre": "Sep", 
-        "Octubre": "Oct", 
-        "Noviembre": "Nov", 
-        "Diciembre": "Dic"
-      };
-
+      // Obtener nombres únicos de categorías
+      const categoriesSet = new Set();
       payments.forEach((payment) => {
-        const { categoria, mes, total } = payment;
-        // Convertir el nombre del mes a su versión abreviada
-        const mesAbreviado = mesMapping[mes] || mes;
-        chartDataFormatted[mesAbreviado][categoria] = parseInt(total);
+        if (payment.categoria) {
+          categoriesSet.add(payment.categoria);
+        }
+      });
+      const categories = Array.from(categoriesSet);
+      setCategoryNames(categories);
+
+      // Agrupar datos por mes (el endpoint devuelve "mes" como texto: "Enero", "Febrero", etc.)
+      const monthlyData = {};
+      payments.forEach((payment) => {
+        const mesNombre = payment.mes;
+        if (!mesNombre) return; // Ignorar si no tiene mes
+        
+        const mesNumero = MESES_NOMBRES[mesNombre];
+        if (!mesNumero) return;
+        
+        if (!monthlyData[mesNumero]) {
+          monthlyData[mesNumero] = { date: mesNombre.substring(0, 3), mes: mesNumero };
+        }
+        monthlyData[mesNumero][payment.categoria] = parseInt(payment.total) || 0;
       });
 
-      // Crear un arreglo ordenado para el gráfico
-      const chartDataArray = mesesDelAnio.map((mes) => {
-        const dataObj = { date: mes };
-        categories.forEach((categoria) => {
-          const categoryName = categoria;
-          dataObj[categoryName] = chartDataFormatted[mes][categoryName] || 0;
-        });
-        return dataObj;
-      });
+      // Convertir a array y ordenar por mes
+      const chartArray = Object.values(monthlyData).sort(
+        (a, b) => a.mes - b.mes
+      );
+      setChartdata(chartArray);
 
-      setChartdata(chartDataArray);
-      
-      // Calcular el total por año
-      let totalAnual = 0;
-      chartDataArray.forEach(mes => {
-        categories.forEach(categoria => {
-          totalAnual += mes[categoria] || 0;
-        });
-      });
-      
-      // Obtener el mes actual (para mostrar por defecto)
-      const fechaActual = new Date();
-      const mesActualAbreviado = mesesDelAnio[fechaActual.getMonth()];
-      const mesActualData = chartDataArray.find(item => item.date === mesActualAbreviado);
-      
       // Calcular total del mes actual
-      let totalMesActual = 0;
-      if (mesActualData) {
-        categories.forEach(categoria => {
-          totalMesActual += mesActualData[categoria] || 0;
-        });
-      }
-      
+      const mesActual = new Date().getMonth() + 1;
+      const mesActualNombre = Object.keys(MESES_NOMBRES).find(
+        (key) => MESES_NOMBRES[key] === mesActual
+      );
+      const totalMesActual = payments
+        .filter((p) => p.mes === mesActualNombre)
+        .reduce((acc, p) => acc + (parseInt(p.total) || 0), 0);
       setTotalMes(totalMesActual);
-      setTotalAnio(totalAnual);
-      setMesSeleccionado(mesActualAbreviado);
-      
-      // Resetear contadores para iniciar animación
       setContadorMes(0);
-      setContadorAnio(0);
-    } catch (error) {
-      console.error("Error fetching cuotas x cat: ", error);
-    }
-  };
-
-  useEffect(() => {
-    fetchCategories();
-    fetchCuotasXCat();
-  }, []);
-
-  // Efecto para animar el contador del mes
-  useEffect(() => {
-    if (totalMes > 0 && contadorMes < totalMes) {
       setIsAnimatingMes(true);
-      const intervalo = Math.max(5, Math.floor(1000 / totalMes));
-      
-      const timer = setTimeout(() => {
-        setContadorMes(prev => 
-          prev < totalMes ? prev + Math.max(1, Math.floor(totalMes / 50)) : totalMes
-        );
-      }, intervalo);
-      
-      return () => clearTimeout(timer);
-    } else if (contadorMes >= totalMes && totalMes > 0) {
-      setContadorMes(totalMes);
-      setIsAnimatingMes(false);
-    }
-  }, [contadorMes, totalMes]);
 
-  // Efecto para animar el contador del año
-  useEffect(() => {
-    if (totalAnio > 0 && contadorAnio < totalAnio) {
+      // Calcular total del año
+      const totalYear = payments
+        .filter((p) => p.mes) // Solo los que tienen mes (excluir los null)
+        .reduce((acc, p) => acc + (parseInt(p.total) || 0), 0);
+      setTotalAnio(totalYear);
+      setContadorAnio(0);
       setIsAnimatingAnio(true);
-      const intervalo = Math.max(5, Math.floor(1000 / totalAnio));
-      
-      const timer = setTimeout(() => {
-        setContadorAnio(prev => 
-          prev < totalAnio ? prev + Math.max(1, Math.floor(totalAnio / 50)) : totalAnio
-        );
-      }, intervalo);
-      
-      return () => clearTimeout(timer);
-    } else if (contadorAnio >= totalAnio && totalAnio > 0) {
-      setContadorAnio(totalAnio);
-      setIsAnimatingAnio(false);
-    }
-  }, [contadorAnio, totalAnio]);
-
-  const categoryNames = categories.map(
-    (categoria) => categoria.nombre_categoria
-  );
-
-  const valueFormatter = function (number) {
-    return "$ " + new Intl.NumberFormat("us").format(number).toString();
-  };
-
-  // Actualizar el total del mes cuando se selecciona un mes en el gráfico
-  const handleValueChange = (v) => {
-    if (v && v.date) {
-      const mesData = chartdata.find(item => item.date === v.date);
-      if (mesData) {
-        let nuevoTotal = 0;
-        categoryNames.forEach(categoria => {
-          nuevoTotal += mesData[categoria] || 0;
-        });
-        setTotalMes(nuevoTotal);
-        setContadorMes(0); // Resetear contador para nueva animación
-        setMesSeleccionado(v.date);
-      }
+    } catch (error) {
+      console.error("Error fetching payments:", error);
     }
   };
+
+  const valueFormatter = (value) =>
+    `$ ${new Intl.NumberFormat("es-UY").format(value)}`;
 
   return (
     <>
-      {/* Contadores animados */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <Card className="p-4 shadow-sm">
-          <div className="flex flex-col items-center justify-center">
-            <div className="text-center mb-2">
-              <span className="text-gray-500 text-sm">Total cuotas {mesSeleccionado}</span>
+      {/* Contadores */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        {/* Contador Mes Actual */}
+        <Card
+          className="p-4"
+          style={{
+            backgroundColor: "#F8FAFC",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+          }}
+        >
+          <div className="flex flex-col">
+            <div className="text-sm font-medium text-gray-600 mb-2">
+              Recaudado este mes
             </div>
-            <div 
-              className={`text-2xl font-bold ${isAnimatingMes ? 'text-blue-500' : 'text-gray-700'}`}
-              style={{ 
-                transition: 'color 0.5s, transform 0.3s',
-                transform: isAnimatingMes ? 'scale(1.1)' : 'scale(1)'
-              }}
-            >
-              {valueFormatter(contadorMes)}
+            <div className="text-3xl font-bold text-blue-600 mb-2">
+              $ {contadorMes.toLocaleString("es-UY")}
             </div>
-            <div 
-              className="w-full h-1 bg-gray-200 mt-2 rounded overflow-hidden"
-              style={{ maxWidth: '100px' }}
-            >
-              <div 
-                className="h-full bg-blue-500 rounded" 
-                style={{ 
-                  width: `${totalMes > 0 ? (contadorMes / totalMes) * 100 : 0}%`,
-                  transition: 'width 0.3s ease-out'
+            <div className="w-full bg-gray-300 rounded-full h-2 overflow-hidden">
+              <div
+                className="h-full bg-blue-600 rounded-full transition-all duration-500 ease-out"
+                style={{
+                  width: totalAnio
+                    ? `${Math.min((contadorMes / totalAnio) * 100, 100)}%`
+                    : "0%",
                 }}
               ></div>
             </div>
           </div>
         </Card>
-        
-        <Card className="p-4 shadow-sm">
-          <div className="flex flex-col items-center justify-center">
-            <div className="text-center mb-2">
-              <span className="text-gray-500 text-sm">Total año</span>
+
+        {/* Contador Anual */}
+        <Card
+          className="p-4"
+          style={{
+            backgroundColor: "#F8FAFC",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+          }}
+        >
+          <div className="flex flex-col">
+            <div className="text-sm font-medium text-gray-600 mb-2">
+              Total del año {new Date().getFullYear()}
             </div>
-            <div 
-              className={`text-2xl font-bold ${isAnimatingAnio ? 'text-green-500' : 'text-gray-700'}`}
-              style={{ 
-                transition: 'color 0.5s, transform 0.3s',
-                transform: isAnimatingAnio ? 'scale(1.1)' : 'scale(1)'
-              }}
-            >
-              {valueFormatter(contadorAnio)}
+            <div className="text-3xl font-bold text-green-600 mb-2">
+              $ {contadorAnio.toLocaleString("es-UY")}
             </div>
-            <div 
-              className="w-full h-1 bg-gray-200 mt-2 rounded overflow-hidden"
-              style={{ maxWidth: '100px' }}
-            >
-              <div 
-                className="h-full bg-green-500 rounded" 
-                style={{ 
-                  width: `${totalAnio > 0 ? (contadorAnio / totalAnio) * 100 : 0}%`,
-                  transition: 'width 0.3s ease-out'
+            <div className="w-full bg-gray-300 rounded-full h-2 overflow-hidden">
+              <div
+                className="h-full bg-green-600 rounded-full transition-all duration-500 ease-out"
+                style={{
+                  width: isAnimatingAnio ? "100%" : "0%",
                 }}
               ></div>
             </div>
@@ -389,20 +209,51 @@ export function AreaChartCuotas() {
         </Card>
       </div>
 
-      <LineChart
-        className="h-80 w-full"
-        data={chartdata}
-        index="date"
-        yAxisWidth={70}
-        categories={categoryNames}
-        colors={colors.slice(0, categoryNames.length)}
-        valueFormatter={valueFormatter}
-        xAxisLabel="Cuotas del club"
-        showAnimation={true}
-        showLegend={true}
-        onValueChange={handleValueChange}
-        showGridLines={true}
-      />
+      {/* Gráfico */}
+      <div style={{ width: "100%", height: "400px" }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={chartdata}
+            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+            <XAxis
+              dataKey="date"
+              stroke="#666"
+              style={{ fontSize: "12px" }}
+            />
+            <YAxis
+              stroke="#666"
+              style={{ fontSize: "12px" }}
+              tickFormatter={valueFormatter}
+            />
+            <Tooltip
+              formatter={valueFormatter}
+              contentStyle={{
+                backgroundColor: "#fff",
+                border: "1px solid #ddd",
+                borderRadius: "4px",
+              }}
+            />
+            <Legend
+              wrapperStyle={{ paddingTop: "10px" }}
+              iconType="line"
+            />
+            {categoryNames.map((categoria, index) => (
+              <Line
+                key={categoria}
+                type="monotone"
+                dataKey={categoria}
+                stroke={COLORES_CATEGORIAS[index % COLORES_CATEGORIAS.length]}
+                strokeWidth={2}
+                dot={{ r: 3 }}
+                activeDot={{ r: 5 }}
+                connectNulls
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </>
   );
 }
