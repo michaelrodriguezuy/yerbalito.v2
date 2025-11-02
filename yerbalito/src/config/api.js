@@ -1,5 +1,5 @@
 // Configuración centralizada de la API
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api' || 'http://localhost:5001';
 
 export const API_ENDPOINTS = {
   // Autenticación
@@ -67,4 +67,5 @@ export const API_ENDPOINTS = {
   CUMPLES: `${API_BASE_URL}/cumples`,
 };
 
+export { API_BASE_URL };
 export default API_BASE_URL;

@@ -24,6 +24,8 @@ import { useContext, useState } from "react";
 import axios from "axios";
 // import bcrypt from 'bcryptjs';
 
+import { API_BASE_URL } from '../../../config/api';
+
 const Login = () => {
   const { handleLogin } = useContext(AuthContext);
 
@@ -49,7 +51,7 @@ const Login = () => {
 
     try {
 
-      const res = await axios.post("http://localhost:5001/login", {
+      const res = await axios.post(`${API_BASE_URL}/login`, {
         usuario: values.email,
         password: values.password,
       });
@@ -60,7 +62,7 @@ const Login = () => {
         const userId = res.data.user.id_usuario;
 
         const userDetailsResponse = await axios.get(
-          `http://localhost:5001/user?id=${userId}`
+          `${API_BASE_URL}/user?id=${userId}`
         );
         
 

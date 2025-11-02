@@ -45,9 +45,9 @@ services:
     container_name: yerbalito_frontend
     environment:
       - NODE_ENV=production
-      - VITE_API_URL=http://localhost:5001
+      - VITE_API_URL=http://api.yerbalito.uy
     ports:
-      - "8080:80"
+      - "8082:80"
     depends_on:
       - backend
     restart: unless-stopped
