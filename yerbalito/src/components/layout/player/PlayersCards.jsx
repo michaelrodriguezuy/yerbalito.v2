@@ -34,20 +34,37 @@ const PlayersCard = () => {
   const fetchSquads = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(API_ENDPOINTS.SQUAD);
+      
+      // Fetch jugadores y estados en paralelo (una sola llamada para todos los estados)
+      const [squadsResponse, estadosResponse] = await Promise.all([
+        axios.get(API_ENDPOINTS.SQUAD),
+        axios.get(API_ENDPOINTS.ESTADOS)
+      ]);
 
-      // console.log("response: ", response.data.squads);
+      const data = squadsResponse.data.squads;
 
-      const data = response.data.squads;
+      // Crear un mapa de estados { idestado: tipo_estado } para acceso rápido O(1)
+      const estadosMap = {};
+      if (estadosResponse.data.estados && Array.isArray(estadosResponse.data.estados)) {
+        estadosResponse.data.estados.forEach(estado => {
+          estadosMap[estado.idestado] = estado.tipo_estado;
+        });
+      }
+
+      // Para cada jugador, obtener el último pago y usar datos que ya vienen del backend
       const updatedSquads = await Promise.all(
         data.map(async (squad) => {
           try {
-            // console.log("squad: ", squad);
-            const categoria = await fetchCategory(squad.idcategoria);
-            const estadoData = await fetchEstado(squad.idestado);
-            const estado = estadoData ? estadoData.tipo_estado : null;
             const ultimoPago = await fetchUltimoPago(squad.idjugador);
-            return { ...squad, categoria, estado, ...ultimoPago };
+            
+            return { 
+              ...squad, 
+              // Usar nombre_categoria que ya viene del backend (JOIN en la query SQL)
+              categoria: squad.nombre_categoria || 'Sin categoría',
+              // Usar el mapa de estados (acceso O(1) en memoria, no llamada HTTP)
+              estado: estadosMap[squad.idestado] || 'Sin estado',
+              ...ultimoPago 
+            };
           } catch (error) {
             console.error("Error en Promise.all:", error);
             return null;
@@ -59,29 +76,6 @@ const PlayersCard = () => {
     } catch (error) {
       console.error("Error fetching squads: ", error);
       setLoading(false);
-    }
-  };
-
-  const fetchCategory = async (idcategoria) => {
-    try {
-      const response = await axios.get(
-        `${API_ENDPOINTS.CATEGORIES}/${idcategoria}`
-      );
-
-      return response.data.categoria.nombre_categoria;
-    } catch (error) {
-      console.error("Error fetching category: ", error);
-      throw error;
-    }
-  };
-
-  const fetchEstado = async (idestado) => {
-    try {
-      const response = await axios.get(`${API_ENDPOINTS.ESTADOS}/${idestado}`);
-      return response.data.estado;
-    } catch (error) {
-      console.error("Error fetching estado: ", error);
-      throw error;
     }
   };
 

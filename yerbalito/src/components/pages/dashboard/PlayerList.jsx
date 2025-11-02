@@ -115,38 +115,44 @@ const PlayerList = () => {
       try {
         setLoading(true);
         console.log("Fetching players from:", API_ENDPOINTS.SQUAD_ALL);
-        const response = await axios.get(API_ENDPOINTS.SQUAD_ALL);
-        console.log("Raw response:", response.data);
+        
+        // Fetch jugadores y estados en paralelo (una sola llamada para todos los estados)
+        const [playersResponse, estadosResponse] = await Promise.all([
+          axios.get(API_ENDPOINTS.SQUAD_ALL),
+          axios.get(API_ENDPOINTS.ESTADOS)
+        ]);
 
-        if (!response.data.squads || !Array.isArray(response.data.squads)) {
-          console.error("Invalid response format:", response.data);
+        if (!playersResponse.data.squads || !Array.isArray(playersResponse.data.squads)) {
+          console.error("Invalid response format:", playersResponse.data);
           setLoading(false);
           return;
         }
 
-        const formattedResponse = await Promise.all(
-          response.data.squads.map(async (player) => {
-            const categoria = await fetchCategory(player.idcategoria);
-            const estadoData = await fetchEstado(player.idestado);
-            const estado = estadoData ? estadoData.tipo_estado : null;
+        // Crear un mapa de estados { idestado: tipo_estado } para acceso rápido O(1)
+        const estadosMap = {};
+        if (estadosResponse.data.estados && Array.isArray(estadosResponse.data.estados)) {
+          estadosResponse.data.estados.forEach(estado => {
+            estadosMap[estado.idestado] = estado.tipo_estado;
+          });
+        }
 
-            return {
-              ...player,
-              fecha_nacimiento: format(
-                new Date(player.fecha_nacimiento),
-                "dd-MM-yyyy",
-                { locale: es }
-              ),
-              fecha_ingreso: format(
-                new Date(player.fecha_ingreso),
-                "dd-MM-yyyy",
-                { locale: es }
-              ),
-              categoria,
-              estado,
-            };
-          })
-        );
+        // Formatear jugadores usando datos que ya vienen del backend (sin llamadas HTTP adicionales)
+        const formattedResponse = playersResponse.data.squads.map((player) => {
+          return {
+            ...player,
+            fecha_nacimiento: player.fecha_nacimiento 
+              ? format(new Date(player.fecha_nacimiento), "dd-MM-yyyy", { locale: es })
+              : '',
+            fecha_ingreso: player.fecha_ingreso
+              ? format(new Date(player.fecha_ingreso), "dd-MM-yyyy", { locale: es })
+              : '',
+            // Usar nombre_categoria que ya viene del backend (JOIN en la query SQL)
+            categoria: player.nombre_categoria || 'Sin categoría',
+            // Usar el mapa de estados (acceso O(1) en memoria, no llamada HTTP)
+            estado: estadosMap[player.idestado] || 'Sin estado',
+          };
+        });
+        
         console.log("Formatted Response:", formattedResponse);
         setPlayers(formattedResponse);
         setLoading(false);
@@ -180,37 +186,6 @@ const PlayerList = () => {
       setFilteredPlayers(players);
     }
   }, [searchTerm, players]);
-
-  const fetchCategory = async (idcategoria) => {
-    try {
-      if (!idcategoria) return 'Sin categoría';
-      const response = await axios.get(
-        `${API_ENDPOINTS.CATEGORIES}/${idcategoria}`
-      );
-      return response.data?.categoria?.nombre_categoria || 'Sin categoría';
-    } catch (error) {
-      console.error("Error fetching category: ", error);
-      return 'Sin categoría';
-    }
-  };
-  const fetchEstado = async (idestado) => {
-    try {
-      // Si idestado es 0 o null, retornar un estado por defecto
-      if (!idestado || idestado === 0) {
-        return { tipo_estado: "Sin estado" };
-      }
-      
-      const response = await axios.get(
-        `${API_ENDPOINTS.ESTADOS}/${idestado}`
-      );
-      // console.log("fetchEstado response:", response.data.estado.tipo_estado);
-      return response.data.estado;
-    } catch (error) {
-      console.error("Error fetching estado: ", error);
-      // Retornar un estado por defecto en caso de error
-      return { tipo_estado: "Sin estado" };
-    }
-  };
 
   const deletePlayer = (id, nombre) => {
     Swal.fire({

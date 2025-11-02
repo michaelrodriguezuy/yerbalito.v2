@@ -5,9 +5,11 @@ import ValoresManager from "./ValoresManager";
 import FixtureManager from "./FixtureManager";
 import ContentManager from "./ContentManager";
 import { Box, Button, Typography, Paper } from "@mui/material";
-import { useState } from "react";
+import { useState, useContext } from "react";
+import { AuthContext } from "../../context/AuthContext";
 
 const Dashboard = () => {
+  const { user } = useContext(AuthContext);
   const [currentView, setCurrentView] = useState("players");
 
   const renderCurrentView = () => {
@@ -109,22 +111,24 @@ const Dashboard = () => {
                 >
                   Categorías
                 </Button>
-                <Button 
-                  variant="contained" 
-                  onClick={() => setCurrentView("users")}
-                  sx={{
-                    backgroundColor: currentView === "users" ? "#4CAF50" : "rgba(255,255,255,0.1)",
-                    color: "white",
-                    fontWeight: "bold",
-                    borderRadius: "20px",
-                    px: 3,
-                    "&:hover": {
-                      backgroundColor: currentView === "users" ? "#388E3C" : "rgba(255,255,255,0.2)"
-                    }
-                  }}
-                >
-                  Usuarios
-                </Button>
+                {user?.rol === 'admin' && (
+                  <Button 
+                    variant="contained" 
+                    onClick={() => setCurrentView("users")}
+                    sx={{
+                      backgroundColor: currentView === "users" ? "#4CAF50" : "rgba(255,255,255,0.1)",
+                      color: "white",
+                      fontWeight: "bold",
+                      borderRadius: "20px",
+                      px: 3,
+                      "&:hover": {
+                        backgroundColor: currentView === "users" ? "#388E3C" : "rgba(255,255,255,0.2)"
+                      }
+                    }}
+                  >
+                    Usuarios
+                  </Button>
+                )}
                 <Button 
                   variant="contained" 
                   onClick={() => setCurrentView("valores")}
