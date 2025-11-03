@@ -23,6 +23,7 @@ export const API_ENDPOINTS = {
   // Pagos
   PAYMENTS: `${API_BASE_URL}/payments`,
   PAYMENTS_ANUAL: `${API_BASE_URL}/paymentsAnual`,
+  PAYMENTS_MES_ACTUAL: `${API_BASE_URL}/paymentsMesActual`,
   ULTIMO_PAGO: (id) => `${API_BASE_URL}/ultimoPago/${id}`,
   
   // Fondo común
@@ -33,6 +34,10 @@ export const API_ENDPOINTS = {
   
   // Cuotas
   CUOTAS_X_CAT: `${API_BASE_URL}/cuotasXcat`,
+  CUOTAS_MES_ACTUAL_X_CAT: `${API_BASE_URL}/cuotasMesActualXcat`,
+  CUOTAS_ANUALES_X_CAT: `${API_BASE_URL}/cuotasAnualesXcat`, // Jugadores únicos que pagaron cuotas anuales
+  FC_MES_ACTUAL_X_CAT: `${API_BASE_URL}/fcMesActualXcat`,
+  FC_ANUALES_X_CAT: `${API_BASE_URL}/fcAnualesXcat`, // Jugadores únicos que pagaron FC anual
   
   // Posts/Blog
   POSTS: `${API_BASE_URL}/posts`,
@@ -57,6 +62,8 @@ export const API_ENDPOINTS = {
   
   // Valores de cuotas y fondo de campeonato
   VALORES: `${API_BASE_URL}/valores`,
+  VALORES_BY_YEAR: (ano) => `${API_BASE_URL}/valores/${ano}`,
+  VALORES_ALL: `${API_BASE_URL}/valores/all`,
   
   // Fixture
   FIXTURE: `${API_BASE_URL}/fixture`,

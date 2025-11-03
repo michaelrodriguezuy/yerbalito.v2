@@ -85,8 +85,13 @@ export function AreaChartCuotas() {
 
   const fetchPayments = async () => {
     try {
-      const response = await axios.get(API_ENDPOINTS.CUOTAS_X_CAT);
-      const payments = response.data.payments;
+      // Obtener datos del gráfico (por mes_pago) y total del mes actual (por fecha_recibo) en paralelo
+      const [cuotasResponse, mesActualResponse] = await Promise.all([
+        axios.get(API_ENDPOINTS.CUOTAS_X_CAT),
+        axios.get(API_ENDPOINTS.PAYMENTS_MES_ACTUAL)
+      ]);
+
+      const payments = cuotasResponse.data.payments;
 
       if (!payments || payments.length === 0) {
         return;
@@ -103,6 +108,7 @@ export function AreaChartCuotas() {
       setCategoryNames(categories);
 
       // Agrupar datos por mes (el endpoint devuelve "mes" como texto: "Enero", "Febrero", etc.)
+      // Esto muestra los pagos por el mes que se está pagando (mes_pago)
       const monthlyData = {};
       payments.forEach((payment) => {
         const mesNombre = payment.mes;
@@ -123,19 +129,14 @@ export function AreaChartCuotas() {
       );
       setChartdata(chartArray);
 
-      // Calcular total del mes actual
-      const mesActual = new Date().getMonth() + 1;
-      const mesActualNombre = Object.keys(MESES_NOMBRES).find(
-        (key) => MESES_NOMBRES[key] === mesActual
-      );
-      const totalMesActual = payments
-        .filter((p) => p.mes === mesActualNombre)
-        .reduce((acc, p) => acc + (parseInt(p.total) || 0), 0);
+      // Calcular total del mes actual usando el endpoint que filtra por fecha_recibo
+      // Esto muestra cuánto se recaudó realmente este mes (no el mes que se está pagando)
+      const totalMesActual = mesActualResponse.data?.total || 0;
       setTotalMes(totalMesActual);
       setContadorMes(0);
       setIsAnimatingMes(true);
 
-      // Calcular total del año
+      // Calcular total del año (por mes_pago, como está en el gráfico)
       const totalYear = payments
         .filter((p) => p.mes) // Solo los que tienen mes (excluir los null)
         .reduce((acc, p) => acc + (parseInt(p.total) || 0), 0);

@@ -225,8 +225,21 @@ const PlayerList = () => {
     setOpen(false);
   };
 
-  const handleOpen = (player) => {
-    setPlayerSelected(player);
+  const handleOpen = async (player) => {
+    if (player && player.idjugador) {
+      // Si es edición, obtener los datos completos del jugador incluyendo hermanos
+      try {
+        const response = await axios.get(`${API_ENDPOINTS.SQUAD}/${player.idjugador}`);
+        setPlayerSelected(response.data.player);
+      } catch (error) {
+        console.error("Error fetching player details:", error);
+        // Si falla, usar el player de la lista como fallback
+        setPlayerSelected(player);
+      }
+    } else {
+      // Si es creación, player es null
+      setPlayerSelected(null);
+    }
     setOpen(true);
   };
 

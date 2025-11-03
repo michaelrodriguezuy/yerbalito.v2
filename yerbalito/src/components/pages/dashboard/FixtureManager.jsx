@@ -111,10 +111,10 @@ const FixtureManager = () => {
           }
 
           return {
-            categoria_id: categoria.idcategoria,
-            categoria_nombre: categoria.nombre_categoria,
-            proximo_partido: fixture.proximo_partido || {},
-            ultimo_resultado: fixture.ultimo_resultado || {},
+          categoria_id: categoria.idcategoria,
+          categoria_nombre: categoria.nombre_categoria,
+          proximo_partido: fixture.proximo_partido || {},
+          ultimo_resultado: fixture.ultimo_resultado || {},
           };
         })
         .filter(Boolean); // Eliminar nulls
@@ -193,9 +193,9 @@ const FixtureManager = () => {
         return (
           <Accordion key={categoria.idcategoria} sx={{ mb: 2 }}>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography variant="h6">
-                {categoria.nombre_categoria}
-              </Typography>
+                <Typography variant="h6">
+                  {categoria.nombre_categoria}
+                </Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Grid container spacing={3}>

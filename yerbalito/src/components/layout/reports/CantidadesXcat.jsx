@@ -36,7 +36,7 @@ export function CantidadesXcat() {
   useEffect(() => {
     fetchCantidades();
   }, []);
-
+      
   // Animación contador total
   useEffect(() => {
     if (isAnimating && contadorTotal < totalJugadores) {
@@ -121,11 +121,11 @@ export function CantidadesXcat() {
       {/* Gráfico de barras por categoría */}
       <Card
         className="p-4"
-        style={{
+          style={{ 
           backgroundColor: "#F8FAFC",
           boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-        }}
-      >
+          }}
+        >
         <div className="text-sm font-medium text-gray-700 mb-4">
           Jugadores por categoría
         </div>
@@ -163,7 +163,7 @@ export function CantidadesXcat() {
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </Card>
+    </Card>
     </>
   );
 }

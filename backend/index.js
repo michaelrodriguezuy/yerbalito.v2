@@ -334,7 +334,30 @@ app.get('/ultimoPago/:id', async (req, res) => {
     const estadoJugador = estadoRows && estadoRows.length > 0 ? estadoRows[0].idestado : null;
 
     if (estadoJugador === 1 || estadoJugador === 2) {
-      const [reciboRows] = await db.query('SELECT MAX(mes_pago) as ultimoMesPago, MAX(anio) as anio FROM recibo WHERE idjugador = ?', [jugadorId]);
+      // Obtener el último recibo válido (visible = 1)
+      // Incluye recibos con monto > 0 Y recibos con monto = 0 si:
+      //   1. Tienen la observación de pago automático por hermano (nuevos)
+      //   2. O tienen monto = 0 y mes_pago entre 3 y 11 (recibos antiguos de hermanos)
+      //      (excluye enero, febrero y diciembre que normalmente no se cobran)
+      // Ordenado por año DESC y mes_pago DESC para obtener el más reciente
+      const [reciboRows] = await db.query(`
+        SELECT r.mes_pago as ultimoMesPago, r.anio 
+        FROM recibo r
+        WHERE r.idjugador = ? 
+          AND r.visible = 1 
+          AND (
+            r.monto > 0 
+            OR (
+              r.monto = 0 
+              AND (
+                r.observacionesRecibo LIKE '%Pago automático por hermano%'
+                OR (r.mes_pago BETWEEN 3 AND 11)
+              )
+            )
+          )
+        ORDER BY r.anio DESC, r.mes_pago DESC 
+        LIMIT 1
+      `, [jugadorId]);
 
       // Verificar si hay recibos para el jugador
       if (reciboRows && reciboRows.length > 0 && reciboRows[0].ultimoMesPago !== null && reciboRows[0].anio !== null) {
@@ -675,12 +698,13 @@ app.get('/squad', async (req, res) => {
 app.get('/squad/all', async (req, res) => {
   try {
     // Solo devolver jugadores de categorías públicas (visible = 1)
+    // Ordenar alfabéticamente por apellido y nombre, sin importar la categoría
     const [rows] = await db.query(`
       SELECT j.*, c.nombre_categoria 
       FROM jugador j 
       LEFT JOIN categoria c ON j.idcategoria = c.idcategoria 
       WHERE c.visible = 1
-      ORDER BY j.idcategoria, j.nombre
+      ORDER BY j.apellido, j.nombre
     `);
     res.json({ squads: rows });
   } catch (error) {
@@ -690,7 +714,6 @@ app.get('/squad/all', async (req, res) => {
 });
 
 app.get('/squad/:id', async (req, res) => {
-
   const playerId = req.params.id;
 
   try {
@@ -703,6 +726,23 @@ app.get('/squad/:id', async (req, res) => {
     const player = rows && rows.length > 0 ? rows[0] : null;
 
     if (player) {
+      // Obtener los hermanos del jugador (relaciones bidireccionales)
+      const [hermanosRows] = await db.query(`
+        SELECT DISTINCT 
+          CASE 
+            WHEN idjugador = ? THEN idhermano 
+            ELSE idjugador 
+          END as idhermano
+        FROM hermanos 
+        WHERE idjugador = ? OR idhermano = ?
+      `, [playerId, playerId, playerId]);
+      
+      // Convertir a array de IDs para el frontend
+      const hermanosIds = hermanosRows.map(row => row.idhermano);
+      
+      // Agregar los IDs de hermanos al objeto player
+      player.selectedSiblings = hermanosIds;
+      
       res.json({ player });
     } else {
       console.log('El jugador no se encontró en la base de datos.');
@@ -961,27 +1001,45 @@ app.put('/squad/:id', upload.single('imagen'), async (req, res) => {
 
     await db.query('UPDATE jugador SET ? WHERE idjugador = ?', [updateFields, playerId]);
     
+    // Debug: Ver qué se recibe
+    console.log('PUT /squad/:id - hermanos recibido:', hermanos, 'tipo:', typeof hermanos);
+    
     // Eliminar todas las relaciones de hermanos existentes
     await db.query('DELETE FROM hermanos WHERE idjugador = ?', [playerId]);
     await db.query('DELETE FROM hermanos WHERE idhermano = ?', [playerId]);
     
     // Si hay hermanos nuevos, insertarlos
-    if (hermanos && hermanos.trim() !== '') {
-      const hermanosIds = hermanos.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id) && id > 0);
+    // Nota: hermanos puede venir como string vacío '', que debe tratarse como "sin hermanos"
+    if (hermanos) {
+      let hermanosIds = [];
       
-      // Insertar relaciones bidireccionales
-      for (const idhermano of hermanosIds) {
-        if (idhermano !== playerId) {
-          // Relación: jugador -> hermano
-          await db.query('INSERT INTO hermanos (idjugador, idhermano) VALUES (?, ?)', [playerId, idhermano]);
-          // Relación inversa: hermano -> jugador (solo si no existe ya)
-          const [existing] = await db.query('SELECT * FROM hermanos WHERE idjugador = ? AND idhermano = ?', [idhermano, playerId]);
-          if (existing.length === 0) {
-            await db.query('INSERT INTO hermanos (idjugador, idhermano) VALUES (?, ?)', [idhermano, playerId]);
+      // Manejar diferentes formatos: string separado por comas o array
+      if (typeof hermanos === 'string') {
+        const trimmed = hermanos.trim();
+        if (trimmed !== '') {
+          hermanosIds = trimmed.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id) && id > 0);
+        }
+      } else if (Array.isArray(hermanos)) {
+        hermanosIds = hermanos.map(id => parseInt(id)).filter(id => !isNaN(id) && id > 0);
+      }
+      
+      if (hermanosIds.length > 0) {
+        console.log('PUT /squad/:id - Insertando hermanos:', hermanosIds);
+        // Insertar relaciones bidireccionales
+        for (const idhermano of hermanosIds) {
+          if (idhermano !== playerId) {
+            // Relación: jugador -> hermano
+            await db.query('INSERT INTO hermanos (idjugador, idhermano) VALUES (?, ?)', [playerId, idhermano]);
+            // Relación inversa: hermano -> jugador (solo si no existe ya)
+            const [existing] = await db.query('SELECT * FROM hermanos WHERE idjugador = ? AND idhermano = ?', [idhermano, playerId]);
+            if (existing.length === 0) {
+              await db.query('INSERT INTO hermanos (idjugador, idhermano) VALUES (?, ?)', [idhermano, playerId]);
+            }
           }
         }
       }
     }
+    // Si hermanos viene como string vacío o undefined, ya se eliminaron todas las relaciones arriba
     
     res.json({ message: 'Jugador actualizado' });
   } catch (error) {
@@ -1037,9 +1095,9 @@ app.get('/payments', async (req, res) => {
       JOIN jugador j ON r.idjugador = j.idjugador
       JOIN usuario u ON r.idusuario = u.id_usuario
       JOIN categoria c ON j.idcategoria = c.idcategoria
-      WHERE monto > 0
-      AND c.visible = 1
+      WHERE c.visible = 1
       AND r.visible = 1
+      AND (monto > 0 OR (monto = 0 AND r.observacionesRecibo LIKE '%Pago automático por hermano%'))
     `;
     
     const params = [];
@@ -1147,9 +1205,38 @@ async function updatePlayerState(connection, playerId) {
       return;
     }
     
-    // Obtener configuración de meses habilitados
-    const [valores] = await connection.query('SELECT meses_cuotas FROM valores ORDER BY idvalores DESC LIMIT 1');
-    const mesesHabilitados = valores.length > 0 && valores[0].meses_cuotas ? valores[0].meses_cuotas : [1,2,3,4,5,6,7,8,9,10,11,12];
+    // Obtener configuración de meses habilitados (usar el año más reciente)
+    const [valores] = await connection.query('SELECT meses_cuotas FROM valores ORDER BY ano DESC LIMIT 1');
+    // Parsear JSON si viene como string, o usar directamente si ya es array
+    let mesesHabilitados = [1,2,3,4,5,6,7,8,9,10,11,12]; // Default
+    if (valores.length > 0 && valores[0].meses_cuotas) {
+      try {
+        const mesesRaw = valores[0].meses_cuotas;
+        console.log(`[updatePlayerState] Jugador ${playerId}: meses_cuotas raw type=${typeof mesesRaw}, value=${JSON.stringify(mesesRaw)}`);
+        
+        if (typeof mesesRaw === 'string') {
+          mesesHabilitados = JSON.parse(mesesRaw);
+        } else if (Array.isArray(mesesRaw)) {
+          mesesHabilitados = mesesRaw;
+        } else {
+          // Si es un objeto JSON de MySQL (mysql2 devuelve JSON como objeto Buffer o similar)
+          mesesHabilitados = JSON.parse(JSON.stringify(mesesRaw));
+        }
+        
+        // Asegurar que es un array válido de números
+        if (!Array.isArray(mesesHabilitados)) {
+          console.error(`[updatePlayerState] Jugador ${playerId}: meses_cuotas no es array, usando default`);
+          mesesHabilitados = [1,2,3,4,5,6,7,8,9,10,11,12];
+        } else {
+          // Convertir todos los elementos a números por si acaso
+          mesesHabilitados = mesesHabilitados.map(m => parseInt(m)).filter(m => !isNaN(m));
+          console.log(`[updatePlayerState] Jugador ${playerId}: mesesHabilitados parseados=${JSON.stringify(mesesHabilitados)}`);
+        }
+      } catch (e) {
+        console.error(`[updatePlayerState] Jugador ${playerId}: Error parseando meses_cuotas:`, e);
+        mesesHabilitados = [1,2,3,4,5,6,7,8,9,10,11,12];
+      }
+    }
     
     // Obtener fecha actual
     const now = new Date();
@@ -1168,12 +1255,21 @@ async function updatePlayerState(connection, playerId) {
     
     // Verificar si el mes vencido está en los meses habilitados
     // Si no está habilitado, buscar el mes habilitado anterior más cercano
-    while (!mesesHabilitados.includes(mesVencido) && mesVencido > 0) {
+    // IMPORTANTE: Agregar límite para evitar loop infinito
+    let intentos = 0;
+    const maxIntentos = 24; // Máximo 24 meses (2 años) para evitar recursión infinita
+    while (!mesesHabilitados.includes(mesVencido) && mesVencido > 0 && intentos < maxIntentos) {
       mesVencido--;
+      intentos++;
       if (mesVencido === 0) {
         mesVencido = 12;
         anioVencido--;
       }
+    }
+    if (intentos >= maxIntentos) {
+      console.error(`[updatePlayerState] ERROR: Loop infinito detectado para jugador ${playerId}, usando mes por defecto`);
+      mesVencido = 10; // Usar octubre como fallback
+      anioVencido = currentYear;
     }
     
     // Verificar si el jugador ingresó después del mes vencido que se está verificando
@@ -1195,19 +1291,41 @@ async function updatePlayerState(connection, playerId) {
     }
     
     // Verificar si tiene pagado el mes vencido
+    // Considerar recibos con monto > 0 O recibos con monto = 0 si son de hermanos (tienen observación especial)
+    // O recibos antiguos con monto = 0 y mes_pago entre 3 y 11
     const [pagos] = await connection.query(
       `SELECT * FROM recibo 
        WHERE idjugador = ? 
        AND mes_pago = ? 
        AND anio = ? 
        AND visible = 1
+       AND (
+         monto > 0 
+         OR (
+           monto = 0 
+           AND (
+             observacionesRecibo LIKE '%Pago automático por hermano%'
+             OR mes_pago BETWEEN 3 AND 11
+           )
+         )
+       )
        LIMIT 1`,
       [playerId, mesVencido, anioVencido]
     );
     
     const tieneMesVencidoPago = pagos.length > 0;
     
+    // Debug: Log detallado
+    console.log(`[updatePlayerState] Jugador ${playerId}: mesVencido=${mesVencido}/${anioVencido}, tienePago=${tieneMesVencidoPago}, currentDay=${currentDay}, recibosEncontrados=${pagos.length}`);
+    if (pagos.length > 0) {
+      console.log(`[updatePlayerState] Recibo encontrado: id=${pagos[0].idrecibo}, monto=${pagos[0].monto}, observaciones=${pagos[0].observacionesRecibo}`);
+    }
+    
     // Determinar el nuevo estado
+    // Lógica: El mes se paga vencido (mes anterior), tienen hasta el día 10 del mes actual para saldar
+    // Si estamos el día 3 de noviembre, el mes vencido es octubre
+    // Si tienen octubre pagado, deben estar habilitados (estado=2)
+    // Si NO tienen octubre pagado y ya pasó el día 10 de noviembre, deben estar deshabilitados (estado=1)
     let nuevoEstado = null;
     
     if (tieneMesVencidoPago) {
@@ -1215,20 +1333,23 @@ async function updatePlayerState(connection, playerId) {
       nuevoEstado = 2;
     } else {
       // No tiene el mes vencido pagado
-      // Si ya pasó el día 10 del mes actual, debe estar deshabilitado (estado=1)
-      if (currentDay > 10) {
-        nuevoEstado = 1;
+      // Si estamos en días 1-10 del mes actual, está dentro del plazo de gracia → habilitado
+      // Si ya pasó el día 10, debe estar deshabilitado
+      if (currentDay <= 10) {
+        nuevoEstado = 2; // Plazo de gracia (días 1-10)
       } else {
-        // Todavía está dentro del plazo de pago (días 1-10), mantener habilitado
-        nuevoEstado = 2;
+        nuevoEstado = 1; // Ya pasó el plazo, debe estar deshabilitado
       }
     }
     
+    console.log(`[updatePlayerState] Jugador ${playerId}: nuevoEstado=${nuevoEstado}`);
+    
     // Actualizar el estado solo si cambió (y no es exonerado)
-    await connection.query(
+    const [updateResult] = await connection.query(
       'UPDATE jugador SET idestado = ? WHERE idjugador = ? AND idestado != 3',
       [nuevoEstado, playerId]
     );
+    console.log(`[updatePlayerState] Jugador ${playerId}: UPDATE ejecutado, rowsAffected=${updateResult.affectedRows}`);
   } catch (error) {
     console.error('Error actualizando estado del jugador:', playerId, error);
     // No lanzar el error para no afectar el flujo principal
@@ -1274,6 +1395,7 @@ app.post('/payments', async (req, res) => {
     }
     
     // Normalizar el objeto: mapear cuota_paga -> mes_pago si existe
+    // Mapear observaciones -> observacionesRecibo (nombre correcto de la columna)
     const newPayment = {
       ...paymentData,
       numero: numeroRecibo,
@@ -1281,11 +1403,20 @@ app.post('/payments', async (req, res) => {
       anio: paymentData.anio || new Date().getFullYear(), // Asegurar año si no viene
       fecha_recibo: paymentData.fecha_recibo || new Date().toISOString().split('T')[0], // Fecha actual si no viene
       visible: paymentData.visible !== undefined ? paymentData.visible : 1, // Visible por defecto
+      observacionesRecibo: paymentData.observaciones || paymentData.observacionesRecibo || null, // Mapear observaciones a observacionesRecibo
     };
-    // Eliminar cuota_paga si existe para evitar confusión
+    // Eliminar campos que no existen en la tabla
     delete newPayment.cuota_paga;
+    delete newPayment.observaciones; // Ya mapeado a observacionesRecibo
     
     // 1. Insertar el pago principal
+    // Asegurar que todos los campos requeridos estén presentes
+    if (!newPayment.idjugador || !newPayment.monto || !newPayment.mes_pago || !newPayment.anio || !newPayment.idusuario) {
+      await connection.rollback();
+      console.error('Datos incompletos en payment:', newPayment);
+      return res.status(400).json({ error: 'Datos incompletos: faltan campos obligatorios' });
+    }
+    
     await connection.query('INSERT INTO recibo SET ?', newPayment);
     
     // 2. Verificar si el jugador tiene hermanos (consultar tabla relacional hermanos)
@@ -1327,7 +1458,8 @@ app.post('/payments', async (req, res) => {
               ...newPayment,
               numero: numeroReciboActual,
               idjugador: hermanoId,
-              observaciones: `Pago automático por hermano (ID: ${newPayment.idjugador})${newPayment.observaciones ? ' - ' + newPayment.observaciones : ''}`
+              monto: 0, // Los recibos de hermanos siempre tienen monto 0 para no afectar reportes
+              observacionesRecibo: `Pago automático por hermano (ID: ${newPayment.idjugador})${newPayment.observacionesRecibo ? ' - ' + newPayment.observacionesRecibo : ''}`
             };
             // Eliminar idrecibo si existe (es autoincremental)
             delete hermanoPayment.idrecibo;
@@ -1338,54 +1470,78 @@ app.post('/payments', async (req, res) => {
       }
     }
     
-    // 4. Actualizar el estado del jugador y hermanos después de crear el recibo
-    // Verificar si el jugador ahora tiene todos los meses necesarios pagados
-    await updatePlayerState(connection, newPayment.idjugador);
+    // 4. Hacer commit de la transacción PRIMERO para que los recibos sean visibles
+    await connection.commit();
+    connection.release();
     
-    // Obtener la categoría del jugador para actualizar su estado
-    const [jugadorData] = await connection.query(
-      'SELECT idcategoria FROM jugador WHERE idjugador = ?',
-      [newPayment.idjugador]
-    );
-    const categoriasAfectadas = new Set();
-    if (jugadorData.length > 0) {
-      categoriasAfectadas.add(jugadorData[0].idcategoria);
-    }
+    console.log(`[POST /payments] ✅ Recibo creado para jugador ${newPayment.idjugador}, mes ${newPayment.mes_pago}/${newPayment.anio}`);
     
-    // También actualizar el estado de los hermanos afectados
-    if (siblings.length > 0) {
-      for (const sibling of siblings) {
-        const hermanoId = sibling.idhermano;
-        if (hermanoId && hermanoId !== newPayment.idjugador) {
-          const [hermanoStatus] = await connection.query(
-            'SELECT idestado, idcategoria FROM jugador WHERE idjugador = ?',
-            [hermanoId]
-          );
-          // Solo actualizar si no está exonerado
-          if (hermanoStatus.length > 0 && hermanoStatus[0].idestado !== 3) {
-            await updatePlayerState(connection, hermanoId);
-            categoriasAfectadas.add(hermanoStatus[0].idcategoria);
+    // 5. Actualizar el estado del jugador y hermanos DESPUÉS del commit
+    // Usar una nueva conexión para actualizar estados (los recibos ya están confirmados en la BD)
+    const connectionForUpdate = await db.getConnection();
+    try {
+      console.log(`[POST /payments] 🔄 Llamando a updatePlayerState para jugador ${newPayment.idjugador}`);
+      // Verificar si el jugador ahora tiene todos los meses necesarios pagados
+      await updatePlayerState(connectionForUpdate, newPayment.idjugador);
+      console.log(`[POST /payments] ✅ updatePlayerState completado para jugador ${newPayment.idjugador}`);
+      
+      // Obtener la categoría del jugador para actualizar su estado
+      const [jugadorData] = await connectionForUpdate.query(
+        'SELECT idcategoria FROM jugador WHERE idjugador = ?',
+        [newPayment.idjugador]
+      );
+      const categoriasAfectadas = new Set();
+      if (jugadorData.length > 0) {
+        categoriasAfectadas.add(jugadorData[0].idcategoria);
+      }
+      
+      // También actualizar el estado de los hermanos afectados
+      if (siblings.length > 0) {
+        console.log(`[POST /payments] 🔄 Actualizando estados de ${siblings.length} hermano(s)`);
+        for (const sibling of siblings) {
+          const hermanoId = sibling.idhermano;
+          if (hermanoId && hermanoId !== newPayment.idjugador) {
+            const [hermanoStatus] = await connectionForUpdate.query(
+              'SELECT idestado, idcategoria FROM jugador WHERE idjugador = ?',
+              [hermanoId]
+            );
+            // Solo actualizar si no está exonerado
+            if (hermanoStatus.length > 0 && hermanoStatus[0].idestado !== 3) {
+              console.log(`[POST /payments] 🔄 Llamando a updatePlayerState para hermano ${hermanoId}`);
+              await updatePlayerState(connectionForUpdate, hermanoId);
+              console.log(`[POST /payments] ✅ updatePlayerState completado para hermano ${hermanoId}`);
+              categoriasAfectadas.add(hermanoStatus[0].idcategoria);
+            }
           }
         }
       }
+      
+      // 6. Actualizar el estado de todas las categorías afectadas
+      for (const categoriaId of categoriasAfectadas) {
+        await updateCategoryState(connectionForUpdate, categoriaId);
+      }
+      
+      connectionForUpdate.release();
+      res.json({ 
+        message: 'Pago agregado correctamente',
+        hermanosAfectados: hermanosAfectados
+      });
+    } catch (updateError) {
+      connectionForUpdate.release();
+      console.error('Error actualizando estados después de crear recibo:', updateError);
+      // Aún así responder éxito porque el recibo ya se creó correctamente
+      res.json({ 
+        message: 'Pago agregado correctamente (pero hubo un error al actualizar estados)',
+        hermanosAfectados: hermanosAfectados
+      });
     }
-    
-    // 5. Actualizar el estado de todas las categorías afectadas
-    for (const categoriaId of categoriasAfectadas) {
-      await updateCategoryState(connection, categoriaId);
-    }
-    
-    await connection.commit();
-    res.json({ 
-      message: 'Pago agregado correctamente',
-      hermanosAfectados: hermanosAfectados
-    });
   } catch (error) {
-    await connection.rollback();
+    if (connection && !connection._released) {
+      await connection.rollback();
+      connection.release();
+    }
     console.error('Error agregando pago:', error);
     res.status(500).json({ error: 'Error del servidor' });
-  } finally {
-    connection.release();
   }
 });
 
@@ -1460,7 +1616,9 @@ app.get('/cuotasXcat', async (req, res) => {
       FROM recibo r
       JOIN jugador j ON r.idjugador = j.idjugador
       JOIN categoria c ON j.idcategoria = c.idcategoria
-      WHERE r.monto > 0 AND r.anio = YEAR(CURDATE()) AND c.visible = 1
+      WHERE r.monto > 0 
+        AND r.anio = YEAR(CURDATE()) 
+        AND c.visible = 1
       GROUP BY c.nombre_categoria, r.anio, r.mes_pago
       ORDER BY FIELD(mes,
         'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -1472,6 +1630,79 @@ app.get('/cuotasXcat', async (req, res) => {
     // console.log("rows: ", rows);
   } catch (error) {
     console.error('Error obteniendo pagos:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para obtener el total recaudado en el mes actual (por fecha_recibo)
+app.get('/paymentsMesActual', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        SUM(r.monto) as total
+      FROM recibo r 
+      JOIN jugador j ON r.idjugador = j.idjugador
+      JOIN categoria c ON j.idcategoria = c.idcategoria
+      WHERE r.monto > 0 
+        AND c.visible = 1 
+        AND r.visible = 1
+        AND YEAR(r.fecha_recibo) = YEAR(CURDATE())
+        AND MONTH(r.fecha_recibo) = MONTH(CURDATE())
+    `);
+    const total = rows[0]?.total || 0;
+    res.json({ total: parseInt(total) });
+  } catch (error) {
+    console.error('Error obteniendo pagos del mes actual:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para obtener cuotas del mes actual por categoría (por fecha_recibo)
+app.get('/cuotasMesActualXcat', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        c.nombre_categoria as categoria,
+        COUNT(DISTINCT r.idjugador) as jugadores_pagaron,
+        SUM(r.monto) as total
+      FROM recibo r 
+      JOIN jugador j ON r.idjugador = j.idjugador
+      JOIN categoria c ON j.idcategoria = c.idcategoria
+      WHERE r.monto > 0 
+        AND c.visible = 1 
+        AND r.visible = 1
+        AND YEAR(r.fecha_recibo) = YEAR(CURDATE())
+        AND MONTH(r.fecha_recibo) = MONTH(CURDATE())
+      GROUP BY c.nombre_categoria, c.idcategoria
+      ORDER BY c.nombre_categoria
+    `);
+    res.json({ payments: rows });
+  } catch (error) {
+    console.error('Error obteniendo cuotas del mes actual por categoría:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para obtener FC del mes actual por categoría (por fecha)
+app.get('/fcMesActualXcat', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        c.nombre_categoria as categoria,
+        COUNT(DISTINCT f.idjugador) as jugadores_pagaron
+      FROM fondocampeonato f 
+      JOIN jugador j ON f.idjugador = j.idjugador
+      JOIN categoria c ON j.idcategoria = c.idcategoria
+      WHERE f.monto > 0 
+        AND c.visible = 1
+        AND YEAR(f.fecha) = YEAR(CURDATE())
+        AND MONTH(f.fecha) = MONTH(CURDATE())
+      GROUP BY c.nombre_categoria, c.idcategoria
+      ORDER BY c.nombre_categoria
+    `);
+    res.json({ payments: rows });
+  } catch (error) {
+    console.error('Error obteniendo FC del mes actual por categoría:', error);
     res.status(500).json({ error: 'Error del servidor' });
   }
 });
@@ -1497,6 +1728,31 @@ app.get('/paymentsAnual', async (req, res) => {
     res.status(500).json({ error: 'Error del servidor' });
   }
 });
+
+// Endpoint para obtener jugadores únicos que pagaron cuotas del club en el año actual por categoría
+app.get('/cuotasAnualesXcat', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        c.nombre_categoria as categoria,
+        COUNT(DISTINCT r.idjugador) as jugadores_pagaron
+      FROM recibo r 
+      JOIN jugador j ON r.idjugador = j.idjugador
+      JOIN categoria c ON j.idcategoria = c.idcategoria
+      WHERE r.monto > 0 
+        AND c.visible = 1 
+        AND r.visible = 1
+        AND r.anio = YEAR(CURDATE())
+      GROUP BY c.nombre_categoria, c.idcategoria
+      ORDER BY c.nombre_categoria
+    `);
+    res.json({ payments: rows });
+  } catch (error) {
+    console.error('Error obteniendo jugadores que pagaron cuotas anuales:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
 app.get('/fcAnual', async (req, res) => {
   try {
     const [rows] = await db.query(`
@@ -1515,6 +1771,29 @@ app.get('/fcAnual', async (req, res) => {
     res.json({ payments: rows });
   } catch (error) {
     console.error('Error obteniendo pagos:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para obtener jugadores únicos que pagaron FC en el año actual por categoría
+app.get('/fcAnualesXcat', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        c.nombre_categoria as categoria,
+        COUNT(DISTINCT f.idjugador) as jugadores_pagaron
+      FROM fondocampeonato f 
+      JOIN jugador j ON f.idjugador = j.idjugador
+      JOIN categoria c ON j.idcategoria = c.idcategoria
+      WHERE f.monto > 0 
+        AND c.visible = 1
+        AND f.anio = YEAR(CURDATE())
+      GROUP BY c.nombre_categoria, c.idcategoria
+      ORDER BY c.nombre_categoria
+    `);
+    res.json({ payments: rows });
+  } catch (error) {
+    console.error('Error obteniendo jugadores que pagaron FC anual:', error);
     res.status(500).json({ error: 'Error del servidor' });
   }
 });
@@ -1753,23 +2032,53 @@ app.get('/fcXcuotas', async (req, res) => {
   try {
     const [rows] = await db.query(`
     SELECT
-  c.nombre_categoria as categoria,
-  SUM(CASE WHEN r.cuota_paga = 1 THEN r.monto ELSE 0 END) AS 'Total Cuota 1',
-  SUM(CASE WHEN r.cuota_paga = 2 THEN r.monto ELSE 0 END) AS 'Total Cuota 2'
-FROM
-  fondocampeonato r
-JOIN
-  jugador j ON r.idjugador = j.idjugador
-JOIN
-  categoria c ON j.idcategoria = c.idcategoria
-WHERE
-  r.monto > 0
-  AND c.visible = 1
-  AND r.anio = YEAR(CURDATE())
-GROUP BY
-  c.idcategoria
-  order by
-	c.idcategoria;
+      c.nombre_categoria as categoria,
+      SUM(CASE 
+        WHEN r.cuota_paga = 1 THEN 
+          -- Si hay 2 recibos con el mismo número y ambos tienen el mismo monto, dividir entre 2
+          CASE 
+            WHEN EXISTS (
+              SELECT 1 FROM fondocampeonato r2 
+              WHERE r2.idjugador = r.idjugador 
+                AND r2.anio = r.anio 
+                AND r2.numero = r.numero 
+                AND r2.cuota_paga = 2 
+                AND r2.monto = r.monto
+            ) THEN r.monto / 2
+            ELSE r.monto
+          END
+        ELSE 0 
+      END) AS 'Total Cuota 1',
+      SUM(CASE 
+        WHEN r.cuota_paga = 2 THEN 
+          -- Si hay 2 recibos con el mismo número y ambos tienen el mismo monto, dividir entre 2
+          CASE 
+            WHEN EXISTS (
+              SELECT 1 FROM fondocampeonato r2 
+              WHERE r2.idjugador = r.idjugador 
+                AND r2.anio = r.anio 
+                AND r2.numero = r.numero 
+                AND r2.cuota_paga = 1 
+                AND r2.monto = r.monto
+            ) THEN r.monto / 2
+            ELSE r.monto
+          END
+        ELSE 0 
+      END) AS 'Total Cuota 2'
+    FROM
+      fondocampeonato r
+    JOIN
+      jugador j ON r.idjugador = j.idjugador
+    JOIN
+      categoria c ON j.idcategoria = c.idcategoria
+    WHERE
+      r.monto > 0
+      AND c.visible = 1
+      AND r.anio = YEAR(CURDATE())
+    GROUP BY
+      c.idcategoria
+    ORDER BY
+      c.idcategoria;
     `);
     res.json({ payments: rows });
   } catch (error) {
@@ -1897,14 +2206,61 @@ const insertDefaultValores = async () => {
 setTimeout(insertDefaultValores, 1000);
 
 // Endpoints para valores de cuotas y fondo de campeonato
-// Obtener valores actuales
+// Obtener valores actuales (del año actual)
 app.get('/valores', async (req, res) => {
   try {
-    const [valores] = await db.query('SELECT * FROM valores ORDER BY id DESC LIMIT 1');
-    res.json({ valores: valores[0] || null });
+    const currentYear = new Date().getFullYear();
+    const [valores] = await db.query('SELECT * FROM valores WHERE ano = ?', [currentYear]);
+    if (valores.length > 0) {
+      res.json({ valores: valores[0] });
+    } else {
+      // Si no hay valores para el año actual, obtener el más reciente
+      const [latest] = await db.query('SELECT * FROM valores ORDER BY ano DESC LIMIT 1');
+      res.json({ valores: latest[0] || null });
+    }
   } catch (error) {
     console.error('Error fetching valores:', error);
     res.status(500).json({ error: 'Error al obtener valores' });
+  }
+});
+
+// Obtener valores por año específico
+app.get('/valores/:ano', async (req, res) => {
+  try {
+    const ano = parseInt(req.params.ano);
+    const [valores] = await db.query('SELECT * FROM valores WHERE ano = ?', [ano]);
+    if (valores.length > 0) {
+      res.json({ valores: valores[0] });
+    } else {
+      // Si no hay valores para ese año, obtener el más cercano
+      const [closest] = await db.query('SELECT * FROM valores WHERE ano <= ? ORDER BY ano DESC LIMIT 1', [ano]);
+      res.json({ valores: closest[0] || null });
+    }
+  } catch (error) {
+    console.error('Error fetching valores por año:', error);
+    res.status(500).json({ error: 'Error al obtener valores' });
+  }
+});
+
+// Obtener todos los valores históricos
+app.get('/valores/all', async (req, res) => {
+  try {
+    const [valores] = await db.query('SELECT * FROM valores ORDER BY ano DESC');
+    // Parsear meses_cuotas si viene como string JSON
+    const valoresParsed = valores.map(v => {
+      if (v.meses_cuotas && typeof v.meses_cuotas === 'string') {
+        try {
+          v.meses_cuotas = JSON.parse(v.meses_cuotas);
+        } catch (e) {
+          console.error('Error parsing meses_cuotas:', e);
+        }
+      }
+      return v;
+    });
+    res.json({ valores: valoresParsed || [] });
+  } catch (error) {
+    console.error('Error fetching all valores:', error);
+    res.status(500).json({ error: 'Error al obtener valores históricos' });
   }
 });
 

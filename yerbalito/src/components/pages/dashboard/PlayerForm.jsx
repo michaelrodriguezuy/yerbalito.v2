@@ -217,7 +217,9 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
 
   const fetchJugadores = async () => {
     try {
-      const response = await axios.get(API_ENDPOINTS.SQUAD);
+      // Usar SQUAD_ALL para obtener TODOS los jugadores (incluyendo categorías inactivas)
+      // Esto es necesario porque los hermanos pueden estar en cualquier categoría
+      const response = await axios.get(API_ENDPOINTS.SQUAD_ALL);
       setJugadores(response.data.squads);
     } catch (error) {
       console.error("Error fetching players: ", error);
@@ -441,14 +443,12 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
           madre: playerSelected?.madre || "",
           contacto: playerSelected?.contacto || "",
 
-          hermanos: playerSelected?.hermanos || "",
-
           observaciones:
             playerSelected?.observacionesJugador ||
             playerSelected?.observaciones ||
             "",
 
-          hasSiblings: playerSelected?.hermanos ? true : false,
+          hasSiblings: (playerSelected?.selectedSiblings && playerSelected.selectedSiblings.length > 0) ? true : false,
           selectedSiblings: playerSelected?.selectedSiblings || [],
           selectedSiblingCategory:
             playerSelected?.selectedSiblingCategory || "",
@@ -1183,6 +1183,25 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
                                 const sibling = jugadores.find(
                                   (jugador) => jugador.idjugador === id
                                 );
+                                // Si el hermano no se encuentra en jugadores, mostrar solo el ID
+                                if (!sibling) {
+                                  return (
+                                    <Chip
+                                      key={id}
+                                      label={`ID: ${id}`}
+                                      onDelete={() => {
+                                        const newSelected = selected.filter(
+                                          (s) => s !== id
+                                        );
+                                        setFieldValue(
+                                          "selectedSiblings",
+                                          newSelected
+                                        );
+                                      }}
+                                      style={{ marginBottom: 0 }}
+                                    />
+                                  );
+                                }
                                 return (
                                   <Chip
                                     key={id}

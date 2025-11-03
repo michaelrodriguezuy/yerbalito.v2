@@ -28,21 +28,6 @@ const COLORES_CATEGORIAS = [
 
 const percentFormatter = (number) => `${number.toFixed(0)}%`;
 
-const MESES_NOMBRES = {
-  "Enero": 1,
-  "Febrero": 2,
-  "Marzo": 3,
-  "Abril": 4,
-  "Mayo": 5,
-  "Junio": 6,
-  "Julio": 7,
-  "Agosto": 8,
-  "Septiembre": 9,
-  "Octubre": 10,
-  "Noviembre": 11,
-  "Diciembre": 12,
-};
-
 export function BarChartCuotasYfcXcategoria() {
   const [chartdata, setChartdata] = useState([]);
   const [categoryNames, setCategoryNames] = useState([]);
@@ -66,17 +51,12 @@ export function BarChartCuotasYfcXcategoria() {
       const jugadoresResponse = await axios.get(API_ENDPOINTS.SQUAD_ALL);
       const jugadores = jugadoresResponse.data.squads || [];
 
-      // Obtener cuotas del club del mes actual
-      const cuotasResponse = await axios.get(API_ENDPOINTS.CUOTAS_X_CAT);
-      const cuotas = cuotasResponse.data.payments || [];
+      // Obtener jugadores únicos que pagaron cuotas del club en el año actual
+      const cuotasResponse = await axios.get(API_ENDPOINTS.CUOTAS_ANUALES_X_CAT);
+      const cuotasAnuales = cuotasResponse.data.payments || [];
 
-      const mesActual = new Date().getMonth() + 1;
-      const mesActualNombre = Object.keys(MESES_NOMBRES).find(
-        (key) => MESES_NOMBRES[key] === mesActual
-      );
-
-      // Obtener fondo de campeonato anual
-      const fcResponse = await axios.get(API_ENDPOINTS.FC_ANUAL);
+      // Obtener jugadores únicos que pagaron fondo de campeonato en el año actual
+      const fcResponse = await axios.get(API_ENDPOINTS.FC_ANUALES_X_CAT);
       const fc = fcResponse.data.payments || [];
 
       // Construir datos del gráfico: 2 filas (Cuotas del club, Fondo de campeonato)
@@ -100,42 +80,61 @@ export function BarChartCuotasYfcXcategoria() {
           return;
         }
 
-        // Contar cuántos jugadores pagaron cuotas del mes actual
-        const pagosCuotasMes = cuotas.filter(
-          (c) => c.categoria === nombre && c.mes === mesActualNombre
-        );
-        
-        // Cada registro en cuotas puede tener múltiples pagos
-        // Necesitamos contar jugadores únicos que pagaron este mes
-        const jugadoresPagaronCuotas = new Set();
-        pagosCuotasMes.forEach((pago) => {
-          // Obtener el monto total y dividir por el valor de cuota para estimar jugadores
-          // Esto es una aproximación, idealmente deberías tener idjugador en la respuesta
-          const valorCuotaAprox = 2000;
-          const cantidadPagos = Math.round(parseInt(pago.total) / valorCuotaAprox);
-          for (let i = 0; i < cantidadPagos; i++) {
-            jugadoresPagaronCuotas.add(`${nombre}-${i}`);
-          }
-        });
-
-        const porcentajeCuotas = totalJugadores > 0
-          ? (jugadoresPagaronCuotas.size / totalJugadores) * 100
+        // Obtener cuántos jugadores únicos pagaron cuotas del club en el año actual
+        const pagoCuotasCategoria = cuotasAnuales.find((c) => c.categoria === nombre);
+        const jugadoresPagaronCuotas = pagoCuotasCategoria 
+          ? parseInt(pagoCuotasCategoria.jugadores_pagaron) || 0
           : 0;
 
-        // Contar cuántos jugadores pagaron fondo de campeonato (al menos 1 cuota)
-        const pagosFCCategoria = fc.filter((f) => f.categoria === nombre);
-        const jugadoresPagaronFC = pagosFCCategoria.length;
+        const porcentajeCuotas = totalJugadores > 0
+          ? (jugadoresPagaronCuotas / totalJugadores) * 100
+          : 0;
+
+        // Contar cuántos jugadores únicos pagaron fondo de campeonato en el año actual
+        const pagoFCCategoria = fc.find((f) => f.categoria === nombre);
+        const jugadoresPagaronFC = pagoFCCategoria 
+          ? parseInt(pagoFCCategoria.jugadores_pagaron) || 0
+          : 0;
 
         const porcentajeFC = totalJugadores > 0
           ? (jugadoresPagaronFC / totalJugadores) * 100
           : 0;
 
-        cuotasRow[nombre] = Math.min(porcentajeCuotas, 100);
-        fcRow[nombre] = Math.min(porcentajeFC, 100);
+        // Asegurar que los valores sean números (no NaN o undefined)
+        cuotasRow[nombre] = isNaN(porcentajeCuotas) ? 0 : Math.min(Math.max(porcentajeCuotas, 0), 100);
+        fcRow[nombre] = isNaN(porcentajeFC) ? 0 : Math.min(Math.max(porcentajeFC, 0), 100);
       });
 
-      setCategoryNames(nombresCateg);
-      setChartdata([cuotasRow, fcRow]);
+      // Filtrar solo categorías que tienen jugadores (para evitar mostrar categorías vacías)
+      const categoriasConDatos = nombresCateg.filter(nombre => {
+        const totalJugadores = jugadores.filter(
+          (j) => j.idcategoria === categoriasActivas.find(c => c.nombre_categoria === nombre)?.idcategoria
+        ).length;
+        return totalJugadores > 0;
+      });
+
+      setCategoryNames(categoriasConDatos);
+      
+      // Crear datos finales solo con categorías que tienen jugadores
+      const cuotasRowFinal = { name: "Cuotas del club" };
+      const fcRowFinal = { name: "Fondo de campeonato" };
+      categoriasConDatos.forEach(nombre => {
+        cuotasRowFinal[nombre] = cuotasRow[nombre] || 0;
+        fcRowFinal[nombre] = fcRow[nombre] || 0;
+      });
+      
+      setChartdata([cuotasRowFinal, fcRowFinal]);
+      
+      // Debug: Verificar qué datos se están enviando
+      console.log("CyFCxCat - Datos del gráfico (ANUALES):", {
+        categoryNames: categoriasConDatos,
+        chartdata: [cuotasRowFinal, fcRowFinal],
+        cuotasAnuales: cuotasAnuales,
+        fcAnual: fc,
+        jugadoresTotal: jugadores.length,
+        categoriasActivas: categoriasActivas.length
+      });
+      
       setLoading(false);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -186,7 +185,10 @@ export function BarChartCuotasYfcXcategoria() {
                 domain={[0, 100]}
               />
               <Tooltip
-                formatter={percentFormatter}
+                formatter={(value, name) => {
+                  const val = typeof value === 'number' ? value : parseFloat(value) || 0;
+                  return [`${val.toFixed(1)}%`, name];
+                }}
                 contentStyle={{
                   backgroundColor: "#fff",
                   border: "1px solid #ddd",
@@ -197,12 +199,13 @@ export function BarChartCuotasYfcXcategoria() {
                 wrapperStyle={{ paddingTop: "10px" }}
                 iconType="rect"
               />
-              {categoryNames.map((categoria, index) => (
+              {categoryNames.length > 0 && categoryNames.map((categoria, index) => (
                 <Bar
                   key={categoria}
                   dataKey={categoria}
                   fill={COLORES_CATEGORIAS[index % COLORES_CATEGORIAS.length]}
                   radius={[4, 4, 0, 0]}
+                  minPointSize={1}
                 />
               ))}
             </BarChart>

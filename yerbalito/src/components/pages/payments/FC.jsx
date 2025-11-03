@@ -288,6 +288,34 @@ const FondoCamp = () => {
           .map((payment) => parseInt(payment.cuota_paga))
           .filter(cuota => !isNaN(cuota) && (cuota === 1 || cuota === 2));
         setPaidQuotas(paidQuotasList);
+        
+        // Ajustar selección según cuotas pagadas del nuevo año
+        if (paidQuotasList.length === 0) {
+          // Si no hay cuotas pagadas, sugerir cuota 1
+          setFormData((prev) => ({
+            ...prev,
+            cuota_paga: "1",
+            monto: valores ? ((valores.fondo_campeonato || 0) / 2).toString() : ""
+          }));
+          setPagarAmbasCuotas(false);
+        } else if (paidQuotasList.length === 1) {
+          // Si solo falta una cuota, sugerir la pendiente
+          const cuotaPendiente = [1, 2].find(c => !paidQuotasList.includes(c));
+          setFormData((prev) => ({
+            ...prev,
+            cuota_paga: cuotaPendiente ? cuotaPendiente.toString() : "",
+            monto: valores ? ((valores.fondo_campeonato || 0) / 2).toString() : ""
+          }));
+          setPagarAmbasCuotas(false);
+        } else {
+          // Si ambas cuotas están pagadas, limpiar todo
+          setFormData((prev) => ({
+            ...prev,
+            cuota_paga: "",
+            monto: "0"
+          }));
+          setPagarAmbasCuotas(false);
+        }
       } catch (error) {
         console.error("Error fetching FC payments for year:", error);
         setPaidQuotas([]);
@@ -365,14 +393,9 @@ const FondoCamp = () => {
       const response = await axios.get(API_ENDPOINTS.SQUAD_ALL);
       // NOTA: Todos los jugadores deben pagar fondo de campeonato, incluso los exonerados
       // La exoneración (estado=3) solo aplica a la cuota del club, no al fondo de campeonato
+      // El backend ya trae los datos ordenados alfabéticamente por apellido y nombre
       const players = response.data.squads || [];
-      // Ordenar alfabéticamente por apellido y luego por nombre
-      const sortedPlayers = players.sort((a, b) => {
-        const apellidoComparison = a.apellido.localeCompare(b.apellido);
-        if (apellidoComparison !== 0) return apellidoComparison;
-        return a.nombre.localeCompare(b.nombre);
-      });
-      setPlayerPayments(sortedPlayers);
+      setPlayerPayments(players);
     } catch (error) {
       console.error("Error fetching players: ", error);
     }
@@ -775,12 +798,23 @@ const FondoCamp = () => {
                   MenuProps={{
                     PaperProps: {
                       sx: {
-                        backgroundColor: "#ffffff", // ← Fondo blanco del dropdown
+                        backgroundColor: "#ffffff",
                         "& .MuiMenuItem-root": {
-                          color: "#000000", // ← Texto negro de las opciones
+                          color: "#000000",
+                          // Forzar que los items se muestren en orden sin agrupación visual
+                          '&::before': { display: 'none' },
+                          '&::after': { display: 'none' }
                         },
+                        // Eliminar cualquier lógica de agrupación
+                        '& .MuiList-root': {
+                          padding: 0
+                        }
                       },
                     },
+                    // Asegurar que no se agrupe por categoría
+                    disableAutoFocusItem: true,
+                    // Deshabilitar cualquier agrupación automática
+                    variant: "menu",
                   }}
                 >
                   <MenuItem value="" disabled>
@@ -788,21 +822,68 @@ const FondoCamp = () => {
                   </MenuItem>
                   {playerPayments &&
                     playerPayments.map((player) => (
-                      <MenuItem key={player.idjugador} value={player.idjugador}>
-                        {player.nombre} {player.apellido}
+                      <MenuItem 
+                        key={player.idjugador} 
+                        value={player.idjugador}
+                        sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center',
+                          // Evitar que Material-UI agrupe visualmente por categoría
+                          '&::before': { display: 'none' }
+                        }}
+                      >
+                        {player.apellido}, {player.nombre} - {player.nombre_categoria}
                       </MenuItem>
                     ))}
                 </Select>
               </FormControl>
 
-              {/* Selección de cuota (1/2 o 2/2) */}
+              {/* Año - MOVIDO ARRIBA */}
+              <FormControl fullWidth>
+                <Typography variant="subtitle2" gutterBottom>
+                  Año
+                </Typography>
+                <Select
+                  value={formData.anio}
+                  onChange={(e) => handleFormChange("anio", parseInt(e.target.value))}
+                  displayEmpty
+                  variant="outlined"
+                  disabled={!selectedPlayer}
+                  sx={{
+                    backgroundColor: "#ffffff",
+                    color: "#000000",
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        backgroundColor: "#ffffff",
+                        "& .MuiMenuItem-root": { color: "#000000" },
+                      },
+                    },
+                  }}
+                >
+                  {availableYears.length > 0 ? (
+                    availableYears.map((year) => (
+                      <MenuItem key={year} value={year}>
+                        {year}
+                      </MenuItem>
+                    ))
+                  ) : (
+                    <MenuItem value={new Date().getFullYear()}>
+                      {new Date().getFullYear()}
+                    </MenuItem>
+                  )}
+                </Select>
+              </FormControl>
+
+              {/* Selección de cuota (1/2 o 2/2) - FILTRADO SEGÚN AÑO */}
               <FormControl fullWidth>
                 <Typography variant="subtitle2" gutterBottom>
                   Cuota
                 </Typography>
                 {selectedPlayer && paidQuotas.length > 0 && paidQuotas.length < 2 && (
                   <Typography variant="caption" sx={{ color: '#666', mb: 0.5 }}>
-                    Cuotas ya pagadas: {paidQuotas.join(', ')}/2
+                    Cuotas ya pagadas en {formData.anio}: {paidQuotas.join(', ')}/2
                   </Typography>
                 )}
                 
@@ -880,49 +961,11 @@ const FondoCamp = () => {
                   {[1, 2].map((cuota) => {
                     const isPaid = paidQuotas.includes(cuota);
                     return (
-                      <MenuItem key={cuota} value={cuota.toString()}>
+                      <MenuItem key={cuota} value={cuota.toString()} disabled={isPaid}>
                         Cuota {cuota}/2 {isPaid && "✓ (Paga)"}
                       </MenuItem>
                     );
                   })}
-                </Select>
-              </FormControl>
-
-              {/* Año */}
-              <FormControl fullWidth>
-                <Typography variant="subtitle2" gutterBottom>
-                  Año
-                </Typography>
-                <Select
-                  value={formData.anio}
-                  onChange={(e) => handleFormChange("anio", parseInt(e.target.value))}
-                  displayEmpty
-                  variant="outlined"
-                  disabled={!selectedPlayer}
-                  sx={{
-                    backgroundColor: "#ffffff",
-                    color: "#000000",
-                  }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: {
-                        backgroundColor: "#ffffff",
-                        "& .MuiMenuItem-root": { color: "#000000" },
-                      },
-                    },
-                  }}
-                >
-                  {availableYears.length > 0 ? (
-                    availableYears.map((year) => (
-                      <MenuItem key={year} value={year}>
-                        {year}
-                      </MenuItem>
-                    ))
-                  ) : (
-                    <MenuItem value={new Date().getFullYear()}>
-                      {new Date().getFullYear()}
-                    </MenuItem>
-                  )}
                 </Select>
               </FormControl>
 

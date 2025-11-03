@@ -54,23 +54,38 @@ export function BarChartFC() {
 
   const fetchFC = async () => {
     try {
-      const response = await axios.get(API_ENDPOINTS.FC_X_CUOTAS);
-      const payments = response.data.payments;
+      // Obtener categorías activas y pagos de FC en paralelo
+      const [categoriasResponse, fcResponse] = await Promise.all([
+        axios.get(API_ENDPOINTS.CATEGORIES_ALL),
+        axios.get(API_ENDPOINTS.FC_X_CUOTAS)
+      ]);
 
-      if (!payments || payments.length === 0) {
-        return;
-      }
+      const categorias = categoriasResponse.data.categorias || [];
+      const categoriasActivas = categorias.filter((cat) => cat.visible === 1);
+      const payments = fcResponse.data.payments || [];
 
-      // Transformar datos para el gráfico
-      const chartArray = payments.map((item) => ({
-        categoria: item.categoria,
-        "Cuota 1": parseInt(item["Total Cuota 1"]) || 0,
-        "Cuota 2": parseInt(item["Total Cuota 2"]) || 0,
-      }));
+      // Crear un mapa de pagos por categoría para acceso rápido
+      const pagosPorCategoria = {};
+      payments.forEach((item) => {
+        pagosPorCategoria[item.categoria] = {
+          "Cuota 1": parseInt(item["Total Cuota 1"]) || 0,
+          "Cuota 2": parseInt(item["Total Cuota 2"]) || 0,
+        };
+      });
+
+      // Crear array con TODAS las categorías activas (incluso si no tienen pagos)
+      const chartArray = categoriasActivas.map((cat) => {
+        const pagos = pagosPorCategoria[cat.nombre_categoria];
+        return {
+          categoria: cat.nombre_categoria,
+          "Cuota 1": pagos ? pagos["Cuota 1"] : 0,
+          "Cuota 2": pagos ? pagos["Cuota 2"] : 0,
+        };
+      });
 
       setChartdata(chartArray);
 
-      // Calcular totales
+      // Calcular totales (solo de categorías con pagos registrados)
       const total1 = payments.reduce((acc, p) => acc + (parseInt(p["Total Cuota 1"]) || 0), 0);
       const total2 = payments.reduce((acc, p) => acc + (parseInt(p["Total Cuota 2"]) || 0), 0);
 

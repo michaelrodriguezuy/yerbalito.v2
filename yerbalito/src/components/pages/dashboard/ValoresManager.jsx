@@ -30,11 +30,13 @@ const ValoresManager = () => {
     ano: new Date().getFullYear(),
     meses_cuotas: [3, 4, 5, 6, 7, 8, 9, 10, 11], // Marzo a Noviembre por defecto
   });
+  const [valoresHistoricos, setValoresHistoricos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchValores();
+    fetchValoresHistoricos();
   }, []);
 
   const fetchValores = async () => {
@@ -57,6 +59,23 @@ const ValoresManager = () => {
       toast.error("Error al cargar valores");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchValoresHistoricos = async () => {
+    try {
+      const response = await axios.get(API_ENDPOINTS.VALORES_ALL);
+      console.log('Valores históricos recibidos:', response.data);
+      if (response.data && response.data.valores) {
+        setValoresHistoricos(response.data.valores);
+        console.log('Valores históricos guardados en estado:', response.data.valores);
+      } else {
+        console.warn('No se recibieron valores históricos en la respuesta');
+        setValoresHistoricos([]);
+      }
+    } catch (error) {
+      console.error("Error fetching valores históricos:", error);
+      toast.error("Error al cargar valores históricos");
     }
   };
 
@@ -107,6 +126,7 @@ const ValoresManager = () => {
       await axios.post(API_ENDPOINTS.VALORES, valores);
       toast.success("Valores actualizados correctamente");
       fetchValores();
+      fetchValoresHistoricos();
     } catch (error) {
       console.error("Error saving valores:", error);
       toast.error("Error al guardar valores");
@@ -142,7 +162,7 @@ const ValoresManager = () => {
         año seleccionado. Estos valores se utilizarán al crear recibos de pago.
       </Alert>
 
-      
+      <Card sx={{ mb: 3, backgroundColor: "rgba(255, 255, 255, 0.05)" }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
             Valores para {valores.ano}
@@ -299,7 +319,80 @@ const ValoresManager = () => {
             </Button>
           </Box>
         </CardContent>
-      
+      </Card>
+
+      {/* Valores Históricos */}
+      {valoresHistoricos && valoresHistoricos.length > 0 ? (
+        <Card sx={{ mt: 3, backgroundColor: "rgba(255, 255, 255, 0.05)" }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Valores Históricos Guardados
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {valoresHistoricos.map((val) => (
+                <Paper
+                  key={val.id}
+                  sx={{
+                    p: 2,
+                    backgroundColor: "rgba(255, 255, 255, 0.1)",
+                    border: "1px solid rgba(255, 255, 255, 0.2)",
+                  }}
+                >
+                  <Typography variant="subtitle1" sx={{ fontWeight: "bold", mb: 1 }}>
+                    Año {val.ano}
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={4}>
+                      <Typography variant="body2" sx={{ color: "#ffffff" }}>
+                        Cuota del Club:
+                      </Typography>
+                      <Typography variant="h6" sx={{ color: "#4CAF50" }}>
+                        ${val.cuota_club}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <Typography variant="body2" sx={{ color: "#ffffff" }}>
+                        Fondo de Campeonato:
+                      </Typography>
+                      <Typography variant="h6" sx={{ color: "#4CAF50" }}>
+                        ${val.fondo_campeonato}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <Typography variant="body2" sx={{ color: "#ffffff", mb: 0.5 }}>
+                        Meses de Cuotas:
+                      </Typography>
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                        {(val.meses_cuotas || []).map((month) => (
+                          <Chip
+                            key={month}
+                            label={getMonthName(month)}
+                            size="small"
+                            sx={{
+                              backgroundColor: "#4CAF50",
+                              color: "white",
+                              fontSize: "0.7rem",
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </Paper>
+              ))}
+            </Box>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card sx={{ mt: 3, backgroundColor: "rgba(255, 255, 255, 0.05)" }}>
+          <CardContent>
+            <Typography variant="body2" sx={{ color: "#ffffff" }}>
+              No hay valores históricos guardados aún.
+            </Typography>
+          </CardContent>
+        </Card>
+      )}
 
       <Alert
         severity="warning"

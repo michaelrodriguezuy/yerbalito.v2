@@ -6,7 +6,7 @@ import FixtureManager from "./FixtureManager";
 import ContentManager from "./ContentManager";
 import { Box, Button, Typography, Paper } from "@mui/material";
 import { useState, useContext } from "react";
-import { AuthContext } from "../../context/AuthContext";
+import { AuthContext } from "../../../context/AuthContext";
 
 const Dashboard = () => {
   const { user } = useContext(AuthContext);

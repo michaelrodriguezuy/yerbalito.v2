@@ -58,6 +58,7 @@ const Payments = () => {
   const [playerPayments, setPlayerPayments] = useState([]);
   const [paidMonths, setPaidMonths] = useState([]); // meses ya pagados del jugador seleccionado
   const [availableYears, setAvailableYears] = useState([]); // años con deudas disponibles
+  const [fechaIngreso, setFechaIngreso] = useState(null); // fecha de ingreso del jugador seleccionado
   const [formData, setFormData] = useState({
     idjugador: "",
     monto: "",
@@ -65,8 +66,10 @@ const Payments = () => {
     anio: new Date().getFullYear(),
     observaciones: "",
   });
-  const [selectedMonths, setSelectedMonths] = useState([]); // meses a pagar
-  const [valores, setValores] = useState(null);
+  const [selectedMonths, setSelectedMonths] = useState([]); // meses a pagar del año actual seleccionado
+  const [selectedMonthsByYear, setSelectedMonthsByYear] = useState({}); // meses a pagar organizados por año: { 2024: [8,9,10], 2025: [3,4,5] }
+  const [valores, setValores] = useState(null); // valores del año actual
+  const [valoresByYear, setValoresByYear] = useState({}); // valores históricos por año: { 2024: {cuota_club: 300}, 2025: {cuota_club: 400} }
 
   const { user } = useContext(AuthContext);
 
@@ -74,6 +77,40 @@ const Payments = () => {
     fetchPayments();
     fetchValores();
   }, [searchTerm]);
+
+  // Recalcular monto total cuando cambien los meses seleccionados o los valores históricos
+  useEffect(() => {
+    if (Object.keys(selectedMonthsByYear).length === 0) return;
+    
+    // Asegurar que tenemos todos los valores necesarios
+    const yearsNeedingValues = Object.keys(selectedMonthsByYear).filter(year => 
+      selectedMonthsByYear[year]?.length > 0 && !valoresByYear[year]
+    );
+    
+    if (yearsNeedingValues.length > 0) {
+      // Obtener valores faltantes
+      yearsNeedingValues.forEach(year => fetchValoresByYear(year));
+      return; // Esperar a que se carguen los valores
+    }
+    
+    // Calcular directamente si tenemos todos los valores
+    let total = 0;
+    Object.entries(selectedMonthsByYear).forEach(([year, yearMonths]) => {
+      if (yearMonths && yearMonths.length > 0) {
+        const yearValores = valoresByYear[year] || valores;
+        const unit = yearValores?.cuota_club || 0;
+        total += yearMonths.length * unit;
+      }
+    });
+    
+    if (total > 0 || Object.values(selectedMonthsByYear).some(months => months?.length > 0)) {
+      setFormData((prev) => ({
+        ...prev,
+        monto: total.toString()
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMonthsByYear, valoresByYear]);
 
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
@@ -117,6 +154,7 @@ const Payments = () => {
     setSelectedPlayer("");
     setPaidMonths([]);
     setAvailableYears([]);
+    setFechaIngreso(null);
     setFormData({
       idjugador: "",
       monto: "",
@@ -125,6 +163,8 @@ const Payments = () => {
       observaciones: "",
     });
     setSelectedMonths([]);
+    setSelectedMonthsByYear({});
+    setValoresByYear({});
   };
 
   const handlePlayerSelectChange = async (event) => {
@@ -136,12 +176,13 @@ const Payments = () => {
       try {
         // Obtener el jugador completo para acceder a su fecha de ingreso
         const selectedPlayerData = playerPayments.find(p => p.idjugador === parseInt(playerId));
-        const fechaIngreso = selectedPlayerData?.fecha_ingreso;
+        const playerFechaIngreso = selectedPlayerData?.fecha_ingreso;
+        setFechaIngreso(playerFechaIngreso);
         let ingresoYear = null;
         let ingresoMonth = null;
         
-        if (fechaIngreso) {
-          const ingresoDate = new Date(fechaIngreso);
+        if (playerFechaIngreso) {
+          const ingresoDate = new Date(playerFechaIngreso);
           ingresoYear = ingresoDate.getFullYear();
           ingresoMonth = ingresoDate.getMonth() + 1; // getMonth() devuelve 0-11
         }
@@ -166,9 +207,14 @@ const Payments = () => {
         const yearsWithPayments = [...new Set(allPlayerPayments.map(p => parseInt(p.anio)))].sort();
         let startYear = yearsWithPayments.length > 0 ? Math.min(...yearsWithPayments) : currentYear;
         
-        // Si hay fecha de ingreso, ajustar el año de inicio
-        if (ingresoYear && ingresoYear > startYear) {
-          startYear = ingresoYear;
+        // Si hay fecha de ingreso, usar el año de ingreso como punto de partida mínimo
+        // Esto asegura que siempre revisemos desde el año de ingreso hacia adelante
+        if (ingresoYear && ingresoYear <= currentYear) {
+          // Si el año de ingreso es menor que el startYear calculado, usarlo como inicio
+          // O si no hay pagos, usar el año de ingreso
+          if (ingresoYear < startYear || yearsWithPayments.length === 0) {
+            startYear = ingresoYear;
+          }
         }
         
         for (let year = startYear; year <= currentYear; year++) {
@@ -243,7 +289,9 @@ const Payments = () => {
         }
 
         // Sugerir el primer mes no pagado del año determinado
-        setSelectedMonths([unpaidMonths[0]]);
+        const initialSelected = [unpaidMonths[0]];
+        setSelectedMonths(initialSelected);
+        setSelectedMonthsByYear({ [suggestedYear]: initialSelected });
         setFormData((prev) => ({
           ...prev,
           idjugador: playerId,
@@ -292,45 +340,145 @@ const Payments = () => {
     }
   };
 
+  // Calcular monto total usando valores históricos por año
+  const calculateTotalAmount = (selectedByYear, callback) => {
+    // Función auxiliar para calcular cuando tengamos todos los valores
+    const calculate = () => {
+      let total = 0;
+      Object.entries(selectedByYear).forEach(([year, yearMonths]) => {
+        if (yearMonths.length > 0) {
+          const yearValores = valoresByYear[year] || valores; // usar valores del año o los actuales como fallback
+          const unit = yearValores?.cuota_club || 0;
+          total += yearMonths.length * unit;
+        }
+      });
+      setFormData((prev) => ({
+        ...prev,
+        monto: total.toString()
+      }));
+      if (callback) callback(total);
+    };
+    
+    // Si hay años sin valores, obtenerlos primero
+    const yearsNeedingValues = Object.keys(selectedByYear).filter(year => 
+      selectedByYear[year].length > 0 && !valoresByYear[year]
+    );
+    
+    if (yearsNeedingValues.length > 0) {
+      // Obtener valores para todos los años necesarios
+      Promise.all(yearsNeedingValues.map(year => fetchValoresByYear(year))).then(() => {
+        // Esperar un poco para que los estados se actualicen
+        setTimeout(calculate, 200);
+      });
+    } else {
+      calculate();
+    }
+  };
+
+  // Calcular meses disponibles para el año seleccionado
+  const getAvailableMonthsForYear = (year) => {
+    if (!selectedPlayer || !fechaIngreso) {
+      return valores?.meses_cuotas || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    }
+    
+    const ingresoDate = new Date(fechaIngreso);
+    const ingresoYear = ingresoDate.getFullYear();
+    const ingresoMonth = ingresoDate.getMonth() + 1;
+    const enabledMonths = valores?.meses_cuotas || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    
+    // Si el año seleccionado es el año de ingreso, solo meses desde el mes de ingreso
+    if (year === ingresoYear) {
+      return enabledMonths.filter(month => month >= ingresoMonth);
+    }
+    
+    // Si el año seleccionado es anterior al año de ingreso, no hay meses disponibles
+    if (year < ingresoYear) {
+      return [];
+    }
+    
+    // Para años posteriores al ingreso, todos los meses habilitados
+    return enabledMonths;
+  };
+
   const handleFormChange = async (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     
-    // Si cambia el año manualmente, actualizar los meses pagados de ese año
+    // Si cambia el año manualmente, guardar meses del año anterior y cargar meses del nuevo año
     if (field === "anio" && formData.idjugador) {
       try {
+        const oldYear = formData.anio;
+        const newYear = parseInt(value);
+        
+        // Guardar los meses seleccionados del año anterior
+        if (selectedMonths.length > 0) {
+          setSelectedMonthsByYear((prev) => ({
+            ...prev,
+            [oldYear]: selectedMonths
+          }));
+        }
+        
+        // Cargar los meses seleccionados del nuevo año (si ya había seleccionado algo antes)
+        const monthsForNewYear = selectedMonthsByYear[newYear] || [];
+        setSelectedMonths(monthsForNewYear);
+        
+        // Obtener valores para el año nuevo si no los tenemos
+        if (!valoresByYear[newYear]) {
+          fetchValoresByYear(newYear);
+        }
+        
         const response = await axios.get(
-          `${API_ENDPOINTS.PAYMENTS}?playerId=${formData.idjugador}&year=${value}`
+          `${API_ENDPOINTS.PAYMENTS}?playerId=${formData.idjugador}&year=${newYear}`
         );
-        const playerPayments = response.data.payments || [];
-        const paidMonthsList = playerPayments
+        const playerPaymentsData = response.data.payments || [];
+        const paidMonthsList = playerPaymentsData
           .map((payment) => parseInt(payment.mes_pago))
           .filter(month => !isNaN(month));
         setPaidMonths(paidMonthsList);
         
-        // También ajustar los meses sugeridos según fecha de ingreso para el año seleccionado
-        const selectedPlayerData = playerPayments.find(p => p.idjugador === parseInt(formData.idjugador));
-        const fechaIngreso = selectedPlayerData?.fecha_ingreso;
+        // Obtener meses disponibles para el nuevo año
+        const availableMonths = getAvailableMonthsForYear(newYear);
         
-        if (fechaIngreso) {
-          const ingresoDate = new Date(fechaIngreso);
-          const ingresoYear = ingresoDate.getFullYear();
-          const ingresoMonth = ingresoDate.getMonth() + 1;
-          const selectedYear = parseInt(value);
-          
-          // Si el año seleccionado es el año de ingreso, sugerir desde el mes de ingreso
-          if (selectedYear === ingresoYear) {
-            const enabledMonths = valores?.meses_cuotas || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-            const availableMonths = enabledMonths.filter(month => month >= ingresoMonth);
-            const unpaidMonths = availableMonths.filter(month => !paidMonthsList.includes(month));
+        // Filtrar meses seleccionados que ya no están disponibles o están pagados
+        const validSelectedMonths = monthsForNewYear.filter(
+          month => availableMonths.includes(month) && !paidMonthsList.includes(month)
+        );
+        setSelectedMonths(validSelectedMonths);
+        
+        // Actualizar selectedMonthsByYear con los meses válidos
+        const updatedSelectedByYear = { ...selectedMonthsByYear, [newYear]: validSelectedMonths };
+        setSelectedMonthsByYear(updatedSelectedByYear);
+        
+        // Si no hay meses válidos seleccionados, sugerir el primero disponible
+        if (validSelectedMonths.length === 0) {
+          const unpaidMonths = availableMonths.filter(month => !paidMonthsList.includes(month));
+          if (unpaidMonths.length > 0) {
+            const newSelected = [unpaidMonths[0]];
+            setSelectedMonths(newSelected);
+            const updatedSelectedByYear2 = { ...updatedSelectedByYear, [newYear]: newSelected };
+            setSelectedMonthsByYear(updatedSelectedByYear2);
             
-            if (unpaidMonths.length > 0) {
-              setSelectedMonths([unpaidMonths[0]]);
-              setFormData((prev) => ({
-                ...prev,
-                cuota_paga: unpaidMonths[0].toString()
-              }));
-            }
+            // Calcular monto usando valores históricos
+            calculateTotalAmount(updatedSelectedByYear2);
+            
+            setFormData((prev) => ({
+              ...prev,
+              cuota_paga: unpaidMonths[0].toString()
+            }));
+          } else {
+            setSelectedMonths([]);
+            setFormData((prev) => ({
+              ...prev,
+              cuota_paga: "",
+              monto: "0"
+            }));
           }
+        } else {
+          // Recalcular monto basado en TODOS los meses seleccionados de todos los años
+          calculateTotalAmount(updatedSelectedByYear);
+          setFormData((prev) => ({
+            ...prev,
+            cuota_paga: validSelectedMonths[0] ? validSelectedMonths[0].toString() : ""
+          }));
         }
       } catch (error) {
         console.error("Error fetching payments for year:", error);
@@ -341,25 +489,46 @@ const Payments = () => {
 
   const handleSubmitPayment = async () => {
     try {
-      // Crear uno o varios recibos (uno por mes seleccionado)
-      const monthsToPay = Array.isArray(selectedMonths) ? selectedMonths : [];
-      if (!formData.idjugador || monthsToPay.length === 0) {
+      // Crear recibos para TODOS los meses seleccionados de TODOS los años
+      const allSelectedMonths = selectedMonthsByYear;
+      const allMonthsToPay = Object.entries(allSelectedMonths).flatMap(([year, months]) => 
+        months.map(month => ({ year: parseInt(year), month }))
+      );
+      
+      if (!formData.idjugador || allMonthsToPay.length === 0) {
         toast.error("Selecciona un jugador y al menos un mes a pagar");
         return;
       }
 
       let totalRecibos = 0;
-      for (const mes of monthsToPay) {
+      for (const { year, month } of allMonthsToPay) {
+        // Obtener el valor de cuota para el año específico
+        const yearValores = valoresByYear[year] || valores;
+        const monto = yearValores?.cuota_club ?? 0;
+        
+        if (!monto || monto === 0) {
+          toast.error(`No se encontró el valor de cuota para el año ${year}`);
+          continue;
+        }
+        
         const payment = {
-          idjugador: formData.idjugador,
-          monto: valores?.cuota_club ?? 0,
-          cuota_paga: mes.toString(),
-          observaciones: formData.observaciones,
-          idusuario: user.id,
+          idjugador: parseInt(formData.idjugador),
+          monto: parseFloat(monto),
+          cuota_paga: month.toString(),
+          anio: parseInt(year),
+          observaciones: formData.observaciones || '',
+          idusuario: parseInt(user.id),
         };
-        const response = await axios.post(API_ENDPOINTS.PAYMENTS, payment);
-        const hermanosAfectados = response.data.hermanosAfectados || 0;
-        totalRecibos += 1 + hermanosAfectados;
+        
+        try {
+          const response = await axios.post(API_ENDPOINTS.PAYMENTS, payment);
+          const hermanosAfectados = response.data.hermanosAfectados || 0;
+          totalRecibos += 1 + hermanosAfectados;
+        } catch (error) {
+          console.error(`Error creating payment for year ${year}, month ${month}:`, error);
+          toast.error(`Error al crear recibo para ${month}/${year}: ${error.response?.data?.error || error.message}`);
+          throw error; // Detener el proceso si hay un error
+        }
       }
 
       toast.success(
@@ -377,16 +546,13 @@ const Payments = () => {
     try {
       const response = await axios.get(API_ENDPOINTS.SQUAD_ALL);
       // Filtrar jugadores exonerados (estado=3) - estos no deben pagar cuotas
+      // El backend ya trae los datos ordenados alfabéticamente por apellido y nombre
+      // El .filter() mantiene el orden del array original, así que no necesitamos reordenar
       const playersWithoutExonerated = (response.data.squads || []).filter(
         (player) => player.idestado !== 3
       );
-      // Ordenar alfabéticamente por apellido y luego por nombre
-      const sortedPlayers = playersWithoutExonerated.sort((a, b) => {
-        const apellidoComparison = a.apellido.localeCompare(b.apellido);
-        if (apellidoComparison !== 0) return apellidoComparison;
-        return a.nombre.localeCompare(b.nombre);
-      });
-      setPlayerPayments(sortedPlayers);
+      // Asegurar que el orden se mantiene (el filter preserva el orden, pero por si acaso)
+      setPlayerPayments(playersWithoutExonerated);
     } catch (error) {
       console.error("Error fetching players: ", error);
     }
@@ -395,9 +561,38 @@ const Payments = () => {
   const fetchValores = async () => {
     try {
       const response = await axios.get(API_ENDPOINTS.VALORES);
-      setValores(response.data.valores);
+      const valoresData = response.data.valores;
+      setValores(valoresData);
+      // Guardar valores del año actual en valoresByYear
+      if (valoresData?.ano) {
+        setValoresByYear((prev) => ({
+          ...prev,
+          [valoresData.ano]: valoresData
+        }));
+      }
     } catch (error) {
       console.error("Error fetching valores:", error);
+    }
+  };
+
+  const fetchValoresByYear = async (ano) => {
+    try {
+      // Si ya tenemos los valores de este año, no hacer la petición
+      if (valoresByYear[ano]) {
+        return;
+      }
+      
+      const response = await axios.get(API_ENDPOINTS.VALORES_BY_YEAR(ano));
+      const valoresData = response.data.valores;
+      if (valoresData) {
+        setValoresByYear((prev) => ({
+          ...prev,
+          [ano]: valoresData
+        }));
+        // El useEffect recalculará el monto automáticamente
+      }
+    } catch (error) {
+      console.error(`Error fetching valores for year ${ano}:`, error);
     }
   };
 
@@ -870,12 +1065,23 @@ const Payments = () => {
                   MenuProps={{
                     PaperProps: {
                       sx: {
-                        backgroundColor: "#ffffff", // ← Fondo blanco del dropdown
+                        backgroundColor: "#ffffff",
                         "& .MuiMenuItem-root": {
-                          color: "#000000", // ← Texto negro de las opciones
+                          color: "#000000",
+                          // Forzar que los items se muestren en orden sin agrupación visual
+                          '&::before': { display: 'none' },
+                          '&::after': { display: 'none' }
                         },
+                        // Eliminar cualquier lógica de agrupación
+                        '& .MuiList-root': {
+                          padding: 0
+                        }
                       },
                     },
+                    // Asegurar que no se agrupe por categoría
+                    disableAutoFocusItem: true,
+                    // Deshabilitar cualquier agrupación automática
+                    variant: "menu",
                   }}
                 >
                   <MenuItem value="" disabled>
@@ -883,96 +1089,23 @@ const Payments = () => {
                   </MenuItem>
                   {playerPayments &&
                     playerPayments.map((player) => (
-                      <MenuItem key={player.idjugador} value={player.idjugador}>
-                        {player.nombre} {player.apellido}
+                      <MenuItem 
+                        key={player.idjugador} 
+                        value={player.idjugador}
+                        sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center',
+                          // Evitar que Material-UI agrupe visualmente por categoría
+                          '&::before': { display: 'none' }
+                        }}
+                      >
+                        {player.apellido}, {player.nombre} - {player.nombre_categoria}
                       </MenuItem>
                     ))}
                 </Select>
               </FormControl>
 
-              {/* Selección de meses a pagar */}
-              <FormControl fullWidth>
-                <Typography variant="subtitle2" gutterBottom>
-                  Meses a pagar
-                </Typography>
-                <Select
-                  multiple
-                  value={selectedMonths}
-                  onChange={(e) => {
-                    const months = e.target.value;
-                    setSelectedMonths(months);
-                    const unit = valores?.cuota_club || 0;
-                    setFormData((prev) => ({
-                      ...prev,
-                      monto: (months.length * unit).toString(),
-                      cuota_paga: months[0] ? months[0].toString() : "",
-                    }));
-                  }}
-                  renderValue={(selected) =>
-                    selected
-                      .sort((a, b) => a - b)
-                      .map((m) => {
-                        const names = [
-                          "Enero",
-                          "Febrero",
-                          "Marzo",
-                          "Abril",
-                          "Mayo",
-                          "Junio",
-                          "Julio",
-                          "Agosto",
-                          "Septiembre",
-                          "Octubre",
-                          "Noviembre",
-                          "Diciembre",
-                        ];
-                        return names[m - 1];
-                      })
-                      .join(", ")
-                  }
-                  disabled={!selectedPlayer}
-                  sx={{ backgroundColor: "#ffffff", color: "#000000" }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: {
-                        backgroundColor: "#ffffff",
-                        "& .MuiMenuItem-root": { color: "#000000" },
-                      },
-                    },
-                  }}
-                >
-                  {/* Mostrar TODOS los meses habilitados (desde valores.meses_cuotas) */}
-                  {/* Indicar visualmente cuáles ya están pagados para el año seleccionado */}
-                  {(valores?.meses_cuotas || [
-                    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
-                  ])
-                    .sort((a, b) => a - b)
-                    .map((month) => {
-                      const names = [
-                        "Enero",
-                        "Febrero",
-                        "Marzo",
-                        "Abril",
-                        "Mayo",
-                        "Junio",
-                        "Julio",
-                        "Agosto",
-                        "Septiembre",
-                        "Octubre",
-                        "Noviembre",
-                        "Diciembre",
-                      ];
-                      const isPaid = paidMonths.includes(month);
-                      return (
-                        <MenuItem key={month} value={month}>
-                          {names[month - 1]} {isPaid && "✓ (Pago)"}
-                        </MenuItem>
-                      );
-                    })}
-                </Select>
-              </FormControl>
-
-              {/* Año */}
+              {/* Año - MOVIDO ARRIBA */}
               <FormControl fullWidth>
                 <Typography variant="subtitle2" gutterBottom>
                   Año
@@ -1010,12 +1143,127 @@ const Payments = () => {
                 </Select>
               </FormControl>
 
-              {/* Monto total calculado */}
-              <Typography variant="body2">
-                Monto por mes: ${valores?.cuota_club ?? 0} — Meses
-                seleccionados: {selectedMonths.length} — Total: $
-                {selectedMonths.length * (valores?.cuota_club ?? 0)}
-              </Typography>
+              {/* Selección de meses a pagar - FILTRADOS SEGÚN AÑO */}
+              <FormControl fullWidth>
+                <Typography variant="subtitle2" gutterBottom>
+                  Meses a pagar
+                </Typography>
+                <Select
+                  multiple
+                  value={selectedMonths}
+                  onChange={(e) => {
+                    const months = e.target.value;
+                    const currentYear = formData.anio;
+                    
+                    // Actualizar meses seleccionados del año actual
+                    setSelectedMonths(months);
+                    setSelectedMonthsByYear((prev) => ({
+                      ...prev,
+                      [currentYear]: months
+                    }));
+                    
+                    // Actualizar meses seleccionados del año actual
+                    // El useEffect se encargará de recalcular el monto
+                    setFormData((prev) => ({
+                      ...prev,
+                      cuota_paga: months[0] ? months[0].toString() : "",
+                    }));
+                  }}
+                  renderValue={(selected) =>
+                    selected
+                      .sort((a, b) => a - b)
+                      .map((m) => {
+                        const names = [
+                          "Enero",
+                          "Febrero",
+                          "Marzo",
+                          "Abril",
+                          "Mayo",
+                          "Junio",
+                          "Julio",
+                          "Agosto",
+                          "Septiembre",
+                          "Octubre",
+                          "Noviembre",
+                          "Diciembre",
+                        ];
+                        return names[m - 1];
+                      })
+                      .join(", ")
+                  }
+                  disabled={!selectedPlayer}
+                  sx={{ backgroundColor: "#ffffff", color: "#000000" }}
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        backgroundColor: "#ffffff",
+                        "& .MuiMenuItem-root": { color: "#000000" },
+                      },
+                    },
+                  }}
+                >
+                  {/* Mostrar SOLO los meses disponibles para el año seleccionado */}
+                  {getAvailableMonthsForYear(formData.anio)
+                    .sort((a, b) => a - b)
+                    .map((month) => {
+                      const names = [
+                        "Enero",
+                        "Febrero",
+                        "Marzo",
+                        "Abril",
+                        "Mayo",
+                        "Junio",
+                        "Julio",
+                        "Agosto",
+                        "Septiembre",
+                        "Octubre",
+                        "Noviembre",
+                        "Diciembre",
+                      ];
+                      const isPaid = paidMonths.includes(month);
+                      return (
+                        <MenuItem key={month} value={month} disabled={isPaid}>
+                          {names[month - 1]} {isPaid && "✓ (Pago)"}
+                        </MenuItem>
+                      );
+                    })}
+                </Select>
+              </FormControl>
+
+              {/* Monto total calculado - COMPACTO */}
+              <Box sx={{ 
+                p: 1.5, 
+                backgroundColor: 'rgba(255, 255, 255, 0.05)', 
+                borderRadius: 1,
+                maxHeight: '120px',
+                overflow: 'auto'
+              }}>
+                {(() => {
+                  let total = 0;
+                  let detail = [];
+                  Object.entries(selectedMonthsByYear).forEach(([year, yearMonths]) => {
+                    if (yearMonths && yearMonths.length > 0) {
+                      const yearValores = valoresByYear[year] || valores;
+                      const unit = yearValores?.cuota_club ?? 0;
+                      const yearTotal = yearMonths.length * unit;
+                      total += yearTotal;
+                      detail.push(`${yearMonths.length} mes(es) ${year}: $${yearTotal}`);
+                    }
+                  });
+                  return (
+                    <>
+                      <Typography variant="body2" sx={{ color: '#ffffff', fontWeight: 'bold', mb: 0.5 }}>
+                        Total: ${total > 0 ? total.toLocaleString('es-UY') : '0'}
+                      </Typography>
+                      {detail.length > 0 && (
+                        <Typography variant="caption" sx={{ color: '#cccccc', display: 'block', fontSize: '0.75rem' }}>
+                          {detail.join(' | ')}
+                        </Typography>
+                      )}
+                    </>
+                  );
+                })()}
+              </Box>
 
               <TextField
                 label="Observaciones"
