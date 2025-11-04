@@ -1,5 +1,5 @@
 import { AreaChartCuotas } from "../../layout/reports/Cuotas";
-import { BarChartFC } from "../../layout/reports/FC";
+import { BarChartFC } from "../../layout/reports/Fc";
 import { CantidadesXcat } from "../../layout/reports/CantidadesXcat";
 import { BarChartCuotasYfcXcategoria } from "../../layout/reports/CyFCxCat";
 import { Card } from "@tremor/react";
