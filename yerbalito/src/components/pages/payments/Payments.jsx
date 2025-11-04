@@ -30,6 +30,10 @@ const Payments = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [payments, setPayments] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [showComprobanteModal, setShowComprobanteModal] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [reciboIdComprobante, setReciboIdComprobante] = useState(null);
+  const [whatsappNumber, setWhatsappNumber] = useState("");
   const [loading, setLoading] = useState(true);
 
   // Estilos comunes para TextField
@@ -83,9 +87,12 @@ const Payments = () => {
     if (Object.keys(selectedMonthsByYear).length === 0) return;
     
     // Asegurar que tenemos todos los valores necesarios
-    const yearsNeedingValues = Object.keys(selectedMonthsByYear).filter(year => 
-      selectedMonthsByYear[year]?.length > 0 && !valoresByYear[year]
-    );
+    const yearsNeedingValues = Object.keys(selectedMonthsByYear)
+      .map(year => parseInt(year, 10))
+      .filter(year => !isNaN(year) && year >= 2000 && year <= 2100)
+      .filter(year => 
+        selectedMonthsByYear[year]?.length > 0 && !valoresByYear[year]
+      );
     
     if (yearsNeedingValues.length > 0) {
       // Obtener valores faltantes
@@ -360,9 +367,12 @@ const Payments = () => {
     };
     
     // Si hay años sin valores, obtenerlos primero
-    const yearsNeedingValues = Object.keys(selectedByYear).filter(year => 
-      selectedByYear[year].length > 0 && !valoresByYear[year]
-    );
+    const yearsNeedingValues = Object.keys(selectedByYear)
+      .map(year => parseInt(year, 10))
+      .filter(year => !isNaN(year) && year >= 2000 && year <= 2100)
+      .filter(year => 
+        selectedByYear[year].length > 0 && !valoresByYear[year]
+      );
     
     if (yearsNeedingValues.length > 0) {
       // Obtener valores para todos los años necesarios
@@ -501,6 +511,8 @@ const Payments = () => {
       }
 
       let totalRecibos = 0;
+      const recibosIds = []; // Guardar TODOS los IDs de recibos creados (principales + hermanos)
+      
       for (const { year, month } of allMonthsToPay) {
         // Obtener el valor de cuota para el año específico
         const yearValores = valoresByYear[year] || valores;
@@ -524,6 +536,10 @@ const Payments = () => {
           const response = await axios.post(API_ENDPOINTS.PAYMENTS, payment);
           const hermanosAfectados = response.data.hermanosAfectados || 0;
           totalRecibos += 1 + hermanosAfectados;
+          // Guardar el ID del recibo principal
+          if (response.data.idrecibo) {
+            recibosIds.push(response.data.idrecibo);
+          }
         } catch (error) {
           console.error(`Error creating payment for year ${year}, month ${month}:`, error);
           toast.error(`Error al crear recibo para ${month}/${year}: ${error.response?.data?.error || error.message}`);
@@ -536,6 +552,13 @@ const Payments = () => {
       );
       handleCloseModal();
       fetchPayments();
+      
+      // Abrir modal de comprobante si se creó al menos un recibo
+      if (recibosIds.length > 0) {
+        // Enviar todos los IDs separados por coma al endpoint
+        setReciboIdComprobante(recibosIds.join(','));
+        setShowComprobanteModal(true);
+      }
     } catch (error) {
       console.error("Error creating payment:", error);
       toast.error("No se pudo crear el recibo.");
@@ -577,17 +600,24 @@ const Payments = () => {
 
   const fetchValoresByYear = async (ano) => {
     try {
-      // Si ya tenemos los valores de este año, no hacer la petición
-      if (valoresByYear[ano]) {
+      // Validar que el año sea válido
+      const anoNum = parseInt(ano, 10);
+      if (isNaN(anoNum) || anoNum < 2000 || anoNum > 2100) {
+        console.warn(`⚠️ Año inválido para fetchValoresByYear:`, ano);
         return;
       }
       
-      const response = await axios.get(API_ENDPOINTS.VALORES_BY_YEAR(ano));
+      // Si ya tenemos los valores de este año, no hacer la petición
+      if (valoresByYear[anoNum]) {
+        return;
+      }
+      
+      const response = await axios.get(API_ENDPOINTS.VALORES_BY_YEAR(anoNum));
       const valoresData = response.data.valores;
       if (valoresData) {
         setValoresByYear((prev) => ({
           ...prev,
-          [ano]: valoresData
+          [anoNum]: valoresData
         }));
         // El useEffect recalculará el monto automáticamente
       }
@@ -1309,6 +1339,269 @@ const Payments = () => {
               </Box>
             </Box>
             </Paper>
+          </Box>
+        </Modal>
+
+        {/* Modal de Comprobante */}
+        <Modal
+          open={showComprobanteModal}
+          onClose={() => {
+            setShowComprobanteModal(false);
+            setReciboIdComprobante(null);
+          }}
+          aria-labelledby="comprobante-modal-title"
+          aria-describedby="comprobante-modal-description"
+        >
+          <Box
+            sx={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: { xs: "95%", sm: "90%", md: "85%", lg: "80%" },
+              maxWidth: 1000,
+              maxHeight: "95vh",
+              bgcolor: "white",
+              border: "2px solid #000",
+              boxShadow: 24,
+              p: 4,
+              borderRadius: 2,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            <Typography variant="h6" gutterBottom>
+              Comprobante de Pago
+            </Typography>
+            
+            {/* Preview del PDF */}
+            <Box
+              sx={{
+                flex: 1,
+                minHeight: { xs: "300px", sm: "400px", md: "500px" },
+                maxHeight: { xs: "calc(95vh - 200px)", sm: "calc(95vh - 200px)", md: "calc(95vh - 200px)" },
+                border: "1px solid #ccc",
+                borderRadius: 1,
+                mb: 2,
+                overflow: "auto",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              {reciboIdComprobante && (
+                <iframe
+                  src={API_ENDPOINTS.COMPROBANTE_RECIBO(reciboIdComprobante)}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    minHeight: "600px",
+                    border: "none",
+                  }}
+                  title="Comprobante PDF"
+                />
+              )}
+            </Box>
+
+            {/* Botones de acción */}
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                justifyContent: "center",
+                mt: 2,
+                flexShrink: 0, // Evitar que se compriman
+                position: "sticky", // Fijar en la parte inferior
+                bottom: 0,
+                bgcolor: "white",
+                pb: 1,
+                pt: 1,
+                zIndex: 10,
+              }}
+            >
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={async () => {
+                  try {
+                    // Actualizar método en BD
+                    await axios.put(
+                      API_ENDPOINTS.UPDATE_COMPROBANTE_RECIBO(reciboIdComprobante),
+                      { metodo_comprobante: "impresion" }
+                    );
+                    
+                    // Imprimir PDF
+                    const printWindow = window.open(
+                      API_ENDPOINTS.COMPROBANTE_RECIBO(reciboIdComprobante),
+                      "_blank"
+                    );
+                    if (printWindow) {
+                      printWindow.onload = () => {
+                        printWindow.print();
+                      };
+                    }
+                    
+                    toast.success("Comprobante listo para imprimir");
+                    setShowComprobanteModal(false);
+                    setReciboIdComprobante(null);
+                  } catch (error) {
+                    console.error("Error al imprimir:", error);
+                    toast.error("Error al procesar la impresión");
+                  }
+                }}
+              >
+                Imprimir
+              </Button>
+              
+              <Button
+                variant="contained"
+                sx={{
+                  bgcolor: "#25D366",
+                  "&:hover": {
+                    bgcolor: "#20BA5A",
+                  },
+                }}
+                onClick={async () => {
+                  try {
+                    // Actualizar método en BD
+                    await axios.put(
+                      API_ENDPOINTS.UPDATE_COMPROBANTE_RECIBO(reciboIdComprobante),
+                      { metodo_comprobante: "whatsapp" }
+                    );
+                    
+                    // Mostrar modal para ingresar número de WhatsApp
+                    setShowWhatsAppModal(true);
+                  } catch (error) {
+                    console.error("Error al compartir por WhatsApp:", error);
+                    toast.error("Error al compartir por WhatsApp");
+                  }
+                }}
+              >
+                Compartir por WhatsApp
+              </Button>
+              
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setShowComprobanteModal(false);
+                  setReciboIdComprobante(null);
+                }}
+              >
+                Cerrar
+              </Button>
+            </Box>
+          </Box>
+        </Modal>
+
+        {/* Modal para ingresar número de WhatsApp */}
+        <Modal
+          open={showWhatsAppModal}
+          onClose={() => {
+            setShowWhatsAppModal(false);
+            setWhatsappNumber("");
+          }}
+          aria-labelledby="whatsapp-modal-title"
+        >
+          <Box
+            sx={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: { xs: "90%", sm: "400px" },
+              bgcolor: "white",
+              border: "2px solid #25D366",
+              boxShadow: 24,
+              p: 3,
+              borderRadius: 2,
+            }}
+          >
+            <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+              Ingresar número de WhatsApp
+            </Typography>
+            
+            <Typography variant="body2" sx={{ mb: 2, color: "#666" }}>
+              Ingresa el número de celular con código de país (ejemplo: 59899123456)
+            </Typography>
+            
+            <TextField
+              fullWidth
+              label="Número de WhatsApp"
+              placeholder="59899123456"
+              value={whatsappNumber}
+              onChange={(e) => {
+                // Solo permitir números
+                const value = e.target.value.replace(/\D/g, "");
+                setWhatsappNumber(value);
+              }}
+              sx={{ 
+                mb: 2,
+                "& .MuiOutlinedInput-root": {
+                  backgroundColor: "white",
+                  "& input": {
+                    color: "#000000 !important",
+                  },
+                },
+                "& .MuiInputLabel-root": {
+                  color: "#666666 !important",
+                },
+              }}
+              autoFocus
+            />
+            
+            <Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setShowWhatsAppModal(false);
+                  setWhatsappNumber("");
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                sx={{
+                  bgcolor: "#25D366",
+                  "&:hover": {
+                    bgcolor: "#20BA5A",
+                  },
+                }}
+                disabled={!whatsappNumber || whatsappNumber.length < 8}
+                onClick={async () => {
+                  try {
+                    // Obtener URL del PDF
+                    const comprobantePath = API_ENDPOINTS.COMPROBANTE_RECIBO(reciboIdComprobante);
+                    const origin = window.location.origin.replace('https://', 'http://');
+                    const pdfUrl = comprobantePath.startsWith('http') 
+                      ? comprobantePath 
+                      : `${origin}${comprobantePath}`;
+                    
+                    // Crear mensaje para WhatsApp
+                    const mensaje = encodeURIComponent(
+                      `Aquí tienes tu comprobante de pago del Club Yerbalito:\n\n${pdfUrl}`
+                    );
+                    
+                    // Construir URL de WhatsApp con el número
+                    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${mensaje}`;
+                    
+                    // Abrir WhatsApp
+                    window.open(whatsappUrl, "_blank");
+                    
+                    toast.success("Abriendo WhatsApp...");
+                    setShowWhatsAppModal(false);
+                    setShowComprobanteModal(false);
+                    setWhatsappNumber("");
+                    setReciboIdComprobante(null);
+                  } catch (error) {
+                    console.error("Error al abrir WhatsApp:", error);
+                    toast.error("Error al abrir WhatsApp");
+                  }
+                }}
+              >
+                Enviar
+              </Button>
+            </Box>
           </Box>
         </Modal>
       </div>

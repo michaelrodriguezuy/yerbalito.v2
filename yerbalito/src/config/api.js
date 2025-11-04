@@ -72,6 +72,12 @@ export const API_ENDPOINTS = {
   
   // Cumpleaños
   CUMPLES: `${API_BASE_URL}/cumples`,
+  
+  // Comprobantes
+  COMPROBANTE_RECIBO: (idrecibo) => `${API_BASE_URL}/comprobante/recibo/${idrecibo}`,
+  COMPROBANTE_FC: (id_fondo) => `${API_BASE_URL}/comprobante/fc/${id_fondo}`,
+  UPDATE_COMPROBANTE_RECIBO: (idrecibo) => `${API_BASE_URL}/comprobante/recibo/${idrecibo}`,
+  UPDATE_COMPROBANTE_FC: (id_fondo) => `${API_BASE_URL}/comprobante/fc/${id_fondo}`,
 };
 
 export { API_BASE_URL };

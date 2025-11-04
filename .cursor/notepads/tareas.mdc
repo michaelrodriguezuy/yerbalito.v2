@@ -6,13 +6,13 @@ notepad:
   description: "Listado de pendientes de desarrollo, bugs y mejoras"
   items:
 
-    - [ ] Cuando se inserta un nuevo jugador, automaticamente hay que deshabilitar los meses anteriores a la fecha de ingreso al club, esto se cumple?
-    - [ ] Los recibos de cuota del club, se pagan del 1 al 10 de cada mes, y la cuota es a mes vencido.
+    - [x] Cuando se inserta un nuevo jugador, automaticamente hay que deshabilitar los meses anteriores a la fecha de ingreso al club, esto se cumple?
+    - [x] Los recibos de cuota del club, se pagan del 1 al 10 de cada mes, y la cuota es a mes vencido.
     Por ejemplo, un jugador paga octubre ahora, siendo 31/10, sigue en estado=2, Habilitado.
     Si el jugador paga octubre el 11/11, pasado el 10 de cada mes, ese jugador ya habia cambiado su estado, a las 00:01 del 11 paso de estado=2 a estado=1, Deshabilitado, al ingresarse el recibo de pago vuelve a estado=2, se entiende ??
-    - [ ] Si hay al menos 1 jugador en estado=1, esa categoria esta en estado=5, si no hay ningun jugador en estado=1 esa categoria pasa a estado=6
+    - [x] Si hay al menos 1 jugador en estado=1, esa categoria esta en estado=5, si no hay ningun jugador en estado=1 esa categoria pasa a estado=6
     - [x] La hora en la base no respeta UTC+3
-    - [ ] Reportes, siguen sin corregirse los graficos, pareciera como que falta importar algo o hay endpoint que no funcan, deberian quizas cada cuadran tener un fondo sutilmente mas claro para que se vea la informacion, ahora esta todo oscuro.
+    - [x] Reportes, siguen sin corregirse los graficos, pareciera como que falta importar algo o hay endpoint que no funcan, deberian quizas cada cuadran tener un fondo sutilmente mas claro para que se vea la informacion, ahora esta todo oscuro.
 
     - [x] En Recibos de cuotas del club, los meses no estan ordenados.
     - [x] En Recibos de cuotas del club, si el jugador tiene todo los meses del año pago, no dar opcion de crear un recibo, en su lugar un aviso de que ya esta pago.

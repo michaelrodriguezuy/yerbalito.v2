@@ -13,6 +13,7 @@ const ftp = require('basic-ftp');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const PDFDocument = require('pdfkit');
 
 const app = express();
 const port = process.env.PORT || 5001;
@@ -1315,30 +1316,112 @@ async function updatePlayerState(connection, playerId) {
     
     const tieneMesVencidoPago = pagos.length > 0;
     
+    // Verificar si hay meses anteriores vencidos (no pagados)
+    // Esto es crítico: si hay meses anteriores vencidos, NO aplicar plazo de gracia
+    let tieneMesesAnterioresVencidos = false;
+    if (!tieneMesVencidoPago) {
+      // Buscar meses anteriores hasta encontrar uno pagado o llegar al límite
+      let mesAVerificar = mesVencido;
+      let anioAVerificar = anioVencido;
+      let intentosBusqueda = 0;
+      const maxIntentosBusqueda = 12; // Máximo 12 meses hacia atrás
+      
+      while (intentosBusqueda < maxIntentosBusqueda) {
+        // Retroceder un mes
+        mesAVerificar--;
+        if (mesAVerificar === 0) {
+          mesAVerificar = 12;
+          anioAVerificar--;
+        }
+        
+        // Verificar si este mes está en los meses habilitados
+        if (!mesesHabilitados.includes(mesAVerificar)) {
+          intentosBusqueda++;
+          continue;
+        }
+        
+        // Verificar si el jugador ingresó después de este mes
+        if (player[0].fecha_ingreso) {
+          const fechaIngreso = new Date(player[0].fecha_ingreso);
+          const ingresoYear = fechaIngreso.getFullYear();
+          const ingresoMonth = fechaIngreso.getMonth() + 1;
+          
+          if (anioAVerificar < ingresoYear || (anioAVerificar === ingresoYear && mesAVerificar < ingresoMonth)) {
+            // El jugador no debe este mes porque aún no estaba en el club
+            break;
+          }
+        }
+        
+        // Verificar si tiene este mes pagado
+        const [pagosAnteriores] = await connection.query(
+          `SELECT * FROM recibo 
+           WHERE idjugador = ? 
+           AND mes_pago = ? 
+           AND anio = ? 
+           AND visible = 1
+           AND (
+             monto > 0 
+             OR (
+               monto = 0 
+               AND (
+                 observacionesRecibo LIKE '%Pago automático por hermano%'
+                 OR mes_pago BETWEEN 3 AND 11
+               )
+             )
+           )
+           LIMIT 1`,
+          [playerId, mesAVerificar, anioAVerificar]
+        );
+        
+        if (pagosAnteriores.length === 0) {
+          // Este mes no está pagado, hay meses vencidos anteriores
+          tieneMesesAnterioresVencidos = true;
+          console.log(`[updatePlayerState] ⚠️ Jugador ${playerId}: tiene mes anterior vencido ${mesAVerificar}/${anioAVerificar} sin pagar`);
+          break;
+        } else {
+          // Este mes está pagado, no hay más meses vencidos anteriores
+          break;
+        }
+        
+        intentosBusqueda++;
+      }
+    }
+    
     // Debug: Log detallado
-    console.log(`[updatePlayerState] Jugador ${playerId}: mesVencido=${mesVencido}/${anioVencido}, tienePago=${tieneMesVencidoPago}, currentDay=${currentDay}, recibosEncontrados=${pagos.length}`);
+    console.log(`[updatePlayerState] Jugador ${playerId}: mesVencido=${mesVencido}/${anioVencido}, tienePago=${tieneMesVencidoPago}, tieneMesesAnterioresVencidos=${tieneMesesAnterioresVencidos}, currentDay=${currentDay}, recibosEncontrados=${pagos.length}`);
     if (pagos.length > 0) {
       console.log(`[updatePlayerState] Recibo encontrado: id=${pagos[0].idrecibo}, monto=${pagos[0].monto}, observaciones=${pagos[0].observacionesRecibo}`);
+    } else {
+      console.log(`[updatePlayerState] ⚠️ Jugador ${playerId} NO tiene el mes vencido ${mesVencido}/${anioVencido} pagado`);
     }
     
     // Determinar el nuevo estado
-    // Lógica: El mes se paga vencido (mes anterior), tienen hasta el día 10 del mes actual para saldar
-    // Si estamos el día 3 de noviembre, el mes vencido es octubre
-    // Si tienen octubre pagado, deben estar habilitados (estado=2)
-    // Si NO tienen octubre pagado y ya pasó el día 10 de noviembre, deben estar deshabilitados (estado=1)
+    // Lógica CORREGIDA: 
+    // - Si tiene el mes vencido pagado → habilitado (estado=2)
+    // - Si NO tiene el mes vencido pagado PERO hay meses anteriores vencidos → deshabilitado (estado=1) SIN plazo de gracia
+    // - Si NO tiene el mes vencido pagado Y NO hay meses anteriores vencidos:
+    //   - Si estamos en días 1-10 del mes actual → plazo de gracia → habilitado (estado=2)
+    //   - Si ya pasó el día 10 → deshabilitado (estado=1)
     let nuevoEstado = null;
     
     if (tieneMesVencidoPago) {
       // Tiene el mes vencido pagado, debe estar habilitado (estado=2)
       nuevoEstado = 2;
+      console.log(`[updatePlayerState] ✅ Jugador ${playerId}: tiene mes vencido pagado → estado=2 (HABILITADO)`);
+    } else if (tieneMesesAnterioresVencidos) {
+      // Tiene meses anteriores vencidos, NO aplicar plazo de gracia → deshabilitado
+      nuevoEstado = 1;
+      console.log(`[updatePlayerState] ❌ Jugador ${playerId}: tiene meses anteriores vencidos → estado=1 (DESHABILITADO) - SIN plazo de gracia`);
     } else {
-      // No tiene el mes vencido pagado
+      // No tiene el mes vencido pagado pero tampoco meses anteriores vencidos
       // Si estamos en días 1-10 del mes actual, está dentro del plazo de gracia → habilitado
       // Si ya pasó el día 10, debe estar deshabilitado
       if (currentDay <= 10) {
         nuevoEstado = 2; // Plazo de gracia (días 1-10)
+        console.log(`[updatePlayerState] ⏳ Jugador ${playerId}: sin mes vencido, pero en plazo de gracia (día ${currentDay} ≤ 10) → estado=2 (HABILITADO)`);
       } else {
         nuevoEstado = 1; // Ya pasó el plazo, debe estar deshabilitado
+        console.log(`[updatePlayerState] ❌ Jugador ${playerId}: sin mes vencido y fuera de plazo (día ${currentDay} > 10) → estado=1 (DESHABILITADO)`);
       }
     }
     
@@ -1417,7 +1500,8 @@ app.post('/payments', async (req, res) => {
       return res.status(400).json({ error: 'Datos incompletos: faltan campos obligatorios' });
     }
     
-    await connection.query('INSERT INTO recibo SET ?', newPayment);
+    const [insertResult] = await connection.query('INSERT INTO recibo SET ?', newPayment);
+    const reciboId = insertResult.insertId; // ID del recibo creado
     
     // 2. Verificar si el jugador tiene hermanos (consultar tabla relacional hermanos)
     // Buscar hermanos en ambas direcciones (bidireccional)
@@ -1524,7 +1608,8 @@ app.post('/payments', async (req, res) => {
       connectionForUpdate.release();
       res.json({ 
         message: 'Pago agregado correctamente',
-        hermanosAfectados: hermanosAfectados
+        hermanosAfectados: hermanosAfectados,
+        idrecibo: reciboId // Retornar ID del recibo creado
       });
     } catch (updateError) {
       connectionForUpdate.release();
@@ -1532,7 +1617,8 @@ app.post('/payments', async (req, res) => {
       // Aún así responder éxito porque el recibo ya se creó correctamente
       res.json({ 
         message: 'Pago agregado correctamente (pero hubo un error al actualizar estados)',
-        hermanosAfectados: hermanosAfectados
+        hermanosAfectados: hermanosAfectados,
+        idrecibo: reciboId // Retornar ID del recibo creado
       });
     }
   } catch (error) {
@@ -1929,9 +2015,13 @@ app.post('/fc', async (req, res) => {
       paymentData.numero = (maxNum[0]?.maxNum || 0) + 1;
     }
     
-    await connection.query('INSERT INTO fondocampeonato SET ?', paymentData);
+    const [insertResult] = await connection.query('INSERT INTO fondocampeonato SET ?', paymentData);
+    const idFondo = insertResult.insertId; // ID del recibo creado
     await connection.commit();
-    res.json({ message: 'Pago agregado correctamente' });
+    res.json({ 
+      message: 'Pago agregado correctamente',
+      id_fondo: idFondo // Retornar ID del recibo creado
+    });
   } catch (error) {
     await connection.rollback();
     console.error('Error agregando pago:', error);
@@ -1998,6 +2088,7 @@ app.post('/fc/multiple', async (req, res) => {
     const montoPorCuota = monto / cuotas.length;
     
     // Crear un recibo por cada cuota
+    const recibosCreados = [];
     for (const cuota of cuotas) {
       const paymentData = {
         idjugador,
@@ -2010,14 +2101,19 @@ app.post('/fc/multiple', async (req, res) => {
         numero: numeroRecibo,
       };
       
-      await connection.query('INSERT INTO fondocampeonato SET ?', paymentData);
+      const [insertResult] = await connection.query('INSERT INTO fondocampeonato SET ?', paymentData);
+      recibosCreados.push({
+        id_fondo: insertResult.insertId,
+        cuota_paga: cuota
+      });
       numeroRecibo++; // Incrementar para el siguiente recibo
     }
     
     await connection.commit();
     res.json({ 
       message: `${cuotas.length} recibo(s) de fondo de campeonato creado(s) correctamente`,
-      cuotas_pagadas: cuotas 
+      cuotas_pagadas: cuotas,
+      recibos: recibosCreados // Retornar IDs de los recibos creados
     });
   } catch (error) {
     await connection.rollback();
@@ -2227,17 +2323,51 @@ app.get('/valores', async (req, res) => {
 // Obtener valores por año específico
 app.get('/valores/:ano', async (req, res) => {
   try {
-    const ano = parseInt(req.params.ano);
+    const anoParam = req.params.ano;
+    const ano = parseInt(anoParam, 10);
+    
+    // Validar que el año sea un número válido
+    if (isNaN(ano) || anoParam === undefined || anoParam === null || anoParam === '') {
+      console.error('❌ Año inválido recibido:', anoParam);
+      return res.status(400).json({ error: 'Año inválido' });
+    }
+    
+    console.log('📊 Buscando valores para año:', ano);
     const [valores] = await db.query('SELECT * FROM valores WHERE ano = ?', [ano]);
+    
     if (valores.length > 0) {
-      res.json({ valores: valores[0] });
+      // Parsear meses_cuotas si es necesario
+      const valor = valores[0];
+      if (valor.meses_cuotas && typeof valor.meses_cuotas === 'string') {
+        try {
+          valor.meses_cuotas = JSON.parse(valor.meses_cuotas);
+        } catch (e) {
+          console.error('Error parsing meses_cuotas:', e);
+          valor.meses_cuotas = [];
+        }
+      }
+      res.json({ valores: valor });
     } else {
       // Si no hay valores para ese año, obtener el más cercano
       const [closest] = await db.query('SELECT * FROM valores WHERE ano <= ? ORDER BY ano DESC LIMIT 1', [ano]);
-      res.json({ valores: closest[0] || null });
+      if (closest.length > 0) {
+        const valor = closest[0];
+        if (valor.meses_cuotas && typeof valor.meses_cuotas === 'string') {
+          try {
+            valor.meses_cuotas = JSON.parse(valor.meses_cuotas);
+          } catch (e) {
+            valor.meses_cuotas = [];
+          }
+        }
+        res.json({ valores: valor });
+      } else {
+        res.json({ valores: null });
+      }
     }
   } catch (error) {
-    console.error('Error fetching valores por año:', error);
+    console.error('❌ Error fetching valores por año:', error);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Params recibidos:', req.params);
     res.status(500).json({ error: 'Error al obtener valores' });
   }
 });
@@ -2245,21 +2375,56 @@ app.get('/valores/:ano', async (req, res) => {
 // Obtener todos los valores históricos
 app.get('/valores/all', async (req, res) => {
   try {
+    console.log('📊 Fetching valores históricos...');
     const [valores] = await db.query('SELECT * FROM valores ORDER BY ano DESC');
-    // Parsear meses_cuotas si viene como string JSON
+    console.log('📊 Valores obtenidos de BD:', valores.length, 'registros');
+    
+    // Parsear meses_cuotas si viene en diferentes formatos
     const valoresParsed = valores.map(v => {
-      if (v.meses_cuotas && typeof v.meses_cuotas === 'string') {
-        try {
-          v.meses_cuotas = JSON.parse(v.meses_cuotas);
-        } catch (e) {
-          console.error('Error parsing meses_cuotas:', e);
+      const valor = { ...v }; // Crear copia para no modificar el original
+      try {
+        if (valor.meses_cuotas !== null && valor.meses_cuotas !== undefined) {
+          // Si es string, parsearlo
+          if (typeof valor.meses_cuotas === 'string') {
+            valor.meses_cuotas = JSON.parse(valor.meses_cuotas);
+          }
+          // Si es un objeto Buffer (MySQL JSON), convertirlo a string primero
+          else if (Buffer.isBuffer(valor.meses_cuotas)) {
+            valor.meses_cuotas = JSON.parse(valor.meses_cuotas.toString());
+          }
+          // Si ya es un array/objeto, dejarlo como está pero asegurar que es un array
+          else if (Array.isArray(valor.meses_cuotas)) {
+            // Ya es un array, está bien
+          }
+          else if (typeof valor.meses_cuotas === 'object') {
+            // Si es un objeto pero no array, intentar convertirlo
+            valor.meses_cuotas = Object.values(valor.meses_cuotas);
+          }
+        } else {
+          // Si no existe, usar array vacío por defecto
+          valor.meses_cuotas = [];
         }
+        
+        // Asegurar que meses_cuotas es siempre un array
+        if (!Array.isArray(valor.meses_cuotas)) {
+          console.warn('⚠️ meses_cuotas no es array para año', valor.ano, ', convirtiendo...');
+          valor.meses_cuotas = [];
+        }
+      } catch (e) {
+        console.error('❌ Error parsing meses_cuotas para año', valor.ano, ':', e.message);
+        console.error('Valor recibido:', valor.meses_cuotas, 'Tipo:', typeof valor.meses_cuotas);
+        // Si falla el parsing, usar array vacío
+        valor.meses_cuotas = [];
       }
-      return v;
+      return valor;
     });
+    
+    console.log('📊 Valores parseados:', valoresParsed.length);
     res.json({ valores: valoresParsed || [] });
   } catch (error) {
-    console.error('Error fetching all valores:', error);
+    console.error('❌ Error fetching all valores:', error);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({ error: 'Error al obtener valores históricos' });
   }
 });
@@ -2441,32 +2606,38 @@ app.post('/fixture/bulk', async (req, res) => {
 // Endpoint para cumpleaños del día
 app.get('/cumples', async (req, res) => {
   try {
-    // Usar fecha local de Uruguay (UTC-3)
-    const now = new Date();
-    const uruguayTime = new Date(now.getTime() - (3 * 60 * 60 * 1000)); // UTC-3
-    const month = uruguayTime.getMonth() + 1; // getMonth() devuelve 0-11
-    const day = uruguayTime.getDate();
-    
-    console.log('🎂 Checking birthdays for:', now.toISOString());
-    console.log('🎂 Uruguay time:', uruguayTime.toISOString());
-    console.log('🎂 Month:', month, 'Day:', day);
-    
+    // Usar CURDATE() de MySQL que ya está en UTC-3
+    // Esto asegura que usamos la fecha correcta del servidor
     const [cumples] = await db.query(`
-      SELECT j.nombre, j.apellido, j.fecha_nacimiento, c.nombre_categoria as categoria
+      SELECT 
+        j.nombre, 
+        j.apellido, 
+        j.fecha_nacimiento, 
+        c.nombre_categoria as categoria
       FROM jugador j
-      LEFT JOIN categoria c ON j.idcategoria = c.idcategoria
-      WHERE MONTH(j.fecha_nacimiento) = ? 
-        AND DAY(j.fecha_nacimiento) = ?
+      INNER JOIN categoria c ON j.idcategoria = c.idcategoria
+      WHERE MONTH(j.fecha_nacimiento) = MONTH(CURDATE())
+        AND DAY(j.fecha_nacimiento) = DAY(CURDATE())
         AND c.visible = 1
-      ORDER BY j.nombre
-    `, [month, day]);
+      ORDER BY j.nombre, j.apellido
+    `);
     
+    console.log('🎂 Checking birthdays for:', new Date().toISOString());
+    console.log('🎂 MySQL CURDATE() used for date comparison');
     console.log('🎂 Query result:', cumples);
     console.log('🎂 Number of birthdays found:', cumples.length);
     
-    res.json({ cumples });
+    if (cumples.length > 0) {
+      cumples.forEach((kid, index) => {
+        console.log(`🎂 ${index + 1}. ${kid.nombre} ${kid.apellido} - ${kid.categoria}`);
+      });
+    }
+    
+    res.json({ cumples: cumples || [] });
   } catch (error) {
-    console.error('Error fetching cumples:', error);
+    console.error('❌ Error fetching cumples:', error);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({ error: 'Error al obtener cumpleaños' });
   }
 });
@@ -2511,6 +2682,450 @@ cron.schedule('5 0 11 * *', async () => {
   }
 }, {
   timezone: "America/Montevideo" // UTC-3 (Uruguay)
+});
+
+// Endpoint para generar PDF del comprobante de recibo de cuota (puede recibir múltiples IDs separados por coma)
+app.get('/comprobante/recibo/:idrecibo', async (req, res) => {
+  try {
+    const { idrecibo } = req.params;
+    const idsArray = idrecibo.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+    
+    // Obtener datos de todos los recibos con información del jugador y categoría
+    const placeholders = idsArray.map(() => '?').join(',');
+    const [recibos] = await db.query(`
+      SELECT 
+        r.*,
+        j.nombre as jugador_nombre,
+        j.apellido as jugador_apellido,
+        c.nombre_categoria
+      FROM recibo r
+      INNER JOIN jugador j ON r.idjugador = j.idjugador
+      INNER JOIN categoria c ON j.idcategoria = c.idcategoria
+      WHERE r.idrecibo IN (${placeholders})
+      ORDER BY r.anio ASC, r.mes_pago ASC
+    `, idsArray);
+    
+    if (recibos.length === 0) {
+      return res.status(404).json({ error: 'Recibo no encontrado' });
+    }
+    
+    // Filtrar solo recibos principales (monto > 0)
+    const recibosPrincipalesFinal = recibos.filter(r => parseFloat(r.monto) > 0);
+    
+    if (recibosPrincipalesFinal.length === 0) {
+      return res.status(404).json({ error: 'No se encontraron recibos válidos' });
+    }
+    
+    // Calcular total
+    const total = recibosPrincipalesFinal.reduce((sum, r) => sum + parseFloat(r.monto), 0);
+    
+    // Calcular período (mes inicial y final)
+    const meses = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    
+    const primerRecibo = recibosPrincipalesFinal[0];
+    const ultimoRecibo = recibosPrincipalesFinal[recibosPrincipalesFinal.length - 1];
+    
+    let periodoTexto = '';
+    if (recibosPrincipalesFinal.length === 1) {
+      // Un solo mes
+      periodoTexto = `${meses[primerRecibo.mes_pago]} ${primerRecibo.anio}`;
+    } else {
+      // Múltiples meses - mostrar rango
+      const mesInicial = meses[primerRecibo.mes_pago];
+      const mesFinal = meses[ultimoRecibo.mes_pago];
+      const anioInicial = primerRecibo.anio;
+      const anioFinal = ultimoRecibo.anio;
+      
+      if (anioInicial === anioFinal) {
+        periodoTexto = `${mesInicial} - ${mesFinal} ${anioInicial}`;
+      } else {
+        periodoTexto = `${mesInicial} ${anioInicial} - ${mesFinal} ${anioFinal}`;
+      }
+    }
+    
+    // Verificar si hay hermanos y obtener sus nombres
+    // Buscar hermanos consultando la tabla hermanos directamente con el jugador principal
+    const idJugadorPrincipal = primerRecibo.idjugador;
+    let nombresHermanos = [];
+    let tieneHermanos = false;
+    
+    // Buscar hermanos en la tabla hermanos
+    const [hermanosRows] = await db.query(`
+      SELECT DISTINCT 
+        CASE 
+          WHEN idjugador = ? THEN idhermano 
+          ELSE idjugador 
+        END as idhermano
+      FROM hermanos 
+      WHERE idjugador = ? OR idhermano = ?
+    `, [idJugadorPrincipal, idJugadorPrincipal, idJugadorPrincipal]);
+    
+    if (hermanosRows.length > 0) {
+      tieneHermanos = true;
+      const hermanosIds = hermanosRows.map(h => h.idhermano).filter(id => id !== idJugadorPrincipal);
+      
+      if (hermanosIds.length > 0) {
+        const hermanosPlaceholders = hermanosIds.map(() => '?').join(',');
+        const [hermanosData] = await db.query(`
+          SELECT j.nombre, j.apellido, c.nombre_categoria
+          FROM jugador j
+          INNER JOIN categoria c ON j.idcategoria = c.idcategoria
+          WHERE j.idjugador IN (${hermanosPlaceholders})
+          ORDER BY j.apellido, j.nombre
+        `, hermanosIds);
+        
+        nombresHermanos = hermanosData.map(h => `${h.apellido}, ${h.nombre} - ${h.nombre_categoria}`);
+      }
+    }
+    
+    // Crear PDF
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    
+    // Configurar headers para PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="comprobante_recibo_${recibos[0].numero}.pdf"`);
+    
+    // Pipe PDF a response
+    doc.pipe(res);
+    
+    // Cargar logo (logo_chico.png) - buscar en múltiples ubicaciones
+    let logoHeight = 0;
+    const possiblePaths = [
+      path.join(__dirname, '../yerbalito/src/assets/logo_chico.png'),
+      path.join(__dirname, '../../yerbalito/src/assets/logo_chico.png'),
+      path.join(__dirname, '../uploads/logo_chico.png'),
+      path.join(__dirname, '../../uploads/logo_chico.png'),
+      path.join(__dirname, './uploads/logo_chico.png'),
+      path.join(__dirname, '../src/assets/logo_chico.png'),
+    ];
+    
+    let logoPath = null;
+    for (const testPath of possiblePaths) {
+      try {
+        if (fs.existsSync(testPath)) {
+          logoPath = testPath;
+          console.log('Logo encontrado en:', logoPath);
+          break;
+        }
+      } catch (e) {
+        // Continuar con siguiente ruta
+      }
+    }
+    
+    if (logoPath) {
+      try {
+        const logoWidth = 100;
+        const logoX = (doc.page.width - logoWidth) / 2; // Centrar horizontalmente
+        const logoY = 50;
+        doc.image(logoPath, logoX, logoY, { width: logoWidth });
+        logoHeight = 100;
+        console.log('Logo cargado correctamente');
+      } catch (logoError) {
+        console.error('Error cargando logo:', logoError.message);
+      }
+    } else {
+      console.log('Logo no encontrado en ninguna de las rutas:', possiblePaths);
+    }
+    
+    // Asegurar que el título esté claramente DESPUÉS del logo con más espacio
+    const startY = logoHeight > 0 ? logoHeight + 90 : 50; // Aumentado de 70 a 90 para más espacio
+    doc.y = startY;
+    
+    // Contenido del PDF - Nombre del club DESPUÉS del logo
+    doc.fontSize(20).text('CLUB YERBALITO', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(16).text('COMPROBANTE DE PAGO', { align: 'center' });
+    doc.moveDown(2);
+    
+    doc.fontSize(12);
+    doc.text(`Número de Recibo: ${primerRecibo.numero} | Fecha: ${new Date(primerRecibo.fecha_recibo).toLocaleDateString('es-UY')}`, { continued: false });
+    doc.moveDown();
+    
+    doc.text(`Jugador: ${primerRecibo.jugador_apellido}, ${primerRecibo.jugador_nombre} - ${primerRecibo.nombre_categoria}`, { continued: false });
+    doc.moveDown();
+    
+    // Mostrar período y total
+    doc.fontSize(12).text(`Período: ${periodoTexto}`, { continued: false });
+    doc.moveDown();
+    
+    // Mencionar hermanos si hay
+    if (tieneHermanos && nombresHermanos.length > 0) {
+      doc.fontSize(11)
+        .text(`Este pago también afecta a los siguientes hermanos:`, {
+          continued: false,
+          color: '#666666'
+        });
+      doc.moveDown(0.5);
+      
+      nombresHermanos.forEach((nombre, index) => {
+        doc.fontSize(10)
+          .font('Helvetica')
+          .text(`• ${nombre}`, {
+            continued: false,
+            color: '#666666',
+            indent: 20
+          });
+      });
+      doc.moveDown();
+    } else if (tieneHermanos) {
+      doc.fontSize(11)
+        .font('Helvetica')
+        .text(`Este pago también afecta a los hermanos del jugador.`, {
+          continued: false,
+          color: '#666666'
+        });
+      doc.moveDown();
+    }
+    
+    doc.fontSize(16).font('Helvetica-Bold').text(`TOTAL: $${total.toFixed(2)}`, { continued: false });
+    doc.moveDown(2);
+    
+    if (primerRecibo.observacionesRecibo) {
+      doc.fontSize(10).font('Helvetica').text(`Observaciones: ${primerRecibo.observacionesRecibo}`, { continued: false });
+      doc.moveDown();
+    }
+    
+    // Texto pequeño debajo de observaciones
+    doc.fontSize(8)
+      .font('Helvetica')
+      .fillColor('#666666')
+      .text('Este es un comprobante de pago de cuota del club. Conserve este documento para sus registros.', {
+        continued: false
+      });
+    
+    // Mover hacia abajo y poner el footer en la misma página
+    doc.moveDown(2);
+    
+    // Footer solo con olimarteam.uy - a la derecha, en la misma página
+    const pageWidth = doc.page.width;
+    const rightMargin = 50;
+    
+    doc.fontSize(8)
+      .font('Helvetica')
+      .fillColor('#666666');
+    
+    const footerText = 'olimarteam.uy';
+    const textWidth = doc.widthOfString(footerText);
+    const footerX = pageWidth - textWidth - rightMargin;
+    
+    // Usar la posición Y actual (doc.y) para asegurar que esté en la misma página
+    doc.text(footerText, footerX, doc.y, {
+      link: 'https://olimarteam.uy',
+      underline: false
+    });
+    
+    doc.end();
+  } catch (error) {
+    console.error('Error generando PDF de comprobante:', error);
+    res.status(500).json({ error: 'Error al generar comprobante' });
+  }
+});
+
+// Endpoint para generar PDF del comprobante de fondo de campeonato
+app.get('/comprobante/fc/:id_fondo', async (req, res) => {
+  try {
+    const { id_fondo } = req.params;
+    
+    // Obtener datos del recibo con información del jugador y categoría
+    const [recibos] = await db.query(`
+      SELECT 
+        f.*,
+        j.nombre as jugador_nombre,
+        j.apellido as jugador_apellido,
+        c.nombre_categoria
+      FROM fondocampeonato f
+      INNER JOIN jugador j ON f.idjugador = j.idjugador
+      INNER JOIN categoria c ON j.idcategoria = c.idcategoria
+      WHERE f.id_fondo = ?
+    `, [id_fondo]);
+    
+    if (recibos.length === 0) {
+      return res.status(404).json({ error: 'Recibo no encontrado' });
+    }
+    
+    const recibo = recibos[0];
+    
+    // Crear PDF
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    
+    // Configurar headers para PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="comprobante_fc_${recibo.numero}.pdf"`);
+    
+    // Pipe PDF a response
+    doc.pipe(res);
+    
+    // Cargar logo (logo_chico.png) - buscar en múltiples ubicaciones
+    let logoHeight = 0;
+    const possiblePaths = [
+      path.join(__dirname, '../yerbalito/src/assets/logo_chico.png'),
+      path.join(__dirname, '../../yerbalito/src/assets/logo_chico.png'),
+      path.join(__dirname, '../uploads/logo_chico.png'),
+      path.join(__dirname, '../../uploads/logo_chico.png'),
+      path.join(__dirname, './uploads/logo_chico.png'),
+      path.join(__dirname, '../src/assets/logo_chico.png'),
+    ];
+    
+    let logoPath = null;
+    for (const testPath of possiblePaths) {
+      try {
+        if (fs.existsSync(testPath)) {
+          logoPath = testPath;
+          console.log('Logo encontrado en:', logoPath);
+          break;
+        }
+      } catch (e) {
+        // Continuar con siguiente ruta
+      }
+    }
+    
+    if (logoPath) {
+      try {
+        const logoWidth = 100;
+        const logoX = (doc.page.width - logoWidth) / 2; // Centrar horizontalmente
+        const logoY = 50;
+        doc.image(logoPath, logoX, logoY, { width: logoWidth });
+        logoHeight = 100;
+        console.log('Logo cargado correctamente');
+      } catch (logoError) {
+        console.error('Error cargando logo:', logoError.message);
+      }
+    } else {
+      console.log('Logo no encontrado en ninguna de las rutas:', possiblePaths);
+    }
+    
+    // Asegurar que el título esté claramente DESPUÉS del logo con más espacio
+    const startY = logoHeight > 0 ? logoHeight + 90 : 50; // Aumentado de 70 a 90 para más espacio
+    doc.y = startY;
+    
+    // Contenido del PDF - Nombre del club DESPUÉS del logo
+    doc.fontSize(20).text('CLUB YERBALITO', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(16).text('COMPROBANTE DE PAGO', { align: 'center' });
+    doc.fontSize(14).text('FONDO DE CAMPEONATO', { align: 'center' });
+    doc.moveDown(2);
+    
+    doc.fontSize(12);
+    doc.text(`Número de Recibo: ${recibo.numero} | Fecha: ${new Date(recibo.fecha).toLocaleDateString('es-UY')}`, { continued: false });
+    doc.moveDown();
+    
+    doc.text(`Jugador: ${recibo.jugador_apellido}, ${recibo.jugador_nombre}`, { continued: false });
+    doc.text(`Categoría: ${recibo.nombre_categoria}`, { continued: false });
+    doc.text(`Año: ${recibo.anio}`, { continued: false });
+    doc.text(`Cuota: ${recibo.cuota_paga}/2`, { continued: false });
+    doc.moveDown();
+    
+    doc.fontSize(14).font('Helvetica-Bold').text(`Monto: $${parseFloat(recibo.monto).toFixed(2)}`, { continued: false });
+    doc.moveDown(2);
+    
+    if (recibo.observaciones) {
+      doc.fontSize(10).font('Helvetica').text(`Observaciones: ${recibo.observaciones}`, { continued: false });
+      doc.moveDown();
+    }
+    
+    // Texto pequeño debajo de observaciones
+    doc.fontSize(8)
+      .font('Helvetica')
+      .fillColor('#666666')
+      .text('Este es un comprobante de pago de fondo de campeonato. Conserve este documento para sus registros.', {
+        continued: false
+      });
+    
+    // Mover hacia abajo y poner el footer en la misma página
+    doc.moveDown(2);
+    
+    // Footer solo con olimarteam.uy - a la derecha, en la misma página
+    const pageWidth = doc.page.width;
+    const rightMargin = 50;
+    
+    doc.fontSize(8)
+      .font('Helvetica')
+      .fillColor('#666666');
+    
+    const footerText = 'olimarteam.uy';
+    const textWidth = doc.widthOfString(footerText);
+    const footerX = pageWidth - textWidth - rightMargin;
+    
+    // Usar la posición Y actual (doc.y) para asegurar que esté en la misma página
+    doc.text(footerText, footerX, doc.y, {
+      link: 'https://olimarteam.uy',
+      underline: false
+    });
+    
+    doc.end();
+  } catch (error) {
+    console.error('Error generando PDF de comprobante FC:', error);
+    res.status(500).json({ error: 'Error al generar comprobante' });
+  }
+});
+
+// Endpoint para actualizar metodo_comprobante de un recibo
+app.put('/comprobante/recibo/:idrecibo', async (req, res) => {
+  try {
+    const { idrecibo } = req.params;
+    const { metodo_comprobante } = req.body;
+    
+    if (!metodo_comprobante || !['impresion', 'whatsapp'].includes(metodo_comprobante)) {
+      return res.status(400).json({ error: 'Método de comprobante inválido' });
+    }
+    
+    // Manejar múltiples idrecibo separados por comas
+    const idrecibos = idrecibo.split(',').map(id => id.trim()).filter(id => id);
+    
+    // Verificar si el campo existe antes de actualizar
+    try {
+      const placeholders = idrecibos.map(() => '?').join(',');
+      await db.query(
+        `UPDATE recibo SET metodo_comprobante = ? WHERE idrecibo IN (${placeholders})`,
+        [metodo_comprobante, ...idrecibos]
+      );
+      res.json({ message: 'Método de comprobante actualizado correctamente' });
+    } catch (updateError) {
+      // Si el campo no existe, simplemente no hacer nada y responder éxito
+      if (updateError.code === 'ER_BAD_FIELD_ERROR') {
+        console.log('Campo metodo_comprobante no existe en la tabla recibo. Se requiere ejecutar el SQL de migración.');
+        res.json({ message: 'Método registrado (campo no disponible en BD)' });
+      } else {
+        throw updateError;
+      }
+    }
+  } catch (error) {
+    console.error('Error actualizando metodo_comprobante:', error);
+    res.status(500).json({ error: 'Error al actualizar método de comprobante' });
+  }
+});
+
+// Endpoint para actualizar metodo_comprobante de fondo de campeonato
+app.put('/comprobante/fc/:id_fondo', async (req, res) => {
+  try {
+    const { id_fondo } = req.params;
+    const { metodo_comprobante } = req.body;
+    
+    if (!metodo_comprobante || !['impresion', 'whatsapp'].includes(metodo_comprobante)) {
+      return res.status(400).json({ error: 'Método de comprobante inválido' });
+    }
+    
+    // Verificar si el campo existe antes de actualizar
+    try {
+      await db.query(
+        'UPDATE fondocampeonato SET metodo_comprobante = ? WHERE id_fondo = ?',
+        [metodo_comprobante, id_fondo]
+      );
+      res.json({ message: 'Método de comprobante actualizado correctamente' });
+    } catch (updateError) {
+      // Si el campo no existe, simplemente no hacer nada y responder éxito
+      if (updateError.code === 'ER_BAD_FIELD_ERROR') {
+        console.log('Campo metodo_comprobante no existe en la tabla fondocampeonato. Se requiere ejecutar el SQL de migración.');
+        res.json({ message: 'Método registrado (campo no disponible en BD)' });
+      } else {
+        throw updateError;
+      }
+    }
+  } catch (error) {
+    console.error('Error actualizando metodo_comprobante FC:', error);
+    res.status(500).json({ error: 'Error al actualizar método de comprobante' });
+  }
 });
 
 console.log('⏰ Cron job configurado: actualización de estados el día 11 de cada mes a las 00:05 (Uruguay)');

@@ -47,38 +47,40 @@ mysql> describe hermanos;
 3 rows in set (0.01 sec)
 
 mysql> describe recibo;
-+---------------------+---------------+------+-----+---------+----------------+
-| Field               | Type          | Null | Key | Default | Extra          |
-+---------------------+---------------+------+-----+---------+----------------+
-| idrecibo            | int           | NO   | PRI | NULL    | auto_increment |
-| numero              | bigint        | NO   |     | NULL    |                |
-| mes_pago            | int           | NO   |     | NULL    |                |
-| monto               | decimal(10,0) | NO   |     | NULL    |                |
-| fecha_recibo        | date          | NO   |     | NULL    |                |
-| idjugador           | int           | YES  |     | NULL    |                |
-| idlibreta           | int           | YES  |     | NULL    |                |
-| anio                | int           | NO   |     | NULL    |                |
-| observacionesRecibo | varchar(500)  | YES  |     | NULL    |                |
-| visible             | tinyint(1)    | NO   |     | 1       |                |
-| idusuario           | int           | NO   |     | NULL    |                |
-+---------------------+---------------+------+-----+---------+----------------+
-11 rows in set (0.01 sec)
++---------------------+------------------------------+------+-----+---------+----------------+
+| Field               | Type                         | Null | Key | Default | Extra          |
++---------------------+------------------------------+------+-----+---------+----------------+
+| idrecibo            | int                          | NO   | PRI | NULL    | auto_increment |
+| numero              | bigint                       | NO   |     | NULL    |                |
+| mes_pago            | int                          | NO   |     | NULL    |                |
+| monto               | decimal(10,0)                | NO   |     | NULL    |                |
+| fecha_recibo        | date                         | NO   |     | NULL    |                |
+| idjugador           | int                          | YES  |     | NULL    |                |
+| idlibreta           | int                          | YES  |     | NULL    |                |
+| anio                | int                          | NO   |     | NULL    |                |
+| observacionesRecibo | varchar(500)                 | YES  |     | NULL    |                |
+| metodo_comprobante  | enum('impresion','whatsapp') | YES  |     | NULL    |                |
+| visible             | tinyint(1)                   | NO   |     | 1       |                |
+| idusuario           | int                          | NO   |     | NULL    |                |
++---------------------+------------------------------+------+-----+---------+----------------+
+12 rows in set (0.03 sec)
 
 mysql> describe fondocampeonato;
-+---------------+---------------+------+-----+---------+----------------+
-| Field         | Type          | Null | Key | Default | Extra          |
-+---------------+---------------+------+-----+---------+----------------+
-| id_fondo      | int           | NO   | PRI | NULL    | auto_increment |
-| numero        | int           | NO   |     | NULL    |                |
-| fecha         | date          | NO   |     | NULL    |                |
-| anio          | int           | NO   |     | NULL    |                |
-| cuota_paga    | int           | NO   |     | NULL    |                |
-| monto         | decimal(10,0) | NO   |     | NULL    |                |
-| idjugador     | int           | NO   |     | NULL    |                |
-| idusuario     | int           | NO   |     | NULL    |                |
-| observaciones | varchar(200)  | YES  |     | NULL    |                |
-+---------------+---------------+------+-----+---------+----------------+
-9 rows in set (0.02 sec)
++--------------------+------------------------------+------+-----+---------+----------------+
+| Field              | Type                         | Null | Key | Default | Extra          |
++--------------------+------------------------------+------+-----+---------+----------------+
+| id_fondo           | int                          | NO   | PRI | NULL    | auto_increment |
+| numero             | int                          | NO   |     | NULL    |                |
+| fecha              | date                         | NO   |     | NULL    |                |
+| anio               | int                          | NO   |     | NULL    |                |
+| cuota_paga         | int                          | NO   |     | NULL    |                |
+| monto              | decimal(10,0)                | NO   |     | NULL    |                |
+| idjugador          | int                          | NO   |     | NULL    |                |
+| idusuario          | int                          | NO   |     | NULL    |                |
+| observaciones      | varchar(200)                 | YES  |     | NULL    |                |
+| metodo_comprobante | enum('impresion','whatsapp') | YES  |     | NULL    |                |
++--------------------+------------------------------+------+-----+---------+----------------+
+10 rows in set (0.01 sec)
 
 mysql> describe valores;
 +------------------+---------------+------+-----+-------------------+-----------------------------------------------+
