@@ -122,9 +122,11 @@ const Contact = () => {
             sx={{ 
               color: 'rgba(255,255,255,0.8)',
               fontWeight: 300,
-              maxWidth: '600px',
+              maxWidth: { xs: '100%', md: '600px' },
               mx: 'auto',
-              mb: 3
+              mb: { xs: 2, md: 3 },
+              px: { xs: 2, md: 0 },
+              fontSize: { xs: '1rem', sm: '1.25rem', md: '1.5rem' }
             }}
           >
             ¿Tienes alguna pregunta? ¡Nos encantaría escucharte!
@@ -136,15 +138,22 @@ const Contact = () => {
           className="content-paper slide-up"
           sx={{
             backgroundColor: "rgba(0, 0, 0, 0.2)",
-            padding: "40px",
+            padding: { xs: "20px", sm: "30px", md: "40px" },
             maxWidth: "95%",
             margin: "0 auto",
             color: "white",
-            borderRadius: "20px",
+            borderRadius: { xs: "12px", md: "20px" },
             backdropFilter: "blur(10px)"
           }}
         >
-          <div className="flex flex-col lg:flex-row gap-8 p-6">
+          <Box 
+            sx={{
+              display: "flex",
+              flexDirection: { xs: "column", lg: "row" },
+              gap: { xs: 4, md: 6, lg: 8 },
+              padding: { xs: 0, md: "24px" }
+            }}
+          >
             <Formik
               initialValues={{ name: "", email: "", message: "" }}
               validationSchema={Yup.object({
@@ -323,6 +332,11 @@ const Contact = () => {
                       variant="contained"
                       disabled={isSubmitting}
                       className="consistency-button-primary w-full mt-4"
+                      sx={{
+                        mt: { xs: 3, md: 4 },
+                        height: { xs: "48px", md: "56px" },
+                        fontSize: { xs: "0.9rem", md: "1rem" }
+                      }}
                     >
                       {isSubmitting ? "Enviando..." : "ENVIAR"}
                     </Button>
@@ -331,7 +345,17 @@ const Contact = () => {
               )}
             </Formik>
 
-            <div className="w-full lg:w-96 h-80 mx-auto rounded-lg overflow-hidden shadow-xl border-2 border-white border-opacity-20">
+            <Box 
+              sx={{
+                width: { xs: "100%", lg: "384px" },
+                height: { xs: "300px", md: "320px", lg: "320px" },
+                margin: { xs: "0 auto", lg: 0 },
+                borderRadius: { xs: "12px", md: "16px" },
+                overflow: "hidden",
+                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
+                border: "2px solid rgba(255, 255, 255, 0.2)"
+              }}
+            >
               <iframe
                 title="Google Maps"
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d29791.66727565066!2d-54.414093465234394!3d-33.23446239999998!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x950be9c130a58849%3A0x9dd9261a64098372!2sCancha%20Club%20Yerbalito%20de%20Baby%20F%C3%BAtbol!5e1!3m2!1ses-419!2suy!4v1714333252443!5m2!1ses-419!2suy"
@@ -342,8 +366,8 @@ const Contact = () => {
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
               ></iframe>
-            </div>
-          </div>
+            </Box>
+          </Box>
         </Paper>
       </div>
     </div>

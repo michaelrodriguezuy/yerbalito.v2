@@ -90,7 +90,7 @@ const About = () => {
                   {/* Comisión del Club */}
                   <div style={{ marginTop: "40px", padding: "20px", backgroundColor: "rgba(0,0,0,0.2)", borderRadius: "10px" }}>
                     <Typography variant="h5" sx={{ color: "#4CAF50", fontWeight: "bold", mb: 3, textAlign: "center" }}>
-                      🏆 COMISIÓN DIRECTIVA 2024
+                      🏆 COMISIÓN DIRECTIVA 2025
                     </Typography>
                     <div style={{ 
                       display: "grid", 
@@ -103,7 +103,7 @@ const About = () => {
                           Presidente
                         </Typography>
                         <Typography variant="body1" sx={{ color: "white" }}>
-                          [Nombre del Presidente]
+                          Julio Martinez
                         </Typography>
                       </div>
                       <div>
@@ -111,7 +111,7 @@ const About = () => {
                           Vice-Presidente
                         </Typography>
                         <Typography variant="body1" sx={{ color: "white" }}>
-                          [Nombre del Vice-Presidente]
+                          Gonzalo Cesar
                         </Typography>
                       </div>
                       <div>
@@ -135,7 +135,7 @@ const About = () => {
                           Tesorero
                         </Typography>
                         <Typography variant="body1" sx={{ color: "white" }}>
-                          [Nombre del Tesorero]
+                          Fatima
                         </Typography>
                       </div>
                       <div>

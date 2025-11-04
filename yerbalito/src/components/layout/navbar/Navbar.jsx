@@ -75,7 +75,8 @@ function Navbar() {
           // Efecto de desvanecimiento para tapar contenido que pase por debajo
           background: "linear-gradient(to bottom, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.8) 30%, rgba(0,0,0,0.4) 70%, transparent 100%)",
           transition: "background-color 0.3s ease",
-          height: "120px",
+          height: { xs: "80px", md: "120px" },
+          minHeight: { xs: 80, md: 120 },
         }}
       >
         <Container maxWidth="xl" disableGutters>
@@ -84,10 +85,15 @@ function Navbar() {
               {/* <AdbIcon sx={{ display: { xs: "none", md: "flex" }, mr: 1 }} /> */}
               {/* escudo de yerbalito desde mi carpeta assets */}
 
-              <img
+              <Box
+                component="img"
                 src={logo}
                 alt="Yerbalito"
-                style={{ height: 100, marginRight: 12 }}
+                sx={{
+                  height: { xs: 60, md: 100 },
+                  marginRight: 1.5,
+                  maxHeight: "100%",
+                }}
               />
             </Link>
 
@@ -118,29 +124,41 @@ function Navbar() {
                 onClose={handleCloseNavMenu}
                 sx={{
                   display: { xs: "block", md: "none" },
+                  "& .MuiPaper-root": {
+                    minWidth: "200px",
+                    maxWidth: "90vw",
+                    mt: 1,
+                  },
                 }}
               >
                 {routes.map((page) => (
-                  <Link
+                  <MenuItem 
                     key={page.id}
-                    to={page.path}
-                    style={{ textDecoration: "none", color: "black" }}
+                    onClick={() => {
+                      handleCloseNavMenu();
+                      navigate(page.path);
+                    }}
+                    component="div"
+                    sx={{
+                      "&:hover": {
+                        backgroundColor: "rgba(76, 175, 80, 0.1)",
+                      },
+                    }}
                   >
-                    <MenuItem onClick={handleCloseNavMenu}>
-                      <Typography 
-                        textAlign={"center"}
-                        sx={{
-                          textTransform: "uppercase",
-                          fontWeight: "bold",
-                          fontSize: "0.9rem",
-                          letterSpacing: "0.5px",
-                          color: "#4CAF50"
-                        }}
-                      >
-                        {page.title}
-                      </Typography>
-                    </MenuItem>
-                  </Link>
+                    <Typography 
+                      textAlign={"center"}
+                      sx={{
+                        textTransform: "uppercase",
+                        fontWeight: "bold",
+                        fontSize: "0.9rem",
+                        letterSpacing: "0.5px",
+                        color: "#4CAF50",
+                        width: "100%",
+                      }}
+                    >
+                      {page.title}
+                    </Typography>
+                  </MenuItem>
                 ))}
               </Menu>
             </Box>
@@ -235,7 +253,13 @@ function Navbar() {
                   </IconButton>
                 </Tooltip>
                 <Menu
-                  sx={{ mt: "45px" }}
+                  sx={{ 
+                    mt: "45px",
+                    "& .MuiPaper-root": {
+                      minWidth: "180px",
+                      maxWidth: "90vw",
+                    },
+                  }}
                   id="menu-appbar"
                   anchorEl={anchorElUser}
                   anchorOrigin={{
@@ -251,37 +275,54 @@ function Navbar() {
                   onClose={handleCloseUserMenu}
                 >
                   {menuItems.map((item) => (
-                    <MenuItem key={item.id} onClick={handleCloseUserMenu}>
-                      <Link
-                        to={item.path}
-                        style={{ textDecoration: "none", color: "black" }}
+                    <MenuItem 
+                      key={item.id} 
+                      onClick={() => {
+                        handleCloseUserMenu();
+                        navigate(item.path);
+                      }}
+                      sx={{
+                        "&:hover": {
+                          backgroundColor: "rgba(76, 175, 80, 0.1)",
+                        },
+                      }}
+                    >
+                      <Typography 
+                        textAlign="center"
+                        sx={{
+                          textTransform: "uppercase",
+                          fontWeight: "bold",
+                          fontSize: "0.9rem",
+                          letterSpacing: "0.5px",
+                          color: "#4CAF50",
+                          width: "100%",
+                        }}
                       >
-                        <Typography 
-                          textAlign="center"
-                          sx={{
-                            textTransform: "uppercase",
-                            fontWeight: "bold",
-                            fontSize: "0.9rem",
-                            letterSpacing: "0.5px",
-                            color: "#4CAF50"
-                          }}
-                        >
-                          {item.title}
-                        </Typography>
-                      </Link>
+                        {item.title}
+                      </Typography>
                     </MenuItem>
                   ))}
 
-                  <MenuItem onClick={handleCloseUserMenu}>
+                  <MenuItem 
+                    onClick={() => {
+                      handleCloseUserMenu();
+                      handleLogout();
+                    }}
+                    sx={{
+                      "&:hover": {
+                        backgroundColor: "rgba(244, 67, 54, 0.1)",
+                      },
+                    }}
+                  >
                     <Typography 
-                      onClick={handleLogout} 
                       textAlign="center"
                       sx={{
                         textTransform: "uppercase",
                         fontWeight: "bold",
                         fontSize: "0.9rem",
                         letterSpacing: "0.5px",
-                        color: "#f44336"
+                        color: "#f44336",
+                        width: "100%",
                       }}
                     >
                       Cerrar Sesion

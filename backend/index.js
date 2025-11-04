@@ -701,12 +701,24 @@ app.get('/squad/all', async (req, res) => {
     // Solo devolver jugadores de categorías públicas (visible = 1)
     // Ordenar alfabéticamente por apellido y nombre, sin importar la categoría
     const [rows] = await db.query(`
-      SELECT j.*, c.nombre_categoria 
+      SELECT j.*, c.nombre_categoria, c.idcategoria as categoria_id
       FROM jugador j 
       LEFT JOIN categoria c ON j.idcategoria = c.idcategoria 
       WHERE c.visible = 1
       ORDER BY j.apellido, j.nombre
     `);
+    
+    // Debug para el jugador 604
+    const player604 = rows.find(p => p.idjugador === 604);
+    if (player604) {
+      console.log('🔍 Debug jugador 604 en /squad/all:');
+      console.log('- ID Jugador:', player604.idjugador);
+      console.log('- Nombre:', player604.nombre, player604.apellido);
+      console.log('- idcategoria en jugador:', player604.idcategoria);
+      console.log('- categoria_id del JOIN:', player604.categoria_id);
+      console.log('- nombre_categoria:', player604.nombre_categoria);
+    }
+    
     res.json({ squads: rows });
   } catch (error) {
     console.error('Error obteniendo jugadores:', error);
@@ -719,12 +731,23 @@ app.get('/squad/:id', async (req, res) => {
 
   try {
     const [rows] = await db.query(`
-      SELECT j.*, c.nombre_categoria 
+      SELECT j.*, c.nombre_categoria, c.idcategoria as categoria_id
       FROM jugador j 
       LEFT JOIN categoria c ON j.idcategoria = c.idcategoria 
       WHERE j.idjugador = ?
     `, [playerId]);
     const player = rows && rows.length > 0 ? rows[0] : null;
+    
+    // Debug para el jugador 604
+    if (playerId === '604' || playerId === 604) {
+      console.log('🔍 Debug jugador 604:');
+      console.log('- ID Jugador:', player?.idjugador);
+      console.log('- Nombre:', player?.nombre, player?.apellido);
+      console.log('- idcategoria en jugador:', player?.idcategoria);
+      console.log('- categoria_id del JOIN:', player?.categoria_id);
+      console.log('- nombre_categoria:', player?.nombre_categoria);
+      console.log('- Player completo:', JSON.stringify(player, null, 2));
+    }
 
     if (player) {
       // Obtener los hermanos del jugador (relaciones bidireccionales)
@@ -2320,6 +2343,53 @@ app.get('/valores', async (req, res) => {
   }
 });
 
+// Obtener todos los valores históricos (DEBE IR ANTES DE /valores/:ano)
+app.get('/valores/all', async (req, res) => {
+  try {
+    console.log('📊 Fetching valores históricos...');
+    const [valores] = await db.query('SELECT * FROM valores ORDER BY ano DESC');
+    console.log('📊 Valores obtenidos de BD:', valores.length, 'registros');
+    
+    // Parsear meses_cuotas si viene en diferentes formatos
+    const valoresParsed = valores.map(v => {
+      const valor = { ...v }; // Crear copia para no modificar el original
+      try {
+        if (valor.meses_cuotas !== null && valor.meses_cuotas !== undefined) {
+          // Si es string, parsearlo
+          if (typeof valor.meses_cuotas === 'string') {
+            valor.meses_cuotas = JSON.parse(valor.meses_cuotas);
+          }
+          // Si es un objeto Buffer (MySQL JSON), convertirlo a string primero
+          else if (Buffer.isBuffer(valor.meses_cuotas)) {
+            valor.meses_cuotas = JSON.parse(valor.meses_cuotas.toString());
+          }
+          // Si ya es un array/objeto, dejarlo como está pero asegurar que es un array
+          else if (Array.isArray(valor.meses_cuotas)) {
+            // Ya es un array, está bien
+          }
+          else if (typeof valor.meses_cuotas === 'object') {
+            // Si es un objeto pero no array, intentar convertirlo
+            valor.meses_cuotas = Object.values(valor.meses_cuotas);
+          }
+        } else {
+          // Si no existe, usar array vacío por defecto
+          valor.meses_cuotas = [];
+        }
+      } catch (parseError) {
+        console.error('Error parsing meses_cuotas para año', valor.ano, ':', parseError);
+        valor.meses_cuotas = [];
+      }
+      return valor;
+    });
+    
+    console.log('📊 Valores parseados:', valoresParsed.length, 'registros');
+    res.json({ valores: valoresParsed });
+  } catch (error) {
+    console.error('❌ Error fetching valores históricos:', error);
+    res.status(500).json({ error: 'Error al obtener valores' });
+  }
+});
+
 // Obtener valores por año específico
 app.get('/valores/:ano', async (req, res) => {
   try {
@@ -2369,63 +2439,6 @@ app.get('/valores/:ano', async (req, res) => {
     console.error('❌ Error message:', error.message);
     console.error('❌ Params recibidos:', req.params);
     res.status(500).json({ error: 'Error al obtener valores' });
-  }
-});
-
-// Obtener todos los valores históricos
-app.get('/valores/all', async (req, res) => {
-  try {
-    console.log('📊 Fetching valores históricos...');
-    const [valores] = await db.query('SELECT * FROM valores ORDER BY ano DESC');
-    console.log('📊 Valores obtenidos de BD:', valores.length, 'registros');
-    
-    // Parsear meses_cuotas si viene en diferentes formatos
-    const valoresParsed = valores.map(v => {
-      const valor = { ...v }; // Crear copia para no modificar el original
-      try {
-        if (valor.meses_cuotas !== null && valor.meses_cuotas !== undefined) {
-          // Si es string, parsearlo
-          if (typeof valor.meses_cuotas === 'string') {
-            valor.meses_cuotas = JSON.parse(valor.meses_cuotas);
-          }
-          // Si es un objeto Buffer (MySQL JSON), convertirlo a string primero
-          else if (Buffer.isBuffer(valor.meses_cuotas)) {
-            valor.meses_cuotas = JSON.parse(valor.meses_cuotas.toString());
-          }
-          // Si ya es un array/objeto, dejarlo como está pero asegurar que es un array
-          else if (Array.isArray(valor.meses_cuotas)) {
-            // Ya es un array, está bien
-          }
-          else if (typeof valor.meses_cuotas === 'object') {
-            // Si es un objeto pero no array, intentar convertirlo
-            valor.meses_cuotas = Object.values(valor.meses_cuotas);
-          }
-        } else {
-          // Si no existe, usar array vacío por defecto
-          valor.meses_cuotas = [];
-        }
-        
-        // Asegurar que meses_cuotas es siempre un array
-        if (!Array.isArray(valor.meses_cuotas)) {
-          console.warn('⚠️ meses_cuotas no es array para año', valor.ano, ', convirtiendo...');
-          valor.meses_cuotas = [];
-        }
-      } catch (e) {
-        console.error('❌ Error parsing meses_cuotas para año', valor.ano, ':', e.message);
-        console.error('Valor recibido:', valor.meses_cuotas, 'Tipo:', typeof valor.meses_cuotas);
-        // Si falla el parsing, usar array vacío
-        valor.meses_cuotas = [];
-      }
-      return valor;
-    });
-    
-    console.log('📊 Valores parseados:', valoresParsed.length);
-    res.json({ valores: valoresParsed || [] });
-  } catch (error) {
-    console.error('❌ Error fetching all valores:', error);
-    console.error('❌ Error message:', error.message);
-    console.error('❌ Error stack:', error.stack);
-    res.status(500).json({ error: 'Error al obtener valores históricos' });
   }
 });
 

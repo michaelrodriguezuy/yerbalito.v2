@@ -700,21 +700,24 @@ const Payments = () => {
             backdropFilter: "blur(10px)",
           }}
         >
-          <div
-            style={{
+          <Box
+            sx={{
               display: "flex",
+              flexDirection: { xs: "column", sm: "row" },
               justifyContent: "center",
+              alignItems: { xs: "stretch", sm: "center" },
+              gap: { xs: 2, sm: 2 },
               marginBottom: "20px",
             }}
           >
             {/* Título fijo del buscador */}
-            <Box sx={{ width: "50%", mr: 2 }}>
+            <Box sx={{ width: { xs: "100%", sm: "50%" }, flex: 1 }}>
               <TextField
                 variant="outlined"
                 value={searchTerm}
                 onChange={handleSearchChange}
                 placeholder="Buscar recibos de cuotas del club de..."
-                style={{ marginBottom: "1rem", width: "100%" }}
+                fullWidth
                 inputProps={{
                   style: { color: "#000" },
                 }}
@@ -730,33 +733,52 @@ const Payments = () => {
             <Button
               variant="contained"
               onClick={handleCreate}
-              style={{
-                marginLeft: "2rem",
-                height: "56px",
+              sx={{
+                height: { xs: "48px", sm: "56px" },
+                width: { xs: "100%", sm: "auto" },
+                minWidth: { xs: "100%", sm: "150px" },
               }}
             >
               Crear Recibo
             </Button>
-          </div>
+          </Box>
 
-          <div
-            style={{
+          <Box
+            sx={{
               display: "flex",
               justifyContent: "center",
               overflowX: "auto",
+              width: "100%",
+              "&::-webkit-scrollbar": {
+                height: "8px",
+              },
+              "&::-webkit-scrollbar-track": {
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+                borderRadius: "4px",
+              },
+              "&::-webkit-scrollbar-thumb": {
+                backgroundColor: "rgba(76, 175, 80, 0.5)",
+                borderRadius: "4px",
+                "&:hover": {
+                  backgroundColor: "rgba(76, 175, 80, 0.7)",
+                },
+              },
             }}
           >
-            <div
-              style={{
+            <Box
+              sx={{
                 width: "100%",
-                maxHeight: 350,
-                minWidth: "800px",
+                maxHeight: { xs: "400px", md: 350 },
+                minWidth: { xs: "600px", sm: "800px" },
                 overflowY: "auto",
               }}
             >
               <TableContainer
                 component={Paper}
-                style={{ backgroundColor: "transparent", minWidth: "800px" }}
+                sx={{
+                  backgroundColor: "transparent",
+                  minWidth: { xs: "600px", sm: "800px" },
+                }}
               >
                 <Table>
                   <TableHead>
@@ -1047,8 +1069,8 @@ const Payments = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
-            </div>
-          </div>
+            </Box>
+          </Box>
         </Paper>
 
         <Modal
@@ -1063,13 +1085,15 @@ const Payments = () => {
               top: "50%",
               left: "50%",
               transform: "translate(-50%, -50%)",
-              width: 400,
+              width: { xs: "95%", sm: "90%", md: 400 },
+              maxWidth: 500,
               maxHeight: "90vh",
               bgcolor: "white",
               border: "2px solid #000",
               boxShadow: 24,
-              p: 4,
+              p: { xs: 2, md: 4 },
               borderRadius: 2,
+              overflow: "auto",
             }}
           >
             <Paper elevation={3} sx={{ p: 3, maxWidth: 500, margin: '0 auto' }}>

@@ -351,28 +351,9 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
     }
   };
 
-  useEffect(() => {
-    if (!categories.length || !playerSelected) return;
-
-    const fechaNacimiento = playerSelected.fechaNacimiento
-      ? new Date(playerSelected.fechaNacimiento)
-      : null;
-
-    const yearOfBirth = fechaNacimiento ? fechaNacimiento.getFullYear() : null;
-    const selectedSex = playerSelected.sexo;
-
-    if (yearOfBirth && selectedSex) {
-      const matchedCategory = categories.find(
-        (category) =>
-          category.nombre_categoria.includes(yearOfBirth.toString()) &&
-          category.nombre_categoria.includes(selectedSex)
-      );
-
-      if (matchedCategory) {
-        playerSelected.categoria = matchedCategory.nombre_categoria;
-      }
-    }
-  }, [categories, playerSelected]);
+  // REMOVED: Este useEffect estaba intentando "adivinar" la categoría basándose en año y sexo,
+  // pero esto puede sobrescribir incorrectamente la categoría que viene del backend.
+  // La categoría debe venir directamente del backend en playerSelected.nombre_categoria
 
   return (
     <Paper
@@ -469,7 +450,23 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
           // console.log('Formik errors:', errors);
 
           useEffect(() => {
+            // Solo determinar categoría automáticamente si:
+            // 1. No hay jugador seleccionado (creando uno nuevo)
+            // 2. O si el campo categoría está vacío (nuevo jugador sin categoría asignada)
+            // NO sobrescribir si ya hay una categoría del backend (jugador existente)
             if (categories.length === 0) return;
+            
+            // Si estamos editando un jugador existente y ya tiene categoría, no sobrescribir
+            if (playerSelected && values.categoria) {
+              // Verificar que la categoría actual es válida (existe en la lista de categorías)
+              const categoriaValida = categories.find(
+                (c) => c.nombre_categoria === values.categoria
+              );
+              if (categoriaValida) {
+                // La categoría es válida, no sobrescribir
+                return;
+              }
+            }
 
             const determineCategory = () => {
               const fechaNacimiento = values.fechaNacimiento
@@ -556,7 +553,7 @@ const PlayerForm = ({ handleClose, setIsChange, playerSelected }) => {
             };
 
             determineCategory();
-          }, [values.fechaNacimiento, values.sexo, categories, setFieldValue]);
+          }, [values.fechaNacimiento, values.sexo, values.categoria, categories, setFieldValue, playerSelected]);
 
           return (
             <Form

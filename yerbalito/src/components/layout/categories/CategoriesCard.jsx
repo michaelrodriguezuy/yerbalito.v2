@@ -67,7 +67,7 @@ const CategoriesCard = () => {
       flex: 1,
       headerAlign: "center",
       align: "center",
-      minWidth: 200,
+      minWidth: 150,
     },
     { 
       field: "tecnico", 
@@ -75,7 +75,7 @@ const CategoriesCard = () => {
       flex: 1, 
       headerAlign: "center",
       align: "center",
-      minWidth: 200,
+      minWidth: 120,
     },
     {
       field: "telefono",
@@ -83,7 +83,7 @@ const CategoriesCard = () => {
       flex: 1,
       headerAlign: "center",
       align: "center",
-      minWidth: 150,
+      minWidth: 100,
     },
     { 
       field: "edad", 
@@ -91,7 +91,7 @@ const CategoriesCard = () => {
       flex: 0.5, 
       headerAlign: "center",
       align: "center",
-      minWidth: 100,
+      minWidth: 60,
     },
     // Agregar columna Estado solo para usuarios logueados
     ...(isLogged ? [{
@@ -100,14 +100,14 @@ const CategoriesCard = () => {
       flex: 1,
       headerAlign: "center",
       align: "center",
-      minWidth: 120,
+      minWidth: 90,
     }] : []),
   ];
 
   const getRowId = (category) => category.idcategoria;
 
   return (
-    <Box sx={{ width: "100%", mt: 3, mb: 3 }}>
+    <Box sx={{ width: "100%", mt: { xs: 2, md: 3 }, mb: { xs: 2, md: 3 }, px: { xs: 1, sm: 0 } }}>
       <style>
         {`
           .custom-data-grid .MuiDataGrid-cell {
@@ -158,8 +158,8 @@ const CategoriesCard = () => {
           sx={{ 
             width: "100%", 
             backgroundColor: "rgba(40, 40, 40, 0.95)",
-            borderRadius: "16px",
-            padding: "24px",
+            borderRadius: { xs: "12px", md: "16px" },
+            padding: { xs: "12px", sm: "16px", md: "24px" },
             boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.2)",
             border: "1px solid rgba(255, 255, 255, 0.1)",
             backdropFilter: "blur(10px)",
@@ -173,7 +173,7 @@ const CategoriesCard = () => {
               right: 0,
               height: "4px",
               background: "linear-gradient(90deg, #4CAF50, #66BB6A, #4CAF50)",
-              borderRadius: "16px 16px 0 0"
+              borderRadius: { xs: "12px 12px 0 0", md: "16px 16px 0 0" }
             }
           }}
         >
@@ -181,9 +181,25 @@ const CategoriesCard = () => {
           {/* Tabla con estilo mejorado */}
           <Box sx={{
             backgroundColor: "rgba(30, 30, 30, 0.8)",
-            borderRadius: "12px",
-            overflow: "hidden",
-            border: "1px solid rgba(255, 255, 255, 0.05)"
+            borderRadius: { xs: "8px", md: "12px" },
+            overflow: "auto",
+            border: "1px solid rgba(255, 255, 255, 0.05)",
+            // Custom scrollbar para móviles
+            "&::-webkit-scrollbar": {
+              height: "8px",
+              width: "8px",
+            },
+            "&::-webkit-scrollbar-track": {
+              background: "rgba(255, 255, 255, 0.1)",
+              borderRadius: "4px",
+            },
+            "&::-webkit-scrollbar-thumb": {
+              background: "rgba(76, 175, 80, 0.6)",
+              borderRadius: "4px",
+              "&:hover": {
+                background: "rgba(76, 175, 80, 0.8)",
+              },
+            },
           }}>
             <DataGrid
               rows={categories}
@@ -204,24 +220,35 @@ const CategoriesCard = () => {
               rowHeight={60}
               sx={{
                 border: "none",
+                // Responsive row height handled via CSS
+                '@media (max-width: 600px)': {
+                  '& .MuiDataGrid-row': {
+                    minHeight: '50px !important',
+                  },
+                },
+                '@media (min-width: 600px) and (max-width: 960px)': {
+                  '& .MuiDataGrid-row': {
+                    minHeight: '55px !important',
+                  },
+                },
                 '& .MuiDataGrid-cell': {
                   color: "#f0f0f0 !important",
                   display: "flex !important",
                   justifyContent: "center !important",
                   alignItems: "center !important",
-                  padding: "12px 16px !important",
-                  fontSize: "1rem !important",
+                  padding: { xs: "8px 12px !important", sm: "10px 14px !important", md: "12px 16px !important" },
+                  fontSize: { xs: "0.8rem !important", sm: "0.9rem !important", md: "1rem !important" },
                   borderColor: "rgba(255, 255, 255, 0.05) !important"
                 },
                 '& .MuiDataGrid-columnHeader': {
                   backgroundColor: "rgba(50, 50, 50, 0.9) !important",
-                  padding: "16px !important",
+                  padding: { xs: "12px !important", sm: "14px !important", md: "16px !important" },
                   borderColor: "rgba(255, 255, 255, 0.1) !important"
                 },
                 '& .MuiDataGrid-columnHeaderTitle': {
                   color: "white !important",
                   fontWeight: "bold !important",
-                  fontSize: "1.1rem !important"
+                  fontSize: { xs: "0.85rem !important", sm: "0.95rem !important", md: "1.1rem !important" }
                 },
                 '& .MuiDataGrid-virtualScroller': {
                   backgroundColor: "transparent !important"

@@ -143,19 +143,23 @@ const PlayersCard = () => {
   return (
     <>
       {/* Contenedor para los filtros con mejor alineación */}
-      <div
-        style={{
+      <Box
+        sx={{
           display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
           justifyContent: "center",
-          gap: "20px",
-          marginBottom: "30px",
-          marginTop: "10px",
+          alignItems: { xs: "stretch", sm: "center" },
+          gap: { xs: 2, sm: 3, md: "20px" },
+          marginBottom: { xs: "20px", md: "30px" },
+          marginTop: { xs: "10px", md: "10px" },
+          px: { xs: 2, sm: 0 }
         }}
       >
         <FormControl
           variant="outlined"
-          style={{
-            minWidth: "200px",
+          sx={{
+            minWidth: { xs: "100%", sm: "200px" },
+            maxWidth: { xs: "100%", sm: "200px" },
             backgroundColor: "rgba(255, 255, 255, 0.05)",
             borderRadius: "8px",
           }}
@@ -194,15 +198,16 @@ const PlayersCard = () => {
 
         <FormControl
           variant="outlined"
-          style={{
-            minWidth: "200px",
+          sx={{
+            minWidth: { xs: "100%", sm: "200px" },
+            maxWidth: { xs: "100%", sm: "200px" },
             backgroundColor: "rgba(255, 255, 255, 0.05)",
             borderRadius: "8px",
           }}
         >
           <InputLabel
             id="category-filter-label"
-            style={{ color: "white", fontWeight: "bold" }}
+            sx={{ color: "white", fontWeight: "bold" }}
           >
             Categoría
           </InputLabel>
@@ -235,20 +240,46 @@ const PlayersCard = () => {
             ))}
           </Select>
         </FormControl>
-      </div>
+      </Box>
 
-      <div
-        style={{
+      <Box
+        sx={{
           display: "flex",
           justifyContent: "center",
           overflowX: "auto",
+          px: { xs: 1, sm: 0 },
+          // Custom scrollbar para móviles
+          "&::-webkit-scrollbar": {
+            height: "8px",
+          },
+          "&::-webkit-scrollbar-track": {
+            background: "rgba(255, 255, 255, 0.1)",
+            borderRadius: "4px",
+          },
+          "&::-webkit-scrollbar-thumb": {
+            background: "rgba(76, 175, 80, 0.6)",
+            borderRadius: "4px",
+            "&:hover": {
+              background: "rgba(76, 175, 80, 0.8)",
+            },
+          },
         }}
       >
-        <div style={{ width: "100%", maxHeight: 350, minWidth: "800px", overflowY: 'auto' }}>
+        <Box 
+          sx={{ 
+            width: "100%", 
+            maxHeight: { xs: 400, md: 350 }, 
+            minWidth: { xs: "600px", sm: "700px", md: "800px" }, 
+            overflowY: "auto" 
+          }}
+        >
           <TableContainer
             component={Paper}
             className="consistency-table"
-            style={{ backgroundColor: "transparent", minWidth: "800px" }}
+            sx={{ 
+              backgroundColor: "transparent", 
+              minWidth: { xs: "600px", sm: "700px", md: "800px" } 
+            }}
           >
             <Table>
               <TableHead>
@@ -259,60 +290,70 @@ const PlayersCard = () => {
                   }}
                 >
                   <TableCell
-                    style={{
+                    sx={{
                       color: "white",
                       fontWeight: "bold",
-                      fontSize: "1rem",
-                      paddingTop: "12px",
-                      paddingBottom: "12px",
+                      fontSize: { xs: "0.85rem", sm: "0.9rem", md: "1rem" },
+                      paddingTop: { xs: "8px", md: "12px" },
+                      paddingBottom: { xs: "8px", md: "12px" },
+                      paddingLeft: { xs: "8px", md: "16px" },
+                      paddingRight: { xs: "8px", md: "16px" },
                     }}
                   >
                     NOMBRE
                   </TableCell>
                   <TableCell
-                    style={{
+                    sx={{
                       color: "white",
                       textAlign: "center",
                       fontWeight: "bold",
-                      fontSize: "1rem",
-                      paddingTop: "12px",
-                      paddingBottom: "12px",
+                      fontSize: { xs: "0.85rem", sm: "0.9rem", md: "1rem" },
+                      paddingTop: { xs: "8px", md: "12px" },
+                      paddingBottom: { xs: "8px", md: "12px" },
+                      paddingLeft: { xs: "8px", md: "16px" },
+                      paddingRight: { xs: "8px", md: "16px" },
                     }}
                   >
                     CATEGORÍA
                   </TableCell>
                   <TableCell
-                    style={{
+                    sx={{
                       color: "white",
                       textAlign: "center",
                       fontWeight: "bold",
-                      fontSize: "1rem",
-                      paddingTop: "12px",
-                      paddingBottom: "12px",
+                      fontSize: { xs: "0.85rem", sm: "0.9rem", md: "1rem" },
+                      paddingTop: { xs: "8px", md: "12px" },
+                      paddingBottom: { xs: "8px", md: "12px" },
+                      paddingLeft: { xs: "8px", md: "16px" },
+                      paddingRight: { xs: "8px", md: "16px" },
                     }}
                   >
                     ESTADO
                   </TableCell>
                   <TableCell
-                    style={{
+                    sx={{
                       color: "white",
                       textAlign: "center",
                       fontWeight: "bold",
-                      fontSize: "1rem",
-                      paddingTop: "12px",
-                      paddingBottom: "12px",
+                      fontSize: { xs: "0.85rem", sm: "0.9rem", md: "1rem" },
+                      paddingTop: { xs: "8px", md: "12px" },
+                      paddingBottom: { xs: "8px", md: "12px" },
+                      paddingLeft: { xs: "8px", md: "16px" },
+                      paddingRight: { xs: "8px", md: "16px" },
                     }}
                   >
                     ÚLTIMO MES PAGO
                   </TableCell>
                   <TableCell
-                    style={{
+                    sx={{
                       color: "white",
                       textAlign: "center",
                       fontWeight: "bold",
-                      fontSize: "1rem",
-                      paddingTop: "12px",
-                      paddingBottom: "12px",
+                      fontSize: { xs: "0.85rem", sm: "0.9rem", md: "1rem" },
+                      paddingTop: { xs: "8px", md: "12px" },
+                      paddingBottom: { xs: "8px", md: "12px" },
+                      paddingLeft: { xs: "8px", md: "16px" },
+                      paddingRight: { xs: "8px", md: "16px" },
                     }}
                   >
                     AÑO
@@ -353,18 +394,24 @@ const PlayersCard = () => {
                       }}
                     >
                       <TableCell
-                        style={{
+                        sx={{
                           color: "white",
                           borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                          fontSize: { xs: "0.8rem", sm: "0.9rem", md: "1rem" },
+                          paddingLeft: { xs: "8px", md: "16px" },
+                          paddingRight: { xs: "8px", md: "16px" },
                         }}
                       >
                         {row.nombre} {row.apellido}
                       </TableCell>
                       <TableCell
-                        style={{
+                        sx={{
                           color: "white",
                           textAlign: "center",
                           borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                          fontSize: { xs: "0.8rem", sm: "0.9rem", md: "1rem" },
+                          paddingLeft: { xs: "8px", md: "16px" },
+                          paddingRight: { xs: "8px", md: "16px" },
                         }}
                       >
                         <Tooltip
@@ -377,7 +424,7 @@ const PlayersCard = () => {
                         </Tooltip>
                       </TableCell>
                       <TableCell
-                        style={{
+                        sx={{
                           textAlign: "center",
                           borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
                           color:
@@ -386,24 +433,33 @@ const PlayersCard = () => {
                               : row.estado === "Deshabilitado"
                               ? "#f44336"
                               : "#ff9800",
+                          fontSize: { xs: "0.8rem", sm: "0.9rem", md: "1rem" },
+                          paddingLeft: { xs: "8px", md: "16px" },
+                          paddingRight: { xs: "8px", md: "16px" },
                         }}
                       >
                         {row.estado}
                       </TableCell>
                       <TableCell
-                        style={{
+                        sx={{
                           color: "white",
                           textAlign: "center",
                           borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                          fontSize: { xs: "0.8rem", sm: "0.9rem", md: "1rem" },
+                          paddingLeft: { xs: "8px", md: "16px" },
+                          paddingRight: { xs: "8px", md: "16px" },
                         }}
                       >
                         {row.ultimoMesPago}
                       </TableCell>
                       <TableCell
-                        style={{
+                        sx={{
                           color: "white",
                           textAlign: "center",
                           borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                          fontSize: { xs: "0.8rem", sm: "0.9rem", md: "1rem" },
+                          paddingLeft: { xs: "8px", md: "16px" },
+                          paddingRight: { xs: "8px", md: "16px" },
                         }}
                       >
                         {row.anioPago}
@@ -414,8 +470,8 @@ const PlayersCard = () => {
               </TableBody>
             </Table>
           </TableContainer>
-        </div>
-      </div>
+        </Box>
+      </Box>
     </>
   );
 };
