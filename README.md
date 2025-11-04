@@ -8,13 +8,17 @@ Sistema web completo para la gestión del Club Yerbalito de Baby Fútbol, desarr
 ### Frontend (yerbalito/)
 - React 18
 - Vite
-- Material-UI (MUI)
+- Material-UI (MUI) con componentes de DataGrid y DatePickers
 - Tailwind CSS
 - React Router DOM
 - Formik & Yup para validación de formularios
 - Axios para peticiones HTTP
-- SweetAlert2 para notificaciones
-- Tremor para visualización de datos
+- Sonner para notificaciones toast (principal)
+- SweetAlert2 para diálogos de confirmación
+- Tremor y Recharts para visualización de datos
+- Day.js y Moment.js para manejo de fechas
+- React Icons y Remix Icon para iconografía
+- React Canvas Confetti para animaciones
 
 ### Backend (backend/)
 - Node.js 18
@@ -22,7 +26,9 @@ Sistema web completo para la gestión del Club Yerbalito de Baby Fútbol, desarr
 - MySQL 8.0
 - bcryptjs para encriptación de contraseñas
 - Multer para manejo de archivos
+- PDFKit para generación de comprobantes PDF
 - Nodemailer para envío de correos
+- basic-ftp para transferencia de archivos
 - CORS para manejo de peticiones cross-origin
 - MySQL2 para conexión a base de datos
 - node-cron para tareas programadas (actualización automática de estados)
@@ -35,19 +41,54 @@ Sistema web completo para la gestión del Club Yerbalito de Baby Fútbol, desarr
 
 ## Estructura del Proyecto
 ```
-├── yerbalito/           # Frontend React
-│   ├── src/            # Código fuente
-│   ├── public/         # Archivos estáticos
-│   ├── Dockerfile      # Configuración Docker para frontend
-│   ├── nginx.conf      # Configuración Nginx
-│   └── ...
-├── backend/            # Backend Node.js
-│   ├── index.js       # Punto de entrada
-│   ├── uploads/       # Directorio para archivos subidos
-│   ├── Dockerfile      # Configuración Docker para backend
-│   └── ...
-├── mysql/             # Configuración y scripts de base de datos
-└── docker-compose.yml # Configuración de contenedores
+├── yerbalito/                    # Frontend React
+│   ├── src/
+│   │   ├── components/          # Componentes React
+│   │   │   ├── layout/          # Componentes de layout (Navbar, Footer, etc.)
+│   │   │   │   ├── navbar/
+│   │   │   │   ├── footer/
+│   │   │   │   ├── player/
+│   │   │   │   ├── categories/
+│   │   │   │   ├── reports/
+│   │   │   │   ├── calendar/
+│   │   │   │   ├── BirthdayNotification.jsx
+│   │   │   │   └── MatchResultsModal.jsx
+│   │   │   └── pages/           # Páginas principales
+│   │   │       ├── home/
+│   │   │       ├── login/
+│   │   │       ├── dashboard/
+│   │   │       ├── payments/
+│   │   │       ├── squads/
+│   │   │       ├── reports/
+│   │   │       ├── blog/
+│   │   │       ├── category/
+│   │   │       ├── contact/
+│   │   │       ├── about/
+│   │   │       └── ...
+│   │   ├── router/              # Configuración de rutas
+│   │   ├── context/             # Context API (AuthContext)
+│   │   ├── config/              # Configuración (API endpoints)
+│   │   ├── theme/               # Tema de Material-UI
+│   │   ├── styles/              # Estilos globales
+│   │   ├── utils/               # Utilidades
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── public/                  # Archivos estáticos
+│   ├── Dockerfile               # Configuración Docker para frontend
+│   ├── nginx.conf               # Configuración Nginx
+│   └── package.json
+├── backend/                     # Backend Node.js
+│   ├── index.js                 # Punto de entrada (todos los endpoints)
+│   ├── sendEmail.js             # Configuración de envío de emails
+│   ├── uploads/                 # Directorio para archivos subidos
+│   ├── Dockerfile               # Configuración Docker para backend
+│   └── package.json
+├── mysql/                       # Scripts de base de datos
+│   └── *.sql                    # Dumps y scripts SQL
+├── nginx/                       # Configuración Nginx (producción)
+├── docker-compose.yml           # Configuración desarrollo
+├── docker-compose.prod.yml      # Configuración producción
+└── README.md
 ```
 
 ## Requisitos Previos
@@ -81,7 +122,7 @@ docker-compose up -d --build
 ```
 
 4. **Acceder a la aplicación:**
-- Frontend: http://localhost:8080
+- Frontend: http://localhost:8082 (desarrollo) o http://localhost:8080 (producción)
 - Backend API: http://localhost:5001
 - Base de datos MySQL: localhost:3308
 
@@ -150,18 +191,23 @@ VITE_APP_VERSION=2.0.0
 - Asignación automática de categorías según edad y sexo
 - Validación de cédula uruguaya con dígito verificador
 - Búsqueda en tiempo real por nombre o apellido
+- Búsqueda por cédula de identidad (CI)
 - Gestión de hermanos con tabla relacional separada
 - Campos opcionales para datos adicionales
 - Carga opcional de imágenes (con valor por defecto)
 - Gestión completa de información familiar (padre, madre, contacto)
+- Vista detallada de jugador individual con historial de pagos
 
 ### Sistema de Pagos
 - Registro de cuotas mensuales (selección múltiple de meses)
 - Pago acumulado por múltiples meses
 - Fondo común (FC) por categoría
-- Reportes de pagos anuales con gráficos Tremor
+- Generación de comprobantes PDF para recibos y fondo de campeonato
+- Compartir comprobantes por WhatsApp o Email
+- Reportes de pagos anuales con gráficos Tremor y Recharts
 - Búsqueda de recibos en tiempo real
 - Gestión de recibos con fecha/hora y observaciones
+- Registro de método de entrega de comprobante (email, whatsapp, impreso)
 
 ### Administración
 - Dashboard con animaciones slide-up y estadísticas
@@ -185,12 +231,16 @@ VITE_APP_VERSION=2.0.0
 
 ### Interfaz de Usuario
 - Diseño responsivo con Material-UI y Tailwind CSS
+- Optimizado para dispositivos móviles (breakpoints: xs, sm, md, lg)
 - Tema personalizado del club (verde #1E8732 y blanco)
 - Animaciones slide-up para contenido del dashboard
 - Notificaciones de cumpleaños con icono animado
 - Modal flotante de fixture arrastrable
-- Navegación intuitiva con rutas protegidas
-- Notificaciones toast con Sonner
+- Navegación intuitiva con rutas protegidas por rol
+- Notificaciones toast con Sonner (principal)
+- Diálogos de confirmación con SweetAlert2
+- Tablas con scroll horizontal en dispositivos móviles
+- DataGrid de Material-UI para gestión de datos
 
 ## Validaciones y Seguridad
 
@@ -203,11 +253,99 @@ VITE_APP_VERSION=2.0.0
 - Validación de email para usuarios
 
 ### Seguridad
-- Encriptación de contraseñas con bcryptjs
-- Autenticación JWT para rutas protegidas
-- Middleware de autenticación en backend
-- Validación de roles (Admin, Supervisor, Usuario)
-- Rutas protegidas en frontend según rol de usuario
+
+#### Autenticación y Sesión
+- **Almacenamiento**: La información del usuario se guarda en `localStorage` del navegador
+- **No hay expiración automática**: La sesión permanece activa hasta que el usuario cierre sesión manualmente o limpie el `localStorage`
+- **Sin tokens JWT**: El sistema no utiliza tokens de autenticación ni sesiones del servidor
+- **Protección solo en frontend**: Las rutas están protegidas mediante componentes React (`ProtectedUsers`, `ProtectedAdmin`) que verifican el estado de `localStorage`
+- **Sin validación en backend**: El backend NO tiene middleware de autenticación; todas las rutas son accesibles sin validación de sesión del lado del servidor
+
+#### Encriptación de Contraseñas
+- Encriptación de contraseñas con bcryptjs (10 rounds)
+- Compatibilidad con contraseñas legacy (MD5 y texto plano) para migración gradual
+- Las contraseñas nuevas se hashean automáticamente con bcrypt
+
+#### Validación de Roles
+- Validación de roles en frontend (Admin, Supervisor, Usuario)
+- Rutas protegidas según rol de usuario mediante componentes React
+- El rol se almacena en `localStorage` junto con la información del usuario
+
+#### Seguridad de Datos
+- Consultas SQL parametrizadas para prevenir inyección SQL
+- Validación de datos en backend y frontend (Formik + Yup)
+- CORS configurado para permitir peticiones cross-origin
+
+#### ⚠️ Limitaciones de Seguridad Actuales
+- **No hay validación de sesión en el backend**: Cualquier usuario con acceso a la API puede hacer peticiones sin autenticación
+- **No hay expiración de sesión**: La sesión permanece activa indefinidamente hasta logout manual
+- **Datos sensibles en localStorage**: La información del usuario (incluyendo rol) se almacena en el navegador, lo cual es vulnerable a XSS
+- **Sin HTTPS obligatorio**: En desarrollo, las credenciales pueden viajar sin encriptación
+
+#### Recomendaciones de Mejora
+1. Implementar middleware de autenticación en el backend con JWT o sesiones del servidor
+2. Agregar expiración automática de sesión (timeout de inactividad)
+3. Validar tokens/sesiones en cada request del backend
+4. Implementar refresh tokens para renovar sesiones
+5. Usar HTTP-only cookies en lugar de localStorage para tokens
+6. Agregar rate limiting para prevenir ataques de fuerza bruta
+7. Implementar HTTPS obligatorio en producción
+
+## Manejo de Usuarios Logueados
+
+### Flujo de Autenticación
+
+1. **Login**:
+   - Usuario ingresa email y contraseña en `/login`
+   - Frontend envía credenciales a `POST /login`
+   - Backend valida contraseña (bcrypt, MD5 legacy, o texto plano)
+   - Si es válido, backend devuelve información del usuario
+   - Frontend guarda en `localStorage`:
+     - `userInfo`: `{ id, name, email, rol }`
+     - `isLogged`: `true`
+   - Redirección a `/dashboard` si es admin, o a la página principal
+
+2. **Estado de Sesión**:
+   - La sesión se mantiene mientras exista `localStorage`
+   - Al recargar la página, el `AuthContext` lee `localStorage` y restaura el estado
+   - No hay validación del lado del servidor en cada request
+
+3. **Logout**:
+   - Usuario hace clic en "Cerrar Sesión" en el menú
+   - Se ejecuta `logoutContext()` que:
+     - Limpia `localStorage` completamente
+     - Resetea el estado de `user` e `isLogged`
+     - Redirige a la página principal `/`
+
+### Protección de Rutas
+
+#### Frontend (React Router)
+- **Rutas públicas**: Accesibles sin login (`/`, `/home`, `/about`, `/categories`, `/blogs`, `/contact`)
+- **Rutas protegidas (usuario logueado)**: Requieren `isLogged === true`
+  - `/squads`, `/payments`, `/fc`, `/reports`, `/player/:id`
+  - Protegidas por componente `ProtectedUsers`
+- **Rutas protegidas (admin)**: Requieren `isLogged === true` Y `rol === 'admin'`
+  - `/dashboard`, `/valores`, `/fixture`
+  - Protegidas por componente `ProtectedAdmin`
+
+#### Backend
+- **⚠️ NO hay protección**: Todas las rutas del backend son accesibles sin autenticación
+- Cualquier cliente puede hacer peticiones a cualquier endpoint
+- La validación de permisos solo existe en el frontend
+
+### Expiración de Sesión
+
+**No hay expiración automática**. La sesión permanece activa hasta que:
+- El usuario cierra sesión manualmente
+- El usuario limpia el `localStorage` del navegador
+- El usuario cierra el navegador y limpia datos al cerrar (si está configurado)
+
+### Vulnerabilidades Conocidas
+
+1. **Sin validación del servidor**: Un usuario puede modificar `localStorage` y cambiar su rol a `admin`
+2. **API completamente abierta**: Cualquier persona con acceso a la URL del backend puede hacer peticiones
+3. **Sin tokens**: No hay forma de revocar una sesión desde el servidor
+4. **XSS**: Si hay vulnerabilidades XSS, pueden robar el `localStorage` con la información del usuario
 
 ## Funcionalidades Específicas del Club
 
@@ -241,10 +379,11 @@ VITE_APP_VERSION=2.0.0
 - Gestión de visibilidad de publicaciones
 
 ### Notificaciones de Cumpleaños
-- Verificación automática de cumpleaños del día
+- Verificación automática de cumpleaños del día usando `MONTH(CURDATE())` y `DAY(CURDATE())` de MySQL
 - Solo muestra jugadores de categorías públicas/activas (`visible = 1`)
 - Icono animado cuando hay cumpleaños
 - Tooltip informativo con nombre, categoría y edad
+- Endpoint: `/cumples` (GET)
 
 ## Comandos Docker
 
@@ -280,8 +419,11 @@ docker-compose exec db mysql -u wwwolima -p wwwolima_yerbalito
 # Hacer backup de la base de datos
 docker-compose exec db mysqldump -u wwwolima -p wwwolima_yerbalito > backup.sql
 
-# Restaurar base de datos
+# Restaurar base de datos (usuario normal)
 docker-compose exec -T db mysql -u wwwolima -p wwwolima_yerbalito < backup.sql
+
+# Restaurar base de datos (usuario root - para triggers y funciones)
+docker-compose exec -T db mysql -u root -prootpassword wwwolima_yerbalito < backup.sql
 ```
 
 ## Scripts Disponibles
@@ -296,9 +438,31 @@ docker-compose exec -T db mysql -u wwwolima -p wwwolima_yerbalito < backup.sql
 - `npm run dev`: Modo desarrollo con nodemon (si está configurado)
 
 ## Puertos utilizados
-- **Frontend**: 8080 (http://localhost:8080)
+- **Frontend (desarrollo)**: 8082 (http://localhost:8082)
+- **Frontend (producción)**: 8080 (http://localhost:8080)
 - **Backend**: 5001 (http://localhost:5001)
 - **MySQL**: 3308 (localhost:3308)
+
+## Funcionalidades Adicionales
+
+### Generación de Comprobantes PDF
+- Comprobantes de recibo de cuotas con logo del club
+- Comprobantes de fondo de campeonato
+- Soporte para múltiples recibos en un solo PDF (IDs separados por coma)
+- Footer con enlace a olimarteam.uy
+- Información completa: jugador, categoría, período, monto, número de recibo
+
+### Compartir por WhatsApp
+- Modal para ingresar número de WhatsApp
+- Generación de URL de WhatsApp con mensaje pre-llenado
+- Enlace directo al PDF del comprobante
+- Registro del método de entrega en base de datos
+
+### Rutas del Frontend
+- **Públicas**: `/`, `/home`, `/about`, `/categories`, `/blogs`, `/contact`, `/login`, `/register`, `/forgot-password`
+- **Protegidas (usuario logueado)**: `/squads`, `/payments`, `/fc`, `/reports`, `/player/:id`
+- **Protegidas (admin)**: `/dashboard`, `/valores`, `/fixture`
+- **Dinámicas**: `/blog/:id`, `/noticia/:id`, `/category/:id`
 
 ## Solución de problemas
 
@@ -309,8 +473,12 @@ docker-compose exec -T db mysql -u wwwolima -p wwwolima_yerbalito < backup.sql
 4. **Error 500 al guardar jugador**: Verificar que los campos opcionales no sean null cuando no están permitidos
 5. **Modal de fixture no aparece**: Verificar localStorage o limpiar caché del navegador
 6. **Blog/Noticias vacío**: Verificar que la tabla `blog` tenga datos y `visible = 1`
-7. **Cumpleaños no aparecen**: Verificar que los jugadores pertenezcan a categorías con `visible = 1`
+7. **Cumpleaños no aparecen**: Verificar que los jugadores pertenezcan a categorías con `visible = 1` y reiniciar backend
 8. **Búsqueda no funciona**: Verificar que el frontend esté conectado al backend correctamente
+9. **Error al generar PDF**: Verificar que el logo exista en `/uploads/logo_chico.png` o en las rutas configuradas
+10. **Error 400 en valores históricos**: Verificar que la ruta `/valores/all` esté antes de `/valores/:ano` en el backend
+11. **Categoría incorrecta en jugador**: Verificar que los `useEffect` en `PlayerForm.jsx` no estén sobrescribiendo la categoría del backend
+12. **Error de importación en build**: Verificar que las rutas de importación sean case-sensitive (Linux vs macOS/Windows)
 
 ### Comandos de diagnóstico
 ```bash
@@ -372,7 +540,97 @@ El sistema incluye un **cron job** que se ejecuta automáticamente el **día 11 
 - **Estado 5:** Hay jugadores deshabilitados en la categoría
 - **Estado 6:** No hay jugadores deshabilitados en la categoría
 
-### Credenciales de prueba
+## Endpoints Principales del Backend
+
+### Autenticación
+- `POST /login` - Inicio de sesión
+- `GET /user` - Obtener usuario actual
+- `GET /user/all` - Listar todos los usuarios
+- `POST /user` - Crear usuario
+- `PUT /user/:id` - Actualizar usuario
+- `DELETE /user/:id` - Eliminar usuario
+
+### Jugadores
+- `GET /squad` - Listar jugadores (con filtros)
+- `GET /squad/all` - Listar todos los jugadores
+- `GET /squad/:id` - Obtener jugador por ID
+- `GET /squad/search/:ci` - Buscar jugador por CI
+- `POST /squad` - Crear jugador (con imagen)
+- `PUT /squad/:id` - Actualizar jugador (con imagen)
+- `DELETE /squad/:id` - Eliminar jugador
+
+### Pagos
+- `GET /payments` - Listar recibos
+- `GET /paymentsAnual` - Pagos anuales
+- `GET /paymentsMesActual` - Pagos del mes actual
+- `GET /ultimoPago/:id` - Último pago de un jugador
+- `POST /payments` - Crear recibo (múltiples meses)
+- `PUT /payments/:id` - Actualizar recibo
+- `DELETE /payments/:id` - Eliminar recibo
+
+### Fondo de Campeonato
+- `GET /fc` - Listar pagos de FC
+- `GET /fcAnual` - FC anuales
+- `GET /fcAnualesXcat` - FC anuales por categoría
+- `GET /fcMesActualXcat` - FC del mes actual por categoría
+- `POST /fc` - Crear pago de FC
+- `POST /fc/multiple` - Crear múltiples pagos de FC
+- `PUT /fc/:id` - Actualizar pago de FC
+- `DELETE /fc/:id` - Eliminar pago de FC
+
+### Comprobantes PDF
+- `GET /comprobante/recibo/:idrecibo` - Generar PDF de recibo (acepta múltiples IDs separados por coma)
+- `GET /comprobante/fc/:id_fondo` - Generar PDF de fondo de campeonato
+- `PUT /comprobante/recibo/:idrecibo` - Actualizar método de comprobante (email, whatsapp, impreso)
+- `PUT /comprobante/fc/:id_fondo` - Actualizar método de comprobante FC
+
+### Reportes
+- `GET /cuotasXcat` - Cuotas por categoría
+- `GET /cuotasMesActualXcat` - Cuotas del mes actual por categoría
+- `GET /cuotasAnualesXcat` - Cuotas anuales por categoría
+- `GET /fcXcuotas` - FC por cuotas
+
+### Categorías
+- `GET /categories` - Listar categorías
+- `GET /categories/all` - Listar todas las categorías
+- `GET /categories/:id` - Obtener categoría por ID
+- `POST /categories` - Crear categoría
+- `PUT /categories/:id` - Actualizar categoría
+- `DELETE /categories/:id` - Eliminar categoría
+
+### Valores (Configuración anual)
+- `GET /valores` - Listar valores
+- `GET /valores/all` - Obtener todos los valores históricos
+- `GET /valores/:ano` - Obtener valores por año
+- `POST /valores` - Crear configuración de valores
+
+### Fixture
+- `GET /fixture` - Listar partidos
+- `GET /fixture/categorias` - Obtener categorías con fixture
+- `POST /fixture` - Crear partido
+- `POST /fixture/bulk` - Crear múltiples partidos
+
+### Blog y Noticias
+- `GET /blogs` - Listar blogs
+- `GET /blog/:id` - Obtener blog por ID
+- `POST /blogs` - Crear blog
+- `PUT /blogs/:id` - Actualizar blog
+- `DELETE /blogs/:id` - Eliminar blog
+- `GET /noticias` - Listar noticias
+- `GET /noticias/all` - Listar todas las noticias
+- `GET /noticias/:id` - Obtener noticia por ID
+- `POST /noticias/create` - Crear noticia
+- `PUT /noticias/update/:id` - Actualizar noticia
+- `DELETE /noticias/delete/:id` - Eliminar noticia
+
+### Otros
+- `GET /cumples` - Obtener cumpleaños del día
+- `GET /estados` - Listar estados
+- `GET /update-player-states` - Actualizar estados de jugadores (manual)
+- `POST /contact` - Enviar mensaje de contacto
+- `POST /send-email` - Enviar email
+
+## Credenciales de prueba
 - **Admin**: admin@gmail.com / yago4356
 - **Test**: test@test.com / password
 
@@ -408,6 +666,14 @@ docker-compose ps
 
 ### Configuración de dominio
 Para usar un dominio personalizado, configura un proxy reverso con nginx o usa un servicio como Cloudflare.
+
+**Nota importante**: En producción, el frontend usa `VITE_API_URL=http://api.yerbalito.uy` según `docker-compose.prod.yml`. Asegúrate de que el dominio esté configurado correctamente en tu servidor.
+
+### Configuración Git en VPS
+Si encuentras el error "fatal: detected dubious ownership", ejecuta:
+```bash
+git config --global --add safe.directory /var/www/yerbalito
+```
 
 ## Licencia
 Este proyecto está bajo la Licencia ISC. 
