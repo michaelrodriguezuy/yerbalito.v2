@@ -198,7 +198,17 @@ const Payments = () => {
         const response = await axios.get(
           `${API_ENDPOINTS.PAYMENTS}?playerId=${playerId}`
         );
-        const allPlayerPayments = response.data.payments || [];
+        // Filtrar solo recibos con visible = 1 (incluye monto > 0 y monto = 0 de pagos por hermano)
+        const allPlayerPayments = (response.data.payments || []).filter(
+          payment => {
+            // Aceptar visible = 1 (número) o visible = '1' (string) o visible = true
+            const isVisible = payment.visible === 1 || payment.visible === '1' || payment.visible === true;
+            return isVisible;
+          }
+        );
+        
+        console.log(`[Payments] Jugador ${playerId}: Total recibos del backend: ${response.data.payments?.length || 0}, Recibos visibles: ${allPlayerPayments.length}`);
+        console.log(`[Payments] Recibos visibles por mes:`, allPlayerPayments.map(p => ({ mes: p.mes_pago, anio: p.anio, monto: p.monto, visible: p.visible })));
 
         // Determinar el año a sugerir:
         // 1. Si tiene meses sin pagar del año actual, sugerir año actual
@@ -439,7 +449,14 @@ const Payments = () => {
         const response = await axios.get(
           `${API_ENDPOINTS.PAYMENTS}?playerId=${formData.idjugador}&year=${newYear}`
         );
-        const playerPaymentsData = response.data.payments || [];
+        // Filtrar solo recibos con visible = 1 (incluye monto > 0 y monto = 0 de pagos por hermano)
+        const playerPaymentsData = (response.data.payments || []).filter(
+          payment => {
+            // Aceptar visible = 1 (número) o visible = '1' (string) o visible = true
+            const isVisible = payment.visible === 1 || payment.visible === '1' || payment.visible === true;
+            return isVisible;
+          }
+        );
         const paidMonthsList = playerPaymentsData
           .map((payment) => parseInt(payment.mes_pago))
           .filter(month => !isNaN(month));
