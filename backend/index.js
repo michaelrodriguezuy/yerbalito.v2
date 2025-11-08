@@ -1098,6 +1098,10 @@ app.get('/squad/search/:ci', async (req, res) => {
 app.get('/payments', async (req, res) => {
   try {
     const { playerId, year } = req.query;
+    // Log muy visible al inicio
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log(`🔵 [GET /payments] ENDPOINT LLAMADO - playerId=${playerId}, year=${year}`);
+    console.log('═══════════════════════════════════════════════════════════');
     let query = `
       SELECT r.*, 
       j.nombre as nombre_jugador,
