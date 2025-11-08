@@ -235,10 +235,6 @@ const Payments = () => {
         const yearsWithPayments = [...new Set(allPlayerPayments.map(p => parseInt(p.anio)))].sort();
         let startYear = yearsWithPayments.length > 0 ? Math.min(...yearsWithPayments) : currentYear;
         
-        console.log(`[Payments] Años con pagos encontrados:`, yearsWithPayments);
-        console.log(`[Payments] Año de ingreso: ${ingresoYear}, Mes de ingreso: ${ingresoMonth}`);
-        console.log(`[Payments] startYear inicial: ${startYear}, currentYear: ${currentYear}`);
-        
         // Si hay fecha de ingreso, usar el año de ingreso como punto de partida mínimo
         // Esto asegura que siempre revisemos desde el año de ingreso hacia adelante
         if (ingresoYear && ingresoYear <= currentYear) {
@@ -246,12 +242,11 @@ const Payments = () => {
           // O si no hay pagos, usar el año de ingreso
           if (ingresoYear < startYear || yearsWithPayments.length === 0) {
             startYear = ingresoYear;
-            console.log(`[Payments] startYear ajustado por fecha de ingreso: ${startYear}`);
           }
         }
         
-        console.log(`[Payments] Revisando años desde ${startYear} hasta ${currentYear}`);
-        
+        // IMPORTANTE: Solo revisar años que realmente tienen meses sin pagar
+        // No revisar todos los años desde startYear, solo los que tienen deuda
         for (let year = startYear; year <= currentYear; year++) {
           // Filtrar meses según fecha de ingreso
           let availableMonthsForYear = enabledMonths;

@@ -1133,6 +1133,45 @@ app.get('/payments', async (req, res) => {
     query += ` ORDER BY r.idrecibo DESC`;
     
     const [rows] = await db.query(query, params);
+    
+    // Logging para debugging - ver en docker logs
+    if (playerId) {
+      console.log(`[GET /payments] ==========================================`);
+      console.log(`[GET /payments] Jugador ${playerId}: Total recibos encontrados: ${rows.length}`);
+      const recibosPorAnio = {};
+      rows.forEach(r => {
+        const anio = parseInt(r.anio);
+        const mes = parseInt(r.mes_pago);
+        const visible = r.visible;
+        const monto = parseFloat(r.monto);
+        
+        if (!recibosPorAnio[anio]) {
+          recibosPorAnio[anio] = { total: 0, visibles: 0, meses: [], detalles: [] };
+        }
+        recibosPorAnio[anio].total++;
+        recibosPorAnio[anio].detalles.push({ mes, monto, visible, idrecibo: r.idrecibo });
+        
+        if (visible === 1 || visible === '1' || visible === true) {
+          recibosPorAnio[anio].visibles++;
+          if (!recibosPorAnio[anio].meses.includes(mes)) {
+            recibosPorAnio[anio].meses.push(mes);
+          }
+        }
+      });
+      
+      // Ordenar meses en cada año
+      Object.keys(recibosPorAnio).forEach(anio => {
+        recibosPorAnio[anio].meses.sort((a, b) => a - b);
+      });
+      
+      console.log(`[GET /payments] Recibos por año para jugador ${playerId}:`);
+      Object.keys(recibosPorAnio).sort().forEach(anio => {
+        const data = recibosPorAnio[anio];
+        console.log(`[GET /payments]   Año ${anio}: Total=${data.total}, Visibles=${data.visibles}, Meses pagados=[${data.meses.join(',')}]`);
+      });
+      console.log(`[GET /payments] ==========================================`);
+    }
+    
     res.json({ payments: rows });
   } catch (error) {
     console.error('Error obteniendo pagos:', error);
