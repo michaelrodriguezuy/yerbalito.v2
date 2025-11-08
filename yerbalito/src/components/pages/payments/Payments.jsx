@@ -209,6 +209,17 @@ const Payments = () => {
         
         console.log(`[Payments] Jugador ${playerId}: Total recibos del backend: ${response.data.payments?.length || 0}, Recibos visibles: ${allPlayerPayments.length}`);
         console.log(`[Payments] Recibos visibles por mes:`, allPlayerPayments.map(p => ({ mes: p.mes_pago, anio: p.anio, monto: p.monto, visible: p.visible })));
+        
+        // Agrupar recibos por año para debugging
+        const recibosPorAnio = {};
+        allPlayerPayments.forEach(p => {
+          const anio = parseInt(p.anio);
+          if (!recibosPorAnio[anio]) {
+            recibosPorAnio[anio] = [];
+          }
+          recibosPorAnio[anio].push(parseInt(p.mes_pago));
+        });
+        console.log(`[Payments] Recibos agrupados por año:`, recibosPorAnio);
 
         // Determinar el año a sugerir:
         // 1. Si tiene meses sin pagar del año actual, sugerir año actual
@@ -247,23 +258,36 @@ const Payments = () => {
             availableMonthsForYear = [];
           }
           
+          // Filtrar pagos del año actual que sean visibles (ya están filtrados en allPlayerPayments)
           const paidMonthsForYear = allPlayerPayments
-            .filter(payment => parseInt(payment.anio) === year)
+            .filter(payment => {
+              const paymentYear = parseInt(payment.anio);
+              const paymentMonth = parseInt(payment.mes_pago);
+              // Solo considerar pagos del año actual que sean visibles
+              return paymentYear === year && !isNaN(paymentMonth);
+            })
             .map((payment) => parseInt(payment.mes_pago))
             .filter(month => !isNaN(month));
           
+          // Eliminar duplicados de meses pagados
+          const uniquePaidMonths = [...new Set(paidMonthsForYear)];
+          
           const unpaidForYear = availableMonthsForYear
-            .filter(month => !paidMonthsForYear.includes(month))
+            .filter(month => !uniquePaidMonths.includes(month))
             .sort((a, b) => a - b);
           
+          // Solo agregar el año a yearsWithDebt si realmente tiene meses sin pagar
           if (unpaidForYear.length > 0) {
             yearsWithDebt.push(year);
             if (!suggestedYear || year < suggestedYear) {
               suggestedYear = year;
               unpaidMonths = unpaidForYear;
-              setPaidMonths(paidMonthsForYear);
+              setPaidMonths(uniquePaidMonths);
             }
           }
+          
+          // Debug logging para cada año
+          console.log(`[Payments] Año ${year}: Meses disponibles: ${availableMonthsForYear.length}, Meses pagados: ${uniquePaidMonths.length}, Meses sin pagar: ${unpaidForYear.length}`);
         }
         
         // Siempre incluir el año actual en la lista
@@ -276,16 +300,24 @@ const Payments = () => {
         // Si no hay meses sin pagar en ningún año, revisar el año actual
         if (unpaidMonths.length === 0) {
           suggestedYear = currentYear;
+          // Usar allPlayerPayments que ya está filtrado por visible = 1
           const paidMonthsThisYear = allPlayerPayments
-            .filter(payment => parseInt(payment.anio) === currentYear)
+            .filter(payment => {
+              const paymentYear = parseInt(payment.anio);
+              const paymentMonth = parseInt(payment.mes_pago);
+              return paymentYear === currentYear && !isNaN(paymentMonth);
+            })
             .map((payment) => parseInt(payment.mes_pago))
             .filter(month => !isNaN(month));
           
+          // Eliminar duplicados
+          const uniquePaidMonthsThisYear = [...new Set(paidMonthsThisYear)];
+          
           unpaidMonths = enabledMonths
-            .filter(month => !paidMonthsThisYear.includes(month))
+            .filter(month => !uniquePaidMonthsThisYear.includes(month))
             .sort((a, b) => a - b);
           
-          setPaidMonths(paidMonthsThisYear);
+          setPaidMonths(uniquePaidMonthsThisYear);
           
           if (unpaidMonths.length === 0) {
             setSelectedMonths([]);
