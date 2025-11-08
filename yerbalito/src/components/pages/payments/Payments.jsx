@@ -512,6 +512,7 @@ const Payments = () => {
 
       let totalRecibos = 0;
       const recibosIds = []; // Guardar TODOS los IDs de recibos creados (principales + hermanos)
+      const hermanosRechazadosAcumulados = []; // Acumular información de hermanos rechazados
       
       for (const { year, month } of allMonthsToPay) {
         // Obtener el valor de cuota para el año específico
@@ -534,11 +535,22 @@ const Payments = () => {
         
         try {
           const response = await axios.post(API_ENDPOINTS.PAYMENTS, payment);
-          const hermanosAfectados = response.data.hermanosAfectados || 0;
-          totalRecibos += 1 + hermanosAfectados;
+          // Usar totalRecibosCreados del backend si está disponible, sino calcular
+          const recibosCreados = response.data.totalRecibosCreados || (1 + (response.data.hermanosAfectados || 0));
+          totalRecibos += recibosCreados;
+          
           // Guardar el ID del recibo principal
           if (response.data.idrecibo) {
             recibosIds.push(response.data.idrecibo);
+          }
+          
+          // Acumular información de hermanos rechazados
+          if (response.data.hermanosRechazados && response.data.hermanosRechazados.length > 0) {
+            hermanosRechazadosAcumulados.push({
+              mes: month,
+              anio: year,
+              hermanos: response.data.hermanosRechazados
+            });
           }
         } catch (error) {
           console.error(`Error creating payment for year ${year}, month ${month}:`, error);
@@ -547,9 +559,16 @@ const Payments = () => {
         }
       }
 
-      toast.success(
-        `¡Éxito! Se crearon ${totalRecibos} recibos correctamente.`
-      );
+      // Mostrar mensaje de éxito con información sobre hermanos rechazados si los hay
+      let mensajeExito = `¡Éxito! Se crearon ${totalRecibos} recibos correctamente.`;
+      if (hermanosRechazadosAcumulados.length > 0) {
+        const totalRechazados = hermanosRechazadosAcumulados.reduce((sum, item) => sum + item.hermanos.length, 0);
+        mensajeExito += `\n⚠️ ${totalRechazados} hermano(s) no recibieron recibos automáticos.`;
+        // Mostrar detalles en consola para debugging
+        console.warn('Hermanos rechazados:', hermanosRechazadosAcumulados);
+      }
+      
+      toast.success(mensajeExito);
       handleCloseModal();
       fetchPayments();
       

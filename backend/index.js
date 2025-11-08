@@ -336,26 +336,14 @@ app.get('/ultimoPago/:id', async (req, res) => {
 
     if (estadoJugador === 1 || estadoJugador === 2) {
       // Obtener el último recibo válido (visible = 1)
-      // Incluye recibos con monto > 0 Y recibos con monto = 0 si:
-      //   1. Tienen la observación de pago automático por hermano (nuevos)
-      //   2. O tienen monto = 0 y mes_pago entre 3 y 11 (recibos antiguos de hermanos)
-      //      (excluye enero, febrero y diciembre que normalmente no se cobran)
+      // Cualquier recibo con visible = 1 se considera válido (incluye monto > 0 y monto = 0)
+      // Los recibos con monto = 0 y visible = 1 son pagos automáticos por hermano
       // Ordenado por año DESC y mes_pago DESC para obtener el más reciente
       const [reciboRows] = await db.query(`
         SELECT r.mes_pago as ultimoMesPago, r.anio 
         FROM recibo r
         WHERE r.idjugador = ? 
-          AND r.visible = 1 
-          AND (
-            r.monto > 0 
-            OR (
-              r.monto = 0 
-              AND (
-                r.observacionesRecibo LIKE '%Pago automático por hermano%'
-                OR (r.mes_pago BETWEEN 3 AND 11)
-              )
-            )
-          )
+          AND r.visible = 1
         ORDER BY r.anio DESC, r.mes_pago DESC 
         LIMIT 1
       `, [jugadorId]);
@@ -1121,7 +1109,11 @@ app.get('/payments', async (req, res) => {
       JOIN categoria c ON j.idcategoria = c.idcategoria
       WHERE c.visible = 1
       AND r.visible = 1
-      AND (monto > 0 OR (monto = 0 AND r.observacionesRecibo LIKE '%Pago automático por hermano%'))
+      /* 
+       * Cualquier recibo con visible = 1 se considera válido (incluye monto > 0 y monto = 0)
+       * Los recibos con monto = 0 y visible = 1 son pagos automáticos por hermano
+       * y deben considerarse como meses pagados
+       */
     `;
     
     const params = [];
@@ -1315,24 +1307,14 @@ async function updatePlayerState(connection, playerId) {
     }
     
     // Verificar si tiene pagado el mes vencido
-    // Considerar recibos con monto > 0 O recibos con monto = 0 si son de hermanos (tienen observación especial)
-    // O recibos antiguos con monto = 0 y mes_pago entre 3 y 11
+    // Cualquier recibo con visible = 1 se considera pagado (incluye monto > 0 y monto = 0)
+    // Los recibos con monto = 0 y visible = 1 son pagos automáticos por hermano
     const [pagos] = await connection.query(
       `SELECT * FROM recibo 
        WHERE idjugador = ? 
        AND mes_pago = ? 
        AND anio = ? 
        AND visible = 1
-       AND (
-         monto > 0 
-         OR (
-           monto = 0 
-           AND (
-             observacionesRecibo LIKE '%Pago automático por hermano%'
-             OR mes_pago BETWEEN 3 AND 11
-           )
-         )
-       )
        LIMIT 1`,
       [playerId, mesVencido, anioVencido]
     );
@@ -1376,22 +1358,14 @@ async function updatePlayerState(connection, playerId) {
         }
         
         // Verificar si tiene este mes pagado
+        // Cualquier recibo con visible = 1 se considera pagado (incluye monto > 0 y monto = 0)
+        // Los recibos con monto = 0 y visible = 1 son pagos automáticos por hermano
         const [pagosAnteriores] = await connection.query(
           `SELECT * FROM recibo 
            WHERE idjugador = ? 
            AND mes_pago = ? 
            AND anio = ? 
            AND visible = 1
-           AND (
-             monto > 0 
-             OR (
-               monto = 0 
-               AND (
-                 observacionesRecibo LIKE '%Pago automático por hermano%'
-                 OR mes_pago BETWEEN 3 AND 11
-               )
-             )
-           )
            LIMIT 1`,
           [playerId, mesAVerificar, anioAVerificar]
         );
@@ -1539,42 +1513,76 @@ app.post('/payments', async (req, res) => {
       [newPayment.idjugador, newPayment.idjugador, newPayment.idjugador]
     );
     
+    console.log(`[POST /payments] 🔍 Jugador ${newPayment.idjugador} tiene ${siblings.length} hermano(s) encontrado(s):`, siblings.map(s => s.idhermano));
+    
     let hermanosAfectados = 0;
+    const hermanosRechazados = []; // Para tracking de hermanos que no cumplen condiciones
     
     // 3. Crear pagos para TODOS los hermanos encontrados (excepto los exonerados)
     if (siblings.length > 0) {
       let numeroReciboActual = numeroRecibo;
       for (const sibling of siblings) {
         const hermanoId = sibling.idhermano;
-        if (hermanoId && hermanoId !== newPayment.idjugador) {
-          // Validar que el hermano existe, pertenece a categoría activa y NO está exonerado
-          const [hermanoStatus] = await connection.query(
-            `SELECT j.idestado, c.visible 
-             FROM jugador j 
-             LEFT JOIN categoria c ON j.idcategoria = c.idcategoria 
-             WHERE j.idjugador = ?`, 
-            [hermanoId]
-          );
-          
-          // Solo crear recibo si el hermano existe, pertenece a categoría activa y NO está exonerado
-          if (hermanoStatus.length > 0 && 
-              hermanoStatus[0].visible === 1 && 
-              hermanoStatus[0].idestado !== 3) {
-            numeroReciboActual++; // Cada hermano tiene un número de recibo único e incremental
-            const hermanoPayment = {
-              ...newPayment,
-              numero: numeroReciboActual,
-              idjugador: hermanoId,
-              monto: 0, // Los recibos de hermanos siempre tienen monto 0 para no afectar reportes
-              observacionesRecibo: `Pago automático por hermano (ID: ${newPayment.idjugador})${newPayment.observacionesRecibo ? ' - ' + newPayment.observacionesRecibo : ''}`
-            };
-            // Eliminar idrecibo si existe (es autoincremental)
-            delete hermanoPayment.idrecibo;
-            await connection.query('INSERT INTO recibo SET ?', hermanoPayment);
-            hermanosAfectados++;
+        if (!hermanoId) {
+          console.log(`[POST /payments] ⚠️ Hermano con idhermano NULL ignorado`);
+          continue;
+        }
+        
+        if (hermanoId === newPayment.idjugador) {
+          console.log(`[POST /payments] ⚠️ Hermano ${hermanoId} es el mismo jugador, ignorado`);
+          continue;
+        }
+        
+        console.log(`[POST /payments] 🔍 Validando hermano ${hermanoId}...`);
+        
+        // Validar que el hermano existe, pertenece a categoría activa y NO está exonerado
+        const [hermanoStatus] = await connection.query(
+          `SELECT j.idestado, c.visible, j.idjugador, j.nombre, j.apellido
+           FROM jugador j 
+           LEFT JOIN categoria c ON j.idcategoria = c.idcategoria 
+           WHERE j.idjugador = ?`, 
+          [hermanoId]
+        );
+        
+        if (hermanoStatus.length === 0) {
+          console.log(`[POST /payments] ❌ Hermano ${hermanoId} no encontrado en la base de datos`);
+          hermanosRechazados.push({ id: hermanoId, razon: 'No encontrado en BD' });
+          continue;
+        }
+        
+        const status = hermanoStatus[0];
+        console.log(`[POST /payments] 📊 Estado del hermano ${hermanoId} (${status.nombre} ${status.apellido}): idestado=${status.idestado}, visible=${status.visible}`);
+        
+        // Solo crear recibo si el hermano existe, pertenece a categoría activa y NO está exonerado
+        if (status.visible === 1 && status.idestado !== 3) {
+          numeroReciboActual++; // Cada hermano tiene un número de recibo único e incremental
+          const hermanoPayment = {
+            ...newPayment,
+            numero: numeroReciboActual,
+            idjugador: hermanoId,
+            monto: 0, // Los recibos de hermanos siempre tienen monto 0 para no afectar reportes
+            observacionesRecibo: `Pago automático por hermano (ID: ${newPayment.idjugador})${newPayment.observacionesRecibo ? ' - ' + newPayment.observacionesRecibo : ''}`
+          };
+          // Eliminar idrecibo si existe (es autoincremental)
+          delete hermanoPayment.idrecibo;
+          await connection.query('INSERT INTO recibo SET ?', hermanoPayment);
+          hermanosAfectados++;
+          console.log(`[POST /payments] ✅ Recibo creado para hermano ${hermanoId} (mes ${newPayment.mes_pago}/${newPayment.anio})`);
+        } else {
+          let razon = '';
+          if (status.visible !== 1) {
+            razon = `Categoría no activa (visible=${status.visible})`;
+          } else if (status.idestado === 3) {
+            razon = 'Jugador exonerado (idestado=3)';
           }
+          console.log(`[POST /payments] ❌ Hermano ${hermanoId} rechazado: ${razon}`);
+          hermanosRechazados.push({ id: hermanoId, razon, nombre: `${status.nombre} ${status.apellido}` });
         }
       }
+    }
+    
+    if (hermanosRechazados.length > 0) {
+      console.log(`[POST /payments] ⚠️ ${hermanosRechazados.length} hermano(s) rechazado(s):`, hermanosRechazados);
     }
     
     // 4. Hacer commit de la transacción PRIMERO para que los recibos sean visibles
@@ -1629,20 +1637,38 @@ app.post('/payments', async (req, res) => {
       }
       
       connectionForUpdate.release();
-      res.json({ 
+      const responseData = {
         message: 'Pago agregado correctamente',
         hermanosAfectados: hermanosAfectados,
-        idrecibo: reciboId // Retornar ID del recibo creado
-      });
+        idrecibo: reciboId, // Retornar ID del recibo creado
+        totalRecibosCreados: 1 + hermanosAfectados // 1 principal + hermanos
+      };
+      
+      // Agregar información sobre hermanos rechazados si los hay
+      if (hermanosRechazados && hermanosRechazados.length > 0) {
+        responseData.hermanosRechazados = hermanosRechazados;
+        responseData.advertencia = `${hermanosRechazados.length} hermano(s) no recibieron recibos automáticos`;
+      }
+      
+      res.json(responseData);
     } catch (updateError) {
       connectionForUpdate.release();
       console.error('Error actualizando estados después de crear recibo:', updateError);
       // Aún así responder éxito porque el recibo ya se creó correctamente
-      res.json({ 
+      const responseData = {
         message: 'Pago agregado correctamente (pero hubo un error al actualizar estados)',
         hermanosAfectados: hermanosAfectados,
-        idrecibo: reciboId // Retornar ID del recibo creado
-      });
+        idrecibo: reciboId, // Retornar ID del recibo creado
+        totalRecibosCreados: 1 + hermanosAfectados // 1 principal + hermanos
+      };
+      
+      // Agregar información sobre hermanos rechazados si los hay
+      if (hermanosRechazados && hermanosRechazados.length > 0) {
+        responseData.hermanosRechazados = hermanosRechazados;
+        responseData.advertencia = `${hermanosRechazados.length} hermano(s) no recibieron recibos automáticos`;
+      }
+      
+      res.json(responseData);
     }
   } catch (error) {
     if (connection && !connection._released) {
@@ -2775,20 +2801,25 @@ app.get('/comprobante/recibo/:idrecibo', async (req, res) => {
     `, [idJugadorPrincipal, idJugadorPrincipal, idJugadorPrincipal]);
     
     if (hermanosRows.length > 0) {
-      tieneHermanos = true;
       const hermanosIds = hermanosRows.map(h => h.idhermano).filter(id => id !== idJugadorPrincipal);
       
       if (hermanosIds.length > 0) {
         const hermanosPlaceholders = hermanosIds.map(() => '?').join(',');
+        // Filtrar solo hermanos que NO están exonerados y pertenecen a categorías activas
+        // (misma lógica que en la creación de recibos automáticos)
         const [hermanosData] = await db.query(`
           SELECT j.nombre, j.apellido, c.nombre_categoria
           FROM jugador j
           INNER JOIN categoria c ON j.idcategoria = c.idcategoria
           WHERE j.idjugador IN (${hermanosPlaceholders})
+            AND j.idestado != 3
+            AND c.visible = 1
           ORDER BY j.apellido, j.nombre
         `, hermanosIds);
         
         nombresHermanos = hermanosData.map(h => `${h.apellido}, ${h.nombre} - ${h.nombre_categoria}`);
+        // Solo marcar tieneHermanos si realmente hay hermanos que cumplen las condiciones
+        tieneHermanos = nombresHermanos.length > 0;
       }
     }
     
