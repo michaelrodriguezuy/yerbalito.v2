@@ -235,6 +235,10 @@ const Payments = () => {
         const yearsWithPayments = [...new Set(allPlayerPayments.map(p => parseInt(p.anio)))].sort();
         let startYear = yearsWithPayments.length > 0 ? Math.min(...yearsWithPayments) : currentYear;
         
+        console.log(`[Payments] Años con pagos encontrados:`, yearsWithPayments);
+        console.log(`[Payments] Año de ingreso: ${ingresoYear}, Mes de ingreso: ${ingresoMonth}`);
+        console.log(`[Payments] startYear inicial: ${startYear}, currentYear: ${currentYear}`);
+        
         // Si hay fecha de ingreso, usar el año de ingreso como punto de partida mínimo
         // Esto asegura que siempre revisemos desde el año de ingreso hacia adelante
         if (ingresoYear && ingresoYear <= currentYear) {
@@ -242,8 +246,11 @@ const Payments = () => {
           // O si no hay pagos, usar el año de ingreso
           if (ingresoYear < startYear || yearsWithPayments.length === 0) {
             startYear = ingresoYear;
+            console.log(`[Payments] startYear ajustado por fecha de ingreso: ${startYear}`);
           }
         }
+        
+        console.log(`[Payments] Revisando años desde ${startYear} hasta ${currentYear}`);
         
         for (let year = startYear; year <= currentYear; year++) {
           // Filtrar meses según fecha de ingreso
@@ -287,13 +294,22 @@ const Payments = () => {
           }
           
           // Debug logging para cada año
-          console.log(`[Payments] Año ${year}: Meses disponibles: ${availableMonthsForYear.length}, Meses pagados: ${uniquePaidMonths.length}, Meses sin pagar: ${unpaidForYear.length}`);
+          console.log(`[Payments] Año ${year}: Meses disponibles: ${availableMonthsForYear.length}, Meses pagados: ${uniquePaidMonths.length} (${uniquePaidMonths.join(',')}), Meses sin pagar: ${unpaidForYear.length} (${unpaidForYear.join(',')})`);
+          if (unpaidForYear.length === 0 && availableMonthsForYear.length > 0) {
+            console.log(`[Payments] ✅ Año ${year}: Todos los meses están pagados, NO se agregará a yearsWithDebt`);
+          } else if (unpaidForYear.length > 0) {
+            console.log(`[Payments] ⚠️ Año ${year}: Tiene ${unpaidForYear.length} meses sin pagar, se agregará a yearsWithDebt`);
+          }
         }
         
         // Siempre incluir el año actual en la lista
         if (!yearsWithDebt.includes(currentYear)) {
           yearsWithDebt.push(currentYear);
+          console.log(`[Payments] Año actual ${currentYear} agregado a yearsWithDebt (siempre se incluye)`);
         }
+        
+        console.log(`[Payments] Años con deuda finales:`, yearsWithDebt.sort((a, b) => a - b));
+        console.log(`[Payments] Año sugerido: ${suggestedYear}, Meses sin pagar sugeridos: ${unpaidMonths.join(',')}`);
         
         setAvailableYears(yearsWithDebt.sort((a, b) => a - b));
         
