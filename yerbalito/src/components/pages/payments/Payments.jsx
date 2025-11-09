@@ -195,9 +195,23 @@ const Payments = () => {
         }
         
         // Obtener todos los pagos del jugador (sin filtrar por año inicialmente)
+        console.log(`🔵 [Frontend] Seleccionado jugador ${playerId}, llamando a /payments?playerId=${playerId}`);
+        
         const response = await axios.get(
           `${API_ENDPOINTS.PAYMENTS}?playerId=${playerId}`
         );
+        
+        console.log(`🔵 [Frontend] Respuesta del backend para jugador ${playerId}:`, {
+          totalRecibos: response.data.payments?.length || 0,
+          primerosRecibos: response.data.payments?.slice(0, 3).map(p => ({ 
+            id: p.idrecibo, 
+            anio: p.anio, 
+            mes: p.mes_pago, 
+            monto: p.monto, 
+            visible: p.visible 
+          }))
+        });
+        
         // Filtrar solo recibos con visible = 1 (incluye monto > 0 y monto = 0 de pagos por hermano)
         const allPlayerPayments = (response.data.payments || []).filter(
           payment => {
@@ -207,7 +221,7 @@ const Payments = () => {
           }
         );
         
-        console.log(`[Payments] Jugador ${playerId}: Total recibos del backend: ${response.data.payments?.length || 0}, Recibos visibles: ${allPlayerPayments.length}`);
+        console.log(`🔵 [Frontend] Jugador ${playerId}: Total recibos del backend: ${response.data.payments?.length || 0}, Recibos visibles: ${allPlayerPayments.length}`);
         console.log(`[Payments] Recibos visibles por mes:`, allPlayerPayments.map(p => ({ mes: p.mes_pago, anio: p.anio, monto: p.monto, visible: p.visible })));
         
         // Agrupar recibos por año para debugging
