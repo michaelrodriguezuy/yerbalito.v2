@@ -245,17 +245,37 @@ const Payments = () => {
         let unpaidMonths = [];
         const yearsWithDebt = [];
         
-        // Revisar desde el año de ingreso (o el año más antiguo con pagos) hasta el año actual
+        // Determinar el año de inicio para revisar deudas
         const yearsWithPayments = [...new Set(allPlayerPayments.map(p => parseInt(p.anio)))].sort();
-        let startYear = yearsWithPayments.length > 0 ? Math.min(...yearsWithPayments) : currentYear;
+        let startYear = currentYear;
         
-        // Si hay fecha de ingreso, usar el año de ingreso como punto de partida mínimo
-        // Esto asegura que siempre revisemos desde el año de ingreso hacia adelante
-        if (ingresoYear && ingresoYear <= currentYear) {
-          // Si el año de ingreso es menor que el startYear calculado, usarlo como inicio
-          // O si no hay pagos, usar el año de ingreso
-          if (ingresoYear < startYear || yearsWithPayments.length === 0) {
+        if (yearsWithPayments.length === 0) {
+          // CASO 1: Jugador nuevo sin recibos → usar año de ingreso
+          if (ingresoYear && ingresoYear <= currentYear) {
             startYear = ingresoYear;
+          } else {
+            startYear = currentYear;
+          }
+        } else {
+          // CASO 2: Jugador existente con recibos
+          const primerAnioConRecibos = Math.min(...yearsWithPayments);
+          
+          if (ingresoYear && ingresoYear <= currentYear) {
+            // Si el año de ingreso es MUY anterior al primer año con recibos (más de 2 años),
+            // probablemente estuvo exonerado → usar primer año con recibos
+            // Si es cercano (1-2 años), puede tener meses sin pagar → usar año de ingreso
+            const diferenciaAnios = primerAnioConRecibos - ingresoYear;
+            
+            if (diferenciaAnios > 2) {
+              // Diferencia de más de 2 años → probablemente exonerado
+              startYear = primerAnioConRecibos;
+            } else {
+              // Diferencia de 1-2 años → puede tener meses sin pagar, usar año de ingreso
+              startYear = ingresoYear;
+            }
+          } else {
+            // No hay fecha de ingreso, usar primer año con recibos
+            startYear = primerAnioConRecibos;
           }
         }
         
