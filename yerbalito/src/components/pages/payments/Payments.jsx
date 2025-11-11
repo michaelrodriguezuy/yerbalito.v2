@@ -613,23 +613,25 @@ const Payments = () => {
         return;
       }
 
+      // Obtener el monto total editado por el usuario
+      const montoTotal = parseFloat(formData.monto) || 0;
+      
+      if (!montoTotal || montoTotal === 0) {
+        toast.error("El monto total debe ser mayor a 0");
+        return;
+      }
+      
+      // Dividir el monto total entre la cantidad de meses
+      const montoPorMes = montoTotal / allMonthsToPay.length;
+      
       let totalRecibos = 0;
       const recibosIds = []; // Guardar TODOS los IDs de recibos creados (principales + hermanos)
       const hermanosRechazadosAcumulados = []; // Acumular información de hermanos rechazados
       
       for (const { year, month } of allMonthsToPay) {
-        // Obtener el valor de cuota para el año específico
-        const yearValores = valoresByYear[year] || valores;
-        const monto = yearValores?.cuota_club ?? 0;
-        
-        if (!monto || monto === 0) {
-          toast.error(`No se encontró el valor de cuota para el año ${year}`);
-          continue;
-        }
-        
         const payment = {
           idjugador: parseInt(formData.idjugador),
-          monto: parseFloat(monto),
+          monto: parseFloat(montoPorMes.toFixed(2)),
           cuota_paga: month.toString(),
           anio: parseInt(year),
           observaciones: formData.observaciones || '',
