@@ -209,6 +209,37 @@ VITE_APP_VERSION=2.0.0
 - Gestión de recibos con fecha/hora y observaciones
 - Registro de método de entrega de comprobante (email, whatsapp, impreso)
 
+#### Lógica de Recibos Visibles y Cálculo de Deudas
+
+**Recibos Visibles (`visible = 1`):**
+- Todos los recibos con `visible = 1` se consideran como meses pagados, independientemente del monto
+- Los recibos con `monto = 0` y `visible = 1` son **pagos automáticos por hermano** y se consideran válidos
+- Esto permite que cuando un hermano paga, los otros hermanos reciban recibos automáticos con `monto = 0` que cuentan como pagados
+- El sistema NO sugiere pagos para meses que tienen recibos con `visible = 1`, incluso si el monto es 0
+
+**Cálculo de Años con Deuda:**
+El sistema determina qué años mostrar en el formulario de pagos usando la siguiente lógica:
+
+1. **Jugador nuevo (sin recibos):**
+   - Usa el **año de ingreso** como punto de partida
+   - Ejemplo: Jugador ingresa en 2024 → revisa desde 2024
+
+2. **Jugador existente con recibos:**
+   - Calcula la diferencia entre el **año de ingreso** y el **primer año con recibos**
+   - Si la diferencia es **> 2 años**: 
+     - Probablemente el jugador estuvo exonerado → usa el **primer año con recibos**
+     - Ejemplo: Ingreso 2020, primer recibo 2023 (diferencia 3 años) → revisa desde 2023
+   - Si la diferencia es **≤ 2 años**:
+     - Puede tener meses sin pagar → usa el **año de ingreso**
+     - Ejemplo: Ingreso 2023, primer recibo 2023 (diferencia 0 años) → revisa desde 2023
+
+**Ejemplo Práctico:**
+- Jugador 263: Ingreso marzo 2020, primer recibo 2023
+- Diferencia: 3 años (> 2) → El sistema asume que estuvo exonerado
+- Resultado: Solo se sugieren pagos desde 2023, no desde 2020-2022
+
+Esta lógica evita sugerir pagos para años donde el jugador estaba exonerado, mientras que para jugadores nuevos respeta la fecha de ingreso.
+
 ### Administración
 - Dashboard con animaciones slide-up y estadísticas
 - Gestión de categorías con visibilidad pública/privada

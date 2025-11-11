@@ -472,6 +472,7 @@ const Payments = () => {
     }
   };
 
+
   // Calcular meses disponibles para el año seleccionado
   const getAvailableMonthsForYear = (year) => {
     if (!selectedPlayer || !fechaIngreso) {
@@ -502,6 +503,7 @@ const Payments = () => {
     
     // Si cambia el año manualmente, guardar meses del año anterior y cargar meses del nuevo año
     if (field === "anio" && formData.idjugador) {
+      
       try {
         const oldYear = formData.anio;
         const newYear = parseInt(value);
@@ -1397,15 +1399,21 @@ const Payments = () => {
                 </Select>
               </FormControl>
 
-              {/* Monto total calculado - COMPACTO */}
-              <Box sx={{ 
-                p: 1.5, 
-                backgroundColor: 'rgba(255, 255, 255, 0.05)', 
-                borderRadius: 1,
-                maxHeight: '120px',
-                overflow: 'auto'
-              }}>
-                {(() => {
+              {/* Monto total - EDITABLE */}
+              <TextField
+                label="Monto Total"
+                variant="outlined"
+                type="number"
+                value={formData.monto}
+                onChange={(e) => handleFormChange("monto", e.target.value)}
+                fullWidth
+                InputProps={{
+                  sx: {
+                    color: '#000',
+                  }
+                }}
+                sx={textFieldStyles}
+                helperText={(() => {
                   let total = 0;
                   let detail = [];
                   Object.entries(selectedMonthsByYear).forEach(([year, yearMonths]) => {
@@ -1417,20 +1425,9 @@ const Payments = () => {
                       detail.push(`${yearMonths.length} mes(es) ${year}: $${yearTotal}`);
                     }
                   });
-                  return (
-                    <>
-                      <Typography variant="body2" sx={{ color: '#ffffff', fontWeight: 'bold', mb: 0.5 }}>
-                        Total: ${total > 0 ? total.toLocaleString('es-UY') : '0'}
-                      </Typography>
-                      {detail.length > 0 && (
-                        <Typography variant="caption" sx={{ color: '#cccccc', display: 'block', fontSize: '0.75rem' }}>
-                          {detail.join(' | ')}
-                        </Typography>
-                      )}
-                    </>
-                  );
+                  return detail.length > 0 ? detail.join(' | ') : '';
                 })()}
-              </Box>
+              />
 
               <TextField
                 label="Observaciones"
