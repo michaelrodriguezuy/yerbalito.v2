@@ -86,6 +86,25 @@ const Payments = () => {
   useEffect(() => {
     if (Object.keys(selectedMonthsByYear).length === 0) return;
     
+    // Función para calcular el total
+    const calculateTotal = () => {
+      let total = 0;
+      Object.entries(selectedMonthsByYear).forEach(([year, yearMonths]) => {
+        if (yearMonths && yearMonths.length > 0) {
+          const yearValores = valoresByYear[year] || valores;
+          const unit = yearValores?.cuota_club || 0;
+          total += yearMonths.length * unit;
+        }
+      });
+      
+      if (total > 0 || Object.values(selectedMonthsByYear).some(months => months?.length > 0)) {
+        setFormData((prev) => ({
+          ...prev,
+          monto: total.toString()
+        }));
+      }
+    };
+    
     // Asegurar que tenemos todos los valores necesarios
     const yearsNeedingValues = Object.keys(selectedMonthsByYear)
       .map(year => parseInt(year, 10))
@@ -95,26 +114,14 @@ const Payments = () => {
       );
     
     if (yearsNeedingValues.length > 0) {
-      // Obtener valores faltantes
-      yearsNeedingValues.forEach(year => fetchValoresByYear(year));
-      return; // Esperar a que se carguen los valores
-    }
-    
-    // Calcular directamente si tenemos todos los valores
-    let total = 0;
-    Object.entries(selectedMonthsByYear).forEach(([year, yearMonths]) => {
-      if (yearMonths && yearMonths.length > 0) {
-        const yearValores = valoresByYear[year] || valores;
-        const unit = yearValores?.cuota_club || 0;
-        total += yearMonths.length * unit;
-      }
-    });
-    
-    if (total > 0 || Object.values(selectedMonthsByYear).some(months => months?.length > 0)) {
-      setFormData((prev) => ({
-        ...prev,
-        monto: total.toString()
-      }));
+      // Obtener valores faltantes y esperar a que se carguen
+      Promise.all(yearsNeedingValues.map(year => fetchValoresByYear(year))).then(() => {
+        // Esperar un poco para que los estados se actualicen
+        setTimeout(calculateTotal, 200);
+      });
+    } else {
+      // Calcular directamente si tenemos todos los valores
+      calculateTotal();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonthsByYear, valoresByYear]);
