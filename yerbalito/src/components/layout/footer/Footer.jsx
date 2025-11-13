@@ -24,7 +24,7 @@ const Footer = () => {
         marginTop: "auto"
       }}
     >
-      <p>© 2023 Yerbalito | Sitio creado por <a href="https://olimarteam.uy" target="_blank" rel="noopener noreferrer" style={{ color: "whitesmoke", textDecoration: "none" }}>Michael Rodríguez</a></p>
+      <p>© 2023 Yerbalito | Desarrollado por <a href="https://olimarteam.uy" target="_blank" rel="noopener noreferrer" style={{ color: "whitesmoke", textDecoration: "none" }}>Michael Rodríguez</a></p>
       <Toolbar
         sx={{
           gap: "20px",
