@@ -20,7 +20,7 @@ body {
   justify-content: center;
   padding: 2rem 1rem;
   background: transparent;
-  min-height: calc(100vh - 120px - 40px);
+  min-height: 100%;
 }
 
 /* Contenedor para páginas con mucho contenido */

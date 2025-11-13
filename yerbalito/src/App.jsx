@@ -18,9 +18,9 @@ function App() {
       <CssBaseline />
       <BrowserRouter>
         <AuthContextComponent>
-                  <div className="flex flex-col min-h-screen">
+                  <div className="flex flex-col h-screen overflow-hidden">
                     <Navbar />
-                    <main className="flex-1 pt-[120px]">
+                    <main className="flex-1 pt-[120px] overflow-y-auto">
                       <AppRouter />
                     </main>
                     <Footer />
