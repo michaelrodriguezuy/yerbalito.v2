@@ -24,10 +24,9 @@ const PrintSquadsModal = ({ open, onClose, players, categoryName }) => {
 
   const getStatusColor = (estado, tieneMesesAnterioresVencidos) => {
     if (estado === "Exonerado") return "#2196f3"; // Azul para exonerado
-    if (estado === "Habilitado") return "#4caf50";
-    if (estado === "Deshabilitado" && tieneMesesAnterioresVencidos) return "#f44336"; // Rojo para más de 1 mes
-    if (estado === "Deshabilitado") return "#ffc107"; // Amarillo para solo 1 mes
-    return "#666";
+    if (estado === "Habilitado") return "#4caf50"; // Verde: no tiene meses vencidos
+    if (tieneMesesAnterioresVencidos === true) return "#f44336"; // Rojo: más de 1 mes vencido
+    return "#ffc107"; // Amarillo: 1 solo mes vencido (tiene el mes vencido pero no meses anteriores)
   };
 
   const exportToPDF = async () => {

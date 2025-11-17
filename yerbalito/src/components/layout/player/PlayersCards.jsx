@@ -445,12 +445,10 @@ const PlayersCard = () => {
                             row.estado === "Exonerado"
                               ? "#2196f3" // Azul para exonerado
                               : row.estado === "Habilitado"
-                              ? "#4caf50"
-                              : row.estado === "Deshabilitado" && row.tieneMesesAnterioresVencidos
-                              ? "#f44336" // Rojo para más de 1 mes vencido
-                              : row.estado === "Deshabilitado"
-                              ? "#ffc107" // Amarillo para solo 1 mes vencido
-                              : "white",
+                              ? "#4caf50" // Verde: no tiene meses vencidos
+                              : row.tieneMesesAnterioresVencidos === true
+                              ? "#f44336" // Rojo: más de 1 mes vencido
+                              : "#ffc107", // Amarillo: 1 solo mes vencido (tiene el mes vencido pero no meses anteriores)
                           fontWeight: "bold",
                         }}
                       >

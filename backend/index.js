@@ -478,10 +478,11 @@ app.get('/ultimoPago/:id', async (req, res) => {
           tieneMesesAnterioresVencidos 
         });
       } else {
+        // Si no tiene recibos y está deshabilitado, tiene meses anteriores vencidos (más de 1 mes)
         res.json({ 
           ultimoMesPago: "No disponible", 
           anioPago: "No disponible",
-          tieneMesesAnterioresVencidos: false
+          tieneMesesAnterioresVencidos: estadoJugador === 1 // true si está deshabilitado
         });
       }
     } else if (estadoJugador === 3) {
