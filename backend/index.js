@@ -406,9 +406,13 @@ app.get('/ultimoPago/:id', async (req, res) => {
         // Calcular diferencia en meses entre último pago y mes vencido
         const diferenciaMeses = (anioVencido - ultimoAnioPago) * 12 + (mesVencido - ultimoMesPagoNum);
         
+        console.log(`[ultimoPago] Jugador ${jugadorId}: ultimoPago=${ultimoMesPagoNum}/${ultimoAnioPago}, mesVencido=${mesVencido}/${anioVencido}, diferencia=${diferenciaMeses} meses`);
+        
         // Si la diferencia es más de 1 mes, tiene meses anteriores vencidos (rojo)
         // Si la diferencia es exactamente 1 mes, solo tiene 1 mes vencido (amarillo)
         tieneMesesAnterioresVencidos = diferenciaMeses > 1;
+        
+        console.log(`[ultimoPago] Jugador ${jugadorId}: tieneMesesAnterioresVencidos=${tieneMesesAnterioresVencidos} (${diferenciaMeses > 1 ? 'ROJO' : diferenciaMeses === 1 ? 'AMARILLO' : 'VERDE o AL DÍA'})`);
       }
 
       // Verificar si hay recibos para el jugador
