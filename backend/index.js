@@ -396,76 +396,19 @@ app.get('/ultimoPago/:id', async (req, res) => {
       }
 
       // Verificar si tiene meses anteriores vencidos
-      // Un jugador tiene meses anteriores vencidos si hay meses sin pagar entre el último mes pago y el mes vencido
+      // Simple: si la diferencia entre el último mes pago y el mes vencido es más de 1 mes → rojo
+      // Si la diferencia es exactamente 1 mes → amarillo
       let tieneMesesAnterioresVencidos = false;
       if (reciboRows && reciboRows.length > 0 && reciboRows[0].ultimoMesPago !== null && reciboRows[0].anio !== null) {
         const ultimoMesPagoNum = reciboRows[0].ultimoMesPago;
         const ultimoAnioPago = reciboRows[0].anio;
         
-        // Si el último mes pago es anterior al mes vencido, verificar si hay meses intermedios sin pagar
-        const ultimoPagoEsAnterior = (ultimoAnioPago < anioVencido) || 
-          (ultimoAnioPago === anioVencido && ultimoMesPagoNum < mesVencido);
+        // Calcular diferencia en meses entre último pago y mes vencido
+        const diferenciaMeses = (anioVencido - ultimoAnioPago) * 12 + (mesVencido - ultimoMesPagoNum);
         
-        if (ultimoPagoEsAnterior) {
-          // Buscar desde el mes siguiente al último pago hasta el mes anterior al vencido
-          let mesAVerificar = ultimoMesPagoNum;
-          let anioAVerificar = ultimoAnioPago;
-          let intentosBusqueda = 0;
-          const maxIntentosBusqueda = 12;
-          
-          while (intentosBusqueda < maxIntentosBusqueda) {
-            // Avanzar un mes desde el último pago
-            mesAVerificar++;
-            if (mesAVerificar > 12) {
-              mesAVerificar = 1;
-              anioAVerificar++;
-            }
-            
-            // Si llegamos al mes vencido, ya verificamos todos los meses intermedios
-            if (anioAVerificar === anioVencido && mesAVerificar === mesVencido) {
-              break;
-            }
-            
-            // Si pasamos el mes vencido, no debería pasar, pero por seguridad
-            if (anioAVerificar > anioVencido || (anioAVerificar === anioVencido && mesAVerificar > mesVencido)) {
-              break;
-            }
-            
-            if (!mesesHabilitados.includes(mesAVerificar)) {
-              intentosBusqueda++;
-              continue;
-            }
-            
-            if (fechaIngreso) {
-              const fechaIng = new Date(fechaIngreso);
-              const ingresoYear = fechaIng.getFullYear();
-              const ingresoMonth = fechaIng.getMonth() + 1;
-              if (anioAVerificar < ingresoYear || (anioAVerificar === ingresoYear && mesAVerificar < ingresoMonth)) {
-                intentosBusqueda++;
-                continue;
-              }
-            }
-            
-            // Verificar si este mes está pagado
-            const [pagosIntermedios] = await db.query(
-              `SELECT * FROM recibo 
-               WHERE idjugador = ? 
-               AND mes_pago = ? 
-               AND anio = ? 
-               AND visible = 1
-               LIMIT 1`,
-              [jugadorId, mesAVerificar, anioAVerificar]
-            );
-            
-            if (pagosIntermedios.length === 0) {
-              // Este mes intermedio no está pagado, tiene meses anteriores vencidos
-              tieneMesesAnterioresVencidos = true;
-              break;
-            }
-            
-            intentosBusqueda++;
-          }
-        }
+        // Si la diferencia es más de 1 mes, tiene meses anteriores vencidos (rojo)
+        // Si la diferencia es exactamente 1 mes, solo tiene 1 mes vencido (amarillo)
+        tieneMesesAnterioresVencidos = diferenciaMeses > 1;
       }
 
       // Verificar si hay recibos para el jugador
