@@ -17,7 +17,10 @@ import {
   CircularProgress,
   Box,
   Typography,
+  Button,
 } from "@mui/material";
+import { Print as PrintIcon } from "@mui/icons-material";
+import PrintSquadsModal from "./PrintSquadsModal";
 
 const PlayersCard = () => {
   const [squads, setSquads] = useState([]);
@@ -25,6 +28,7 @@ const PlayersCard = () => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [printModalOpen, setPrintModalOpen] = useState(false);
 
   useEffect(() => {
     fetchSquads();
@@ -87,8 +91,9 @@ const PlayersCard = () => {
 
       const ultimoMesPago = response.data.ultimoMesPago;
       const anioPago = response.data.anioPago;
+      const tieneMesesAnterioresVencidos = response.data.tieneMesesAnterioresVencidos || false;
 
-      return { ultimoMesPago, anioPago };
+      return { ultimoMesPago, anioPago, tieneMesesAnterioresVencidos };
     } catch (error) {
       console.error("Error fetching ultimo pago: ", error);
       throw error;
@@ -140,6 +145,12 @@ const PlayersCard = () => {
     return true;
   });
 
+  const getCategoryName = () => {
+    if (filterCategory === "all") return null;
+    const category = categories.find(c => c.idcategoria === parseInt(filterCategory));
+    return category ? category.nombre_categoria : null;
+  };
+
   return (
     <>
       {/* Contenedor para los filtros con mejor alineación */}
@@ -155,6 +166,20 @@ const PlayersCard = () => {
           px: { xs: 2, sm: 0 }
         }}
       >
+        {filteredSquads.length > 0 && (
+          <Button
+            variant="contained"
+            startIcon={<PrintIcon />}
+            onClick={() => setPrintModalOpen(true)}
+            sx={{
+              backgroundColor: "#1E8732",
+              "&:hover": { backgroundColor: "#156525" },
+              minWidth: { xs: "100%", sm: "auto" },
+            }}
+          >
+            Vista de Impresión
+          </Button>
+        )}
         <FormControl
           variant="outlined"
           sx={{
@@ -442,12 +467,20 @@ const PlayersCard = () => {
                       </TableCell>
                       <TableCell
                         sx={{
-                          color: "white",
                           textAlign: "center",
                           borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
                           fontSize: { xs: "0.8rem", sm: "0.9rem", md: "1rem" },
                           paddingLeft: { xs: "8px", md: "16px" },
                           paddingRight: { xs: "8px", md: "16px" },
+                          color: 
+                            row.estado === "Exonerado"
+                              ? "#ff9800"
+                              : row.estado === "Habilitado"
+                              ? "#4caf50"
+                              : row.tieneMesesAnterioresVencidos
+                              ? "#f44336"
+                              : "#ffc107", // Amarillo para solo mes anterior vencido
+                          fontWeight: "bold",
                         }}
                       >
                         {row.ultimoMesPago}
@@ -472,6 +505,13 @@ const PlayersCard = () => {
           </TableContainer>
         </Box>
       </Box>
+
+      <PrintSquadsModal
+        open={printModalOpen}
+        onClose={() => setPrintModalOpen(false)}
+        players={filteredSquads}
+        categoryName={getCategoryName()}
+      />
     </>
   );
 };
