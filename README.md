@@ -16,9 +16,10 @@ Sistema web completo para la gestión del Club Yerbalito de Baby Fútbol, desarr
 - Sonner para notificaciones toast (principal)
 - SweetAlert2 para diálogos de confirmación
 - Tremor y Recharts para visualización de datos
-- Day.js y Moment.js para manejo de fechas
+- Day.js, Moment.js y date-fns para manejo de fechas
 - React Icons y Remix Icon para iconografía
 - React Canvas Confetti para animaciones
+- html2canvas y jsPDF para exportación a PDF/PNG
 
 ### Backend (backend/)
 - Node.js 18
@@ -48,6 +49,8 @@ Sistema web completo para la gestión del Club Yerbalito de Baby Fútbol, desarr
 │   │   │   │   ├── navbar/
 │   │   │   │   ├── footer/
 │   │   │   │   ├── player/
+│   │   │   │   │   ├── PlayersCards.jsx
+│   │   │   │   │   └── PrintSquadsModal.jsx (Vista de impresión/exportación)
 │   │   │   │   ├── categories/
 │   │   │   │   ├── reports/
 │   │   │   │   ├── calendar/
@@ -239,6 +242,26 @@ El sistema determina qué años mostrar en el formulario de pagos usando la sigu
 - Resultado: Solo se sugieren pagos desde 2023, no desde 2020-2022
 
 Esta lógica evita sugerir pagos para años donde el jugador estaba exonerado, mientras que para jugadores nuevos respeta la fecha de ingreso.
+
+### Vista de Squads - Estado de Pagos
+- **Tabla de jugadores por categoría** con indicador visual del estado de pagos
+- **Sistema de colores en columna "Último Mes Pago":**
+  - 🟢 **Verde (#4caf50)**: Jugador habilitado (al día con los pagos)
+  - 🟡 **Amarillo (#ffc107)**: Debe exactamente 1 mes vencido
+  - 🔴 **Rojo (#f44336)**: Debe más de 1 mes vencido
+  - 🔵 **Azul (#2196f3)**: Jugador exonerado
+- **Modal de impresión/exportación:**
+  - Vista imprimible con todos los jugadores de la categoría filtrada
+  - Resumen con conteo de jugadores por estado de pago
+  - Exportación a PDF con formato optimizado
+  - Exportación a PNG para compartir rápidamente
+  - Botón "Vista de Impresión" visible solo cuando hay jugadores filtrados
+- **Cálculo automático de meses vencidos:**
+  - El backend calcula la diferencia entre el último mes pagado y el mes vencido
+  - Si diferencia > 1 mes → `tieneMesesAnterioresVencidos = true` (rojo)
+  - Si diferencia = 1 mes → `tieneMesesAnterioresVencidos = false` (amarillo)
+  - Para jugadores sin recibos y deshabilitados → se considera más de 1 mes vencido
+- **Filtros por categoría** con actualización en tiempo real del estado de pagos
 
 ### Administración
 - Dashboard con animaciones slide-up y estadísticas
@@ -594,7 +617,10 @@ El sistema incluye un **cron job** que se ejecuta automáticamente el **día 11 
 - `GET /payments` - Listar recibos
 - `GET /paymentsAnual` - Pagos anuales
 - `GET /paymentsMesActual` - Pagos del mes actual
-- `GET /ultimoPago/:id` - Último pago de un jugador
+- `GET /ultimoPago/:id` - Último pago de un jugador con cálculo de meses vencidos
+  - Retorna: `{ ultimoMesPago, anioPago, tieneMesesAnterioresVencidos }`
+  - `tieneMesesAnterioresVencidos`: `true` si debe más de 1 mes, `false` si debe exactamente 1 mes
+  - Calcula automáticamente la diferencia entre último mes pagado y mes vencido actual
 - `POST /payments` - Crear recibo (múltiples meses)
 - `PUT /payments/:id` - Actualizar recibo
 - `DELETE /payments/:id` - Eliminar recibo
