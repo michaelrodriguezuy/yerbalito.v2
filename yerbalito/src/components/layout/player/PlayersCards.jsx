@@ -353,20 +353,6 @@ const PlayersCard = () => {
                       paddingRight: { xs: "8px", md: "16px" },
                     }}
                   >
-                    ESTADO
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      color: "white",
-                      textAlign: "center",
-                      fontWeight: "bold",
-                      fontSize: { xs: "0.85rem", sm: "0.9rem", md: "1rem" },
-                      paddingTop: { xs: "8px", md: "12px" },
-                      paddingBottom: { xs: "8px", md: "12px" },
-                      paddingLeft: { xs: "8px", md: "16px" },
-                      paddingRight: { xs: "8px", md: "16px" },
-                    }}
-                  >
                     ÚLTIMO MES PAGO
                   </TableCell>
                   <TableCell
@@ -388,7 +374,7 @@ const PlayersCard = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="loading-container">
+                    <TableCell colSpan={4} className="loading-container">
                       <CircularProgress className="loading-spinner" />
                       <Typography className="consistency-caption">
                         Cargando jugadores...
@@ -397,7 +383,7 @@ const PlayersCard = () => {
                   </TableRow>
                 ) : filteredSquads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="empty-state">
+                    <TableCell colSpan={4} className="empty-state">
                       <Typography className="consistency-caption">
                         No se encontraron jugadores con los filtros
                         seleccionados
@@ -452,34 +438,19 @@ const PlayersCard = () => {
                         sx={{
                           textAlign: "center",
                           borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-                          color:
-                            row.estado === "Habilitado"
-                              ? "#4caf50"
-                              : row.estado === "Deshabilitado"
-                              ? "#f44336"
-                              : "#ff9800",
-                          fontSize: { xs: "0.8rem", sm: "0.9rem", md: "1rem" },
-                          paddingLeft: { xs: "8px", md: "16px" },
-                          paddingRight: { xs: "8px", md: "16px" },
-                        }}
-                      >
-                        {row.estado}
-                      </TableCell>
-                      <TableCell
-                        sx={{
-                          textAlign: "center",
-                          borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
                           fontSize: { xs: "0.8rem", sm: "0.9rem", md: "1rem" },
                           paddingLeft: { xs: "8px", md: "16px" },
                           paddingRight: { xs: "8px", md: "16px" },
                           color: 
                             row.estado === "Exonerado"
-                              ? "#ff9800"
+                              ? "#2196f3" // Azul para exonerado
                               : row.estado === "Habilitado"
                               ? "#4caf50"
-                              : row.tieneMesesAnterioresVencidos
-                              ? "#f44336"
-                              : "#ffc107", // Amarillo para solo mes anterior vencido
+                              : row.estado === "Deshabilitado" && row.tieneMesesAnterioresVencidos
+                              ? "#f44336" // Rojo para más de 1 mes vencido
+                              : row.estado === "Deshabilitado"
+                              ? "#ffc107" // Amarillo para solo 1 mes vencido
+                              : "white",
                           fontWeight: "bold",
                         }}
                       >

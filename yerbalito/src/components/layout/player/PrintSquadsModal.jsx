@@ -23,17 +23,11 @@ const PrintSquadsModal = ({ open, onClose, players, categoryName }) => {
   const printRef = useRef(null);
 
   const getStatusColor = (estado, tieneMesesAnterioresVencidos) => {
-    if (estado === "Exonerado") return "#ff9800";
+    if (estado === "Exonerado") return "#2196f3"; // Azul para exonerado
     if (estado === "Habilitado") return "#4caf50";
-    if (tieneMesesAnterioresVencidos) return "#f44336";
-    return "#ffc107"; // Amarillo para solo mes anterior vencido
-  };
-
-  const getStatusText = (estado, tieneMesesAnterioresVencidos) => {
-    if (estado === "Exonerado") return "Exonerado";
-    if (estado === "Habilitado") return "Al día";
-    if (tieneMesesAnterioresVencidos) return "Vencido (múltiples meses)";
-    return "Vencido (1 mes)";
+    if (estado === "Deshabilitado" && tieneMesesAnterioresVencidos) return "#f44336"; // Rojo para más de 1 mes
+    if (estado === "Deshabilitado") return "#ffc107"; // Amarillo para solo 1 mes
+    return "#666";
   };
 
   const exportToPDF = async () => {
@@ -132,13 +126,13 @@ const PrintSquadsModal = ({ open, onClose, players, categoryName }) => {
         >
           {/* Header para impresión */}
           <Box sx={{ marginBottom: "20px", textAlign: "center" }}>
-            <Typography variant="h4" component="h1" sx={{ fontWeight: "bold", marginBottom: "10px" }}>
+            <Typography variant="h4" component="h1" sx={{ fontWeight: "bold", marginBottom: "10px", color: "#000" }}>
               Estado de Pagos de Cuotas
             </Typography>
-            <Typography variant="h6" component="h2" sx={{ color: "#666" }}>
+            <Typography variant="h6" component="h2" sx={{ color: "#000" }}>
               {categoryName || "Todas las categorías"}
             </Typography>
-            <Typography variant="body2" sx={{ color: "#999", marginTop: "5px" }}>
+            <Typography variant="body2" sx={{ color: "#000", marginTop: "5px" }}>
               Fecha: {new Date().toLocaleDateString("es-UY", {
                 year: "numeric",
                 month: "long",
@@ -151,22 +145,19 @@ const PrintSquadsModal = ({ open, onClose, players, categoryName }) => {
           <Table sx={{ border: "1px solid #ddd" }}>
             <TableHead>
               <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-                <TableCell sx={{ fontWeight: "bold", border: "1px solid #ddd" }}>
+                <TableCell sx={{ fontWeight: "bold", border: "1px solid #ddd", color: "#000" }}>
                   #
                 </TableCell>
-                <TableCell sx={{ fontWeight: "bold", border: "1px solid #ddd" }}>
+                <TableCell sx={{ fontWeight: "bold", border: "1px solid #ddd", color: "#000" }}>
                   Nombre Completo
                 </TableCell>
-                <TableCell sx={{ fontWeight: "bold", border: "1px solid #ddd", textAlign: "center" }}>
+                <TableCell sx={{ fontWeight: "bold", border: "1px solid #ddd", textAlign: "center", color: "#000" }}>
                   Categoría
                 </TableCell>
-                <TableCell sx={{ fontWeight: "bold", border: "1px solid #ddd", textAlign: "center" }}>
-                  Estado
-                </TableCell>
-                <TableCell sx={{ fontWeight: "bold", border: "1px solid #ddd", textAlign: "center" }}>
+                <TableCell sx={{ fontWeight: "bold", border: "1px solid #ddd", textAlign: "center", color: "#000" }}>
                   Último Mes Pago
                 </TableCell>
-                <TableCell sx={{ fontWeight: "bold", border: "1px solid #ddd", textAlign: "center" }}>
+                <TableCell sx={{ fontWeight: "bold", border: "1px solid #ddd", textAlign: "center", color: "#000" }}>
                   Año
                 </TableCell>
               </TableRow>
@@ -174,7 +165,7 @@ const PrintSquadsModal = ({ open, onClose, players, categoryName }) => {
             <TableBody>
               {players.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} sx={{ textAlign: "center", border: "1px solid #ddd" }}>
+                  <TableCell colSpan={5} sx={{ textAlign: "center", border: "1px solid #ddd", color: "#000" }}>
                     No hay jugadores para mostrar
                   </TableCell>
                 </TableRow>
@@ -184,36 +175,17 @@ const PrintSquadsModal = ({ open, onClose, players, categoryName }) => {
                     player.estado,
                     player.tieneMesesAnterioresVencidos
                   );
-                  const statusText = getStatusText(
-                    player.estado,
-                    player.tieneMesesAnterioresVencidos
-                  );
 
                   return (
                     <TableRow key={player.idjugador} sx={{ "&:nth-of-type(even)": { backgroundColor: "#f9f9f9" } }}>
-                      <TableCell sx={{ border: "1px solid #ddd" }}>
+                      <TableCell sx={{ border: "1px solid #ddd", color: "#000" }}>
                         {index + 1}
                       </TableCell>
-                      <TableCell sx={{ border: "1px solid #ddd", fontWeight: "500" }}>
+                      <TableCell sx={{ border: "1px solid #ddd", fontWeight: "500", color: "#000" }}>
                         {player.nombre} {player.apellido}
                       </TableCell>
-                      <TableCell sx={{ border: "1px solid #ddd", textAlign: "center" }}>
+                      <TableCell sx={{ border: "1px solid #ddd", textAlign: "center", color: "#000" }}>
                         {player.categoria}
-                      </TableCell>
-                      <TableCell sx={{ border: "1px solid #ddd", textAlign: "center" }}>
-                        <Box
-                          sx={{
-                            display: "inline-block",
-                            padding: "4px 12px",
-                            borderRadius: "4px",
-                            backgroundColor: statusColor,
-                            color: "white",
-                            fontWeight: "bold",
-                            fontSize: "0.875rem",
-                          }}
-                        >
-                          {statusText}
-                        </Box>
                       </TableCell>
                       <TableCell
                         sx={{
@@ -225,7 +197,7 @@ const PrintSquadsModal = ({ open, onClose, players, categoryName }) => {
                       >
                         {player.ultimoMesPago}
                       </TableCell>
-                      <TableCell sx={{ border: "1px solid #ddd", textAlign: "center" }}>
+                      <TableCell sx={{ border: "1px solid #ddd", textAlign: "center", color: "#000" }}>
                         {player.anioPago}
                       </TableCell>
                     </TableRow>
@@ -237,24 +209,24 @@ const PrintSquadsModal = ({ open, onClose, players, categoryName }) => {
 
           {/* Footer con estadísticas */}
           <Box sx={{ marginTop: "20px", padding: "15px", backgroundColor: "#f5f5f5", borderRadius: "4px" }}>
-            <Typography variant="body2" sx={{ fontWeight: "bold", marginBottom: "10px" }}>
+            <Typography variant="body2" sx={{ fontWeight: "bold", marginBottom: "10px", color: "#000" }}>
               Resumen:
             </Typography>
             <Box sx={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ color: "#000" }}>
                 Total jugadores: <strong>{players.length}</strong>
               </Typography>
-              <Typography variant="body2" sx={{ color: "#4caf50" }}>
-                Al día: <strong>{players.filter(p => p.estado === "Habilitado").length}</strong>
+              <Typography variant="body2" sx={{ color: "#000" }}>
+                Al día: <strong style={{ color: "#4caf50" }}>{players.filter(p => p.estado === "Habilitado").length}</strong>
               </Typography>
-              <Typography variant="body2" sx={{ color: "#ffc107" }}>
-                Vencido (1 mes): <strong>{players.filter(p => p.estado === "Deshabilitado" && !p.tieneMesesAnterioresVencidos).length}</strong>
+              <Typography variant="body2" sx={{ color: "#000" }}>
+                Vencido (1 mes): <strong style={{ color: "#ffc107" }}>{players.filter(p => p.estado === "Deshabilitado" && !p.tieneMesesAnterioresVencidos).length}</strong>
               </Typography>
-              <Typography variant="body2" sx={{ color: "#f44336" }}>
-                Vencido (múltiples): <strong>{players.filter(p => p.estado === "Deshabilitado" && p.tieneMesesAnterioresVencidos).length}</strong>
+              <Typography variant="body2" sx={{ color: "#000" }}>
+                Vencido (múltiples): <strong style={{ color: "#f44336" }}>{players.filter(p => p.estado === "Deshabilitado" && p.tieneMesesAnterioresVencidos).length}</strong>
               </Typography>
-              <Typography variant="body2" sx={{ color: "#ff9800" }}>
-                Exonerados: <strong>{players.filter(p => p.estado === "Exonerado").length}</strong>
+              <Typography variant="body2" sx={{ color: "#000" }}>
+                Exonerados: <strong style={{ color: "#2196f3" }}>{players.filter(p => p.estado === "Exonerado").length}</strong>
               </Typography>
             </Box>
           </Box>
