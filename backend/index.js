@@ -331,8 +331,9 @@ app.get('/estados/:id', async (req, res) => {
 app.get('/ultimoPago/:id', async (req, res) => {
   const jugadorId = req.params.id;
   try {
-    const [estadoRows] = await db.query('SELECT idestado FROM jugador WHERE idjugador = ?', [jugadorId]);
+    const [estadoRows] = await db.query('SELECT idestado, fecha_ingreso FROM jugador WHERE idjugador = ?', [jugadorId]);
     const estadoJugador = estadoRows && estadoRows.length > 0 ? estadoRows[0].idestado : null;
+    const fechaIngreso = estadoRows && estadoRows.length > 0 ? estadoRows[0].fecha_ingreso : null;
 
     if (estadoJugador === 1 || estadoJugador === 2) {
       // Obtener el último recibo válido (visible = 1)
@@ -348,17 +349,147 @@ app.get('/ultimoPago/:id', async (req, res) => {
         LIMIT 1
       `, [jugadorId]);
 
+      // Obtener configuración de meses habilitados
+      const [valores] = await db.query('SELECT meses_cuotas FROM valores ORDER BY ano DESC LIMIT 1');
+      let mesesHabilitados = [1,2,3,4,5,6,7,8,9,10,11,12];
+      if (valores.length > 0 && valores[0].meses_cuotas) {
+        try {
+          const mesesRaw = valores[0].meses_cuotas;
+          if (typeof mesesRaw === 'string') {
+            mesesHabilitados = JSON.parse(mesesRaw);
+          } else if (Array.isArray(mesesRaw)) {
+            mesesHabilitados = mesesRaw;
+          } else {
+            mesesHabilitados = JSON.parse(JSON.stringify(mesesRaw));
+          }
+          if (Array.isArray(mesesHabilitados)) {
+            mesesHabilitados = mesesHabilitados.map(m => parseInt(m)).filter(m => !isNaN(m));
+          } else {
+            mesesHabilitados = [1,2,3,4,5,6,7,8,9,10,11,12];
+          }
+        } catch (e) {
+          mesesHabilitados = [1,2,3,4,5,6,7,8,9,10,11,12];
+        }
+      }
+
+      // Calcular mes vencido (mes anterior)
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+      let mesVencido = currentMonth - 1;
+      let anioVencido = currentYear;
+      if (mesVencido === 0) {
+        mesVencido = 12;
+        anioVencido = currentYear - 1;
+      }
+
+      // Ajustar mes vencido si no está en meses habilitados
+      let intentos = 0;
+      const maxIntentos = 24;
+      while (!mesesHabilitados.includes(mesVencido) && mesVencido > 0 && intentos < maxIntentos) {
+        mesVencido--;
+        intentos++;
+        if (mesVencido === 0) {
+          mesVencido = 12;
+          anioVencido--;
+        }
+      }
+
+      // Verificar si tiene meses anteriores vencidos
+      // Un jugador tiene meses anteriores vencidos si hay meses sin pagar entre el último mes pago y el mes vencido
+      let tieneMesesAnterioresVencidos = false;
+      if (reciboRows && reciboRows.length > 0 && reciboRows[0].ultimoMesPago !== null && reciboRows[0].anio !== null) {
+        const ultimoMesPagoNum = reciboRows[0].ultimoMesPago;
+        const ultimoAnioPago = reciboRows[0].anio;
+        
+        // Si el último mes pago es anterior al mes vencido, verificar si hay meses intermedios sin pagar
+        const ultimoPagoEsAnterior = (ultimoAnioPago < anioVencido) || 
+          (ultimoAnioPago === anioVencido && ultimoMesPagoNum < mesVencido);
+        
+        if (ultimoPagoEsAnterior) {
+          // Buscar desde el mes siguiente al último pago hasta el mes anterior al vencido
+          let mesAVerificar = ultimoMesPagoNum;
+          let anioAVerificar = ultimoAnioPago;
+          let intentosBusqueda = 0;
+          const maxIntentosBusqueda = 12;
+          
+          while (intentosBusqueda < maxIntentosBusqueda) {
+            // Avanzar un mes desde el último pago
+            mesAVerificar++;
+            if (mesAVerificar > 12) {
+              mesAVerificar = 1;
+              anioAVerificar++;
+            }
+            
+            // Si llegamos al mes vencido, ya verificamos todos los meses intermedios
+            if (anioAVerificar === anioVencido && mesAVerificar === mesVencido) {
+              break;
+            }
+            
+            // Si pasamos el mes vencido, no debería pasar, pero por seguridad
+            if (anioAVerificar > anioVencido || (anioAVerificar === anioVencido && mesAVerificar > mesVencido)) {
+              break;
+            }
+            
+            if (!mesesHabilitados.includes(mesAVerificar)) {
+              intentosBusqueda++;
+              continue;
+            }
+            
+            if (fechaIngreso) {
+              const fechaIng = new Date(fechaIngreso);
+              const ingresoYear = fechaIng.getFullYear();
+              const ingresoMonth = fechaIng.getMonth() + 1;
+              if (anioAVerificar < ingresoYear || (anioAVerificar === ingresoYear && mesAVerificar < ingresoMonth)) {
+                intentosBusqueda++;
+                continue;
+              }
+            }
+            
+            // Verificar si este mes está pagado
+            const [pagosIntermedios] = await db.query(
+              `SELECT * FROM recibo 
+               WHERE idjugador = ? 
+               AND mes_pago = ? 
+               AND anio = ? 
+               AND visible = 1
+               LIMIT 1`,
+              [jugadorId, mesAVerificar, anioAVerificar]
+            );
+            
+            if (pagosIntermedios.length === 0) {
+              // Este mes intermedio no está pagado, tiene meses anteriores vencidos
+              tieneMesesAnterioresVencidos = true;
+              break;
+            }
+            
+            intentosBusqueda++;
+          }
+        }
+      }
+
       // Verificar si hay recibos para el jugador
       if (reciboRows && reciboRows.length > 0 && reciboRows[0].ultimoMesPago !== null && reciboRows[0].anio !== null) {
         const ultimoMesPago = Meses(reciboRows[0].ultimoMesPago);
         const anioPago = reciboRows[0].anio;
-        res.json({ ultimoMesPago, anioPago });
+        res.json({ 
+          ultimoMesPago, 
+          anioPago, 
+          tieneMesesAnterioresVencidos 
+        });
       } else {
-        // console.log('No hay recibos para este jugador.', jugadorId);
-        res.json({ ultimoMesPago: "No disponible", anioPago: "No disponible" });
+        res.json({ 
+          ultimoMesPago: "No disponible", 
+          anioPago: "No disponible",
+          tieneMesesAnterioresVencidos: false
+        });
       }
     } else if (estadoJugador === 3) {
-      res.json({ ultimoMesPago: 'Exonerado', anioPago: 'Exonerado' });
+      res.json({ 
+        ultimoMesPago: 'Exonerado', 
+        anioPago: 'Exonerado',
+        tieneMesesAnterioresVencidos: false
+      });
     } else {
       console.log('Estado del jugador no válido: ', jugadorId);
       res.status(400).json({ error: 'Estado del jugador no válido: ', jugadorId });
