@@ -25,6 +25,7 @@
     "@tremor/react": "^3.17.2",
     "axios": "^1.6.2",
     "bcryptjs": "^2.4.3",
+    "date-fns": "^2.30.0",
     "dayjs": "^1.11.12",
     "formik": "^2.4.6",
     "html2canvas": "^1.4.1",
