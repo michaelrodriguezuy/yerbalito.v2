@@ -175,7 +175,7 @@ const About = () => {
                   Secretaria
                 </Typography>
                 <Typography variant="body1" sx={{ color: "white" }}>
-                  [Luisa Araujo]
+                  Luisa Araujo
                 </Typography>
               </div>
               {/* <div>
