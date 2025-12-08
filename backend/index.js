@@ -496,48 +496,18 @@ app.post('/send-email', async (req, res) => {
 }
 );
 
+// Endpoint para obtener todas las publicaciones de blog (públicas)
 app.get('/posts', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM blog');
+    const [rows] = await db.query('SELECT * FROM blog WHERE visible = 1 ORDER BY fecha_creacion DESC');
     res.json({ posts: rows });
-    // console.log("posts: ", rows);
   } catch (error) {
     console.error('Error obteniendo posts:', error);
     res.status(500).json({ error: 'Error del servidor' });
   }
 });
 
-app.get('/posts/:id', async (req, res) => {
-  const postId = req.params.id;
-
-  try {
-    const row = await db.query('SELECT * FROM blog WHERE idblog = ?', [postId]);
-    const post = row && row.length > 0 ? row[0][0] : null;
-
-    if (post) {
-      res.json({ post });
-    } else {
-      console.log('El post no se encontró en la base de datos.');
-      res.status(404).json({ error: 'Post no encontrado' });
-    }
-  } catch (error) {
-    console.error('Error obteniendo detalles del post:', error);
-    res.status(500).json({ error: 'Error del servidor' });
-  }
-});
-
-// Endpoint para obtener todos los blogs (para dashboard)
-app.get('/blogs', async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT * FROM blog ORDER BY fecha_creacion DESC');
-    res.json({ blogs: rows });
-  } catch (error) {
-    console.error('Error obteniendo blogs:', error);
-    res.status(500).json({ error: 'Error del servidor' });
-  }
-});
-
-// Endpoint para obtener un blog individual
+// Endpoint para obtener un blog individual (público)
 app.get('/blog/:id', async (req, res) => {
   const blogId = req.params.id;
 
@@ -553,6 +523,17 @@ app.get('/blog/:id', async (req, res) => {
     }
   } catch (error) {
     console.error('Error obteniendo detalles del blog:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para obtener todos los blogs (para dashboard - incluye ocultas)
+app.get('/blogs', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM blog ORDER BY fecha_creacion DESC');
+    res.json({ blogs: rows });
+  } catch (error) {
+    console.error('Error obteniendo blogs:', error);
     res.status(500).json({ error: 'Error del servidor' });
   }
 });

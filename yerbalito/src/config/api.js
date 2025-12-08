@@ -41,7 +41,6 @@ export const API_ENDPOINTS = {
   
   // Posts/Blog
   POSTS: `${API_BASE_URL}/posts`,
-  POSTS_BY_ID: (id) => `${API_BASE_URL}/posts/${id}`,
   BLOG_BY_ID: (id) => `${API_BASE_URL}/blog/${id}`,
   BLOGS: `${API_BASE_URL}/blogs`,
   BLOGS_BY_ID: (id) => `${API_BASE_URL}/blogs/${id}`,
