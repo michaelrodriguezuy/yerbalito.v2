@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, useMemo, memo } from "react";
+import { useState, useEffect, useContext, useMemo, memo, useCallback, useRef } from "react";
 import {
   TextField,
   TableContainer,
@@ -17,17 +17,16 @@ import {
   Typography,
   CircularProgress,
   FormControl,
-  Chip,
-  Grid,
 } from "@mui/material";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import DeleteIcon from "@mui/icons-material/Delete";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { toast } from "sonner";
 
 import { AuthContext } from "../../../context/AuthContext";
 import { API_ENDPOINTS } from "../../../config/api";
+import MonthSelector from "./MonthSelector";
+import SelectionSummary from "./SelectionSummary";
 
 // Estilos comunes para TextField (fuera del componente para evitar recreaciones)
 const textFieldStyles = {
@@ -51,16 +50,24 @@ const textFieldStyles = {
   },
 };
 
-// Componente memoizado para el campo de observaciones (evita re-renders)
-const ObservacionesField = memo(({ value, onChange, textFieldStyles }) => {
+// Componente con estado interno para observaciones (completamente aislado)
+const ObservacionesField = memo(({ onValueChange }) => {
+  const [value, setValue] = useState("");
+  
+  const handleChange = useCallback((e) => {
+    const newValue = e.target.value;
+    setValue(newValue);
+    onValueChange(newValue); // Notificar al padre solo para cuando se envíe el form
+  }, [onValueChange]);
+  
   return (
     <TextField
       label="Observaciones"
       variant="outlined"
       multiline
-      rows={3}
+      rows={2}
       value={value}
-      onChange={onChange}
+      onChange={handleChange}
       fullWidth
       InputProps={{
         sx: {
@@ -78,6 +85,40 @@ const ObservacionesField = memo(({ value, onChange, textFieldStyles }) => {
 
 ObservacionesField.displayName = 'ObservacionesField';
 
+// Componente con estado interno para monto (evita re-renders del padre)
+const MontoField = memo(({ initialValue, onValueChange }) => {
+  const [value, setValue] = useState(initialValue);
+  
+  useEffect(() => {
+    setValue(initialValue);
+  }, [initialValue]);
+  
+  const handleChange = useCallback((e) => {
+    const newValue = e.target.value;
+    setValue(newValue);
+    onValueChange(newValue);
+  }, [onValueChange]);
+  
+  return (
+    <TextField
+      label="Monto Total"
+      variant="outlined"
+      type="number"
+      value={value}
+      onChange={handleChange}
+      fullWidth
+      InputProps={{
+        sx: {
+          color: '#000',
+        }
+      }}
+      sx={textFieldStyles}
+    />
+  );
+});
+
+MontoField.displayName = 'MontoField';
+
 const Payments = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [payments, setPayments] = useState([]);
@@ -93,7 +134,7 @@ const Payments = () => {
   const [paidMonths, setPaidMonths] = useState([]); // meses ya pagados del jugador seleccionado
   const [availableYears, setAvailableYears] = useState([]); // años con deudas disponibles
   const [fechaIngreso, setFechaIngreso] = useState(null); // fecha de ingreso del jugador seleccionado
-  const [observacionesLocal, setObservacionesLocal] = useState(""); // Estado local para observaciones sin lag
+  const observacionesRef = useRef(""); // Ref para observaciones (no causa re-renders)
   const [formData, setFormData] = useState({
     idjugador: "",
     monto: "",
@@ -200,7 +241,7 @@ const Payments = () => {
     setPaidMonths([]);
     setAvailableYears([]);
     setFechaIngreso(null);
-    setObservacionesLocal("");
+    observacionesRef.current = ""; // Resetear ref
     setFormData({
       idjugador: "",
       monto: "",
@@ -642,54 +683,101 @@ const Payments = () => {
         return;
       }
 
-      // Obtener el monto total editado por el usuario
-      const montoTotal = parseFloat(formData.monto) || 0;
+      // Calcular el monto total automático según los valores por año
+      let montoTotalCalculado = 0;
+      Object.entries(selectedMonthsByYear).forEach(([year, months]) => {
+        if (months && months.length > 0) {
+          const yearValores = valoresByYear[year] || valores;
+          const unit = yearValores?.cuota_club ?? 0;
+          montoTotalCalculado += months.length * unit;
+        }
+      });
+
+      // Verificar si el usuario modificó el monto manualmente
+      const montoUsuario = parseFloat(formData.monto) || 0;
+      const esMontoModificado = Math.abs(montoUsuario - montoTotalCalculado) > 0.01;
       
-      if (!montoTotal || montoTotal === 0) {
+      if (!montoUsuario || montoUsuario === 0) {
         toast.error("El monto total debe ser mayor a 0");
         return;
       }
-      
-      // Dividir el monto total entre la cantidad de meses
-      const montoPorMes = montoTotal / allMonthsToPay.length;
       
       let totalRecibos = 0;
       const recibosIds = []; // Guardar TODOS los IDs de recibos creados (principales + hermanos)
       const hermanosRechazadosAcumulados = []; // Acumular información de hermanos rechazados
       
-      for (const { year, month } of allMonthsToPay) {
-        const payment = {
-          idjugador: parseInt(formData.idjugador),
-          monto: parseFloat(montoPorMes.toFixed(2)),
-          cuota_paga: month.toString(),
-          anio: parseInt(year),
-          observaciones: observacionesLocal || '',
-          idusuario: parseInt(user.id),
-        };
+      // Si el monto fue modificado manualmente, prorratear
+      if (esMontoModificado) {
+        const montoPorMes = montoUsuario / allMonthsToPay.length;
         
-        try {
-          const response = await axios.post(API_ENDPOINTS.PAYMENTS, payment);
-          // Usar totalRecibosCreados del backend si está disponible, sino calcular
-          const recibosCreados = response.data.totalRecibosCreados || (1 + (response.data.hermanosAfectados || 0));
-          totalRecibos += recibosCreados;
+        for (const { year, month } of allMonthsToPay) {
+          const payment = {
+            idjugador: parseInt(formData.idjugador),
+            monto: parseFloat(montoPorMes.toFixed(2)),
+            cuota_paga: month.toString(),
+            anio: parseInt(year),
+            observaciones: observacionesRef.current || '',
+            idusuario: parseInt(user.id),
+          };
           
-          // Guardar el ID del recibo principal
-          if (response.data.idrecibo) {
-            recibosIds.push(response.data.idrecibo);
+          try {
+            const response = await axios.post(API_ENDPOINTS.PAYMENTS, payment);
+            const recibosCreados = response.data.totalRecibosCreados || (1 + (response.data.hermanosAfectados || 0));
+            totalRecibos += recibosCreados;
+            
+            if (response.data.idrecibo) {
+              recibosIds.push(response.data.idrecibo);
+            }
+            
+            if (response.data.hermanosRechazados && response.data.hermanosRechazados.length > 0) {
+              hermanosRechazadosAcumulados.push({
+                mes: month,
+                anio: year,
+                hermanos: response.data.hermanosRechazados
+              });
+            }
+          } catch (error) {
+            console.error(`Error creating payment for year ${year}, month ${month}:`, error);
+            toast.error(`Error al crear recibo para ${month}/${year}: ${error.response?.data?.error || error.message}`);
+            throw error;
           }
+        }
+      } else {
+        // Monto NO modificado, usar valores específicos de cada año
+        for (const { year, month } of allMonthsToPay) {
+          const yearValores = valoresByYear[year] || valores;
+          const montoCorrecto = yearValores?.cuota_club ?? 0;
           
-          // Acumular información de hermanos rechazados
-          if (response.data.hermanosRechazados && response.data.hermanosRechazados.length > 0) {
-            hermanosRechazadosAcumulados.push({
-              mes: month,
-              anio: year,
-              hermanos: response.data.hermanosRechazados
-            });
+          const payment = {
+            idjugador: parseInt(formData.idjugador),
+            monto: parseFloat(montoCorrecto.toFixed(2)),
+            cuota_paga: month.toString(),
+            anio: parseInt(year),
+            observaciones: observacionesRef.current || '',
+            idusuario: parseInt(user.id),
+          };
+          
+          try {
+            const response = await axios.post(API_ENDPOINTS.PAYMENTS, payment);
+            const recibosCreados = response.data.totalRecibosCreados || (1 + (response.data.hermanosAfectados || 0));
+            totalRecibos += recibosCreados;
+            
+            if (response.data.idrecibo) {
+              recibosIds.push(response.data.idrecibo);
+            }
+            
+            if (response.data.hermanosRechazados && response.data.hermanosRechazados.length > 0) {
+              hermanosRechazadosAcumulados.push({
+                mes: month,
+                anio: year,
+                hermanos: response.data.hermanosRechazados
+              });
+            }
+          } catch (error) {
+            console.error(`Error creating payment for year ${year}, month ${month}:`, error);
+            toast.error(`Error al crear recibo para ${month}/${year}: ${error.response?.data?.error || error.message}`);
+            throw error;
           }
-        } catch (error) {
-          console.error(`Error creating payment for year ${year}, month ${month}:`, error);
-          toast.error(`Error al crear recibo para ${month}/${year}: ${error.response?.data?.error || error.message}`);
-          throw error; // Detener el proceso si hay un error
         }
       }
 
@@ -820,6 +908,39 @@ const Payments = () => {
     });
     return detail.length > 0 ? detail.join(' | ') : '';
   }, [selectedMonthsByYear, valoresByYear, valores]);
+
+  // Handler optimizado para toggle de meses
+  const handleMonthToggle = useCallback((month) => {
+    const currentYear = formData.anio;
+    setSelectedMonths(prevMonths => {
+      const isSelected = prevMonths.includes(month);
+      const updatedMonths = isSelected
+        ? prevMonths.filter(m => m !== month)
+        : [...prevMonths, month].sort((a, b) => a - b);
+      
+      setSelectedMonthsByYear(prev => ({
+        ...prev,
+        [currentYear]: updatedMonths
+      }));
+      
+      setFormData(prevForm => ({
+        ...prevForm,
+        cuota_paga: updatedMonths[0] ? updatedMonths[0].toString() : "",
+      }));
+      
+      return updatedMonths;
+    });
+  }, [formData.anio]);
+
+  // Handler optimizado para observaciones (solo guarda en ref, no causa re-render)
+  const handleObservacionesChange = useCallback((value) => {
+    observacionesRef.current = value;
+  }, []);
+
+  // Handler optimizado para monto (guarda en formData sin re-render innecesario)
+  const handleMontoChange = useCallback((value) => {
+    setFormData(prev => ({ ...prev, monto: value }));
+  }, []);
 
   return (
     <div className="page-container-scroll">
@@ -1265,12 +1386,12 @@ const Payments = () => {
               overflow: "auto",
             }}
           >
-            <Paper elevation={3} sx={{ p: 3, maxWidth: 1000, margin: '0 auto' }}>
+            <Paper elevation={3} sx={{ p: 2, maxWidth: 1000, margin: '0 auto' }}>
               <Typography variant="h6" gutterBottom>
                 Crear Recibo de Cuota
               </Typography>
 
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
               {/* Selección de jugador */}
               <FormControl fullWidth>
                 <Typography variant="subtitle2" gutterBottom>
@@ -1328,222 +1449,77 @@ const Payments = () => {
                 </Select>
               </FormControl>
 
-              {/* Año - MOVIDO ARRIBA */}
-              <FormControl fullWidth>
-                <Typography variant="subtitle2" gutterBottom>
-                  Año
-                </Typography>
-                <Select
-                  value={formData.anio}
-                  onChange={(e) => handleFormChange("anio", parseInt(e.target.value))}
-                  displayEmpty
-                  variant="outlined"
-                  disabled={!selectedPlayer}
-                  sx={{
-                    backgroundColor: "#ffffff",
-                    color: "#000000",
-                  }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: {
-                        backgroundColor: "#ffffff",
-                        "& .MuiMenuItem-root": { color: "#000000" },
+              {/* Año y Monto en una fila para layout compacto */}
+              <Box sx={{ display: "flex", gap: 2, alignItems: "flex-end" }}>
+                {/* Año */}
+                <FormControl sx={{ minWidth: 140 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 0.5, color: "rgba(0, 0, 0, 0.6)" }}>
+                    Año
+                  </Typography>
+                  <Select
+                    value={formData.anio}
+                    onChange={(e) => handleFormChange("anio", parseInt(e.target.value))}
+                    displayEmpty
+                    variant="outlined"
+                    disabled={!selectedPlayer}
+                    sx={{
+                      backgroundColor: "#ffffff",
+                      color: "#000000",
+                    }}
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          backgroundColor: "#ffffff",
+                          "& .MuiMenuItem-root": { color: "#000000" },
+                        },
                       },
-                    },
-                  }}
-                >
-                  {availableYears.length > 0 ? (
-                    availableYears.map((year) => (
-                      <MenuItem key={year} value={year}>
-                        {year}
+                    }}
+                  >
+                    {availableYears.length > 0 ? (
+                      availableYears.map((year) => (
+                        <MenuItem key={year} value={year}>
+                          {year}
+                        </MenuItem>
+                      ))
+                    ) : (
+                      <MenuItem value={new Date().getFullYear()}>
+                        {new Date().getFullYear()}
                       </MenuItem>
-                    ))
-                  ) : (
-                    <MenuItem value={new Date().getFullYear()}>
-                      {new Date().getFullYear()}
-                    </MenuItem>
-                  )}
-                </Select>
-              </FormControl>
+                    )}
+                  </Select>
+                </FormControl>
 
-              {/* Selección de meses a pagar - SISTEMA DE CHIPS VISUALES */}
-              <Box sx={{ width: '100%' }}>
-                <Typography variant="subtitle2" gutterBottom sx={{ color: '#000', mb: 1.5 }}>
-                  Selecciona los meses a pagar ({formData.anio})
-                </Typography>
-                
-                <Grid container spacing={1.5} sx={{ mb: 2 }}>
-                  {getAvailableMonthsForYear(formData.anio)
-                    .sort((a, b) => a - b)
-                    .map((month) => {
-                      const monthNamesShort = [
-                        "Ene", "Feb", "Mar", "Abr", "May", "Jun",
-                        "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
-                      ];
-                      const isPaid = paidMonths.includes(month);
-                      const isSelected = selectedMonths.includes(month);
-                      
-                      return (
-                        <Grid item xs={4} sm={3} md={2} lg={1.5} key={month}>
-                          <Chip
-                            label={monthNamesShort[month - 1]}
-                            disabled={isPaid || !selectedPlayer}
-                            icon={
-                              isPaid ? (
-                                <CheckCircleIcon sx={{ fontSize: '18px !important' }} />
-                              ) : isSelected ? (
-                                <CheckCircleIcon sx={{ fontSize: '18px !important' }} />
-                              ) : undefined
-                            }
-                            onClick={() => {
-                              if (!isPaid && selectedPlayer) {
-                                const currentYear = formData.anio;
-                                let updatedMonths;
-                                
-                                if (isSelected) {
-                                  // Deseleccionar mes
-                                  updatedMonths = selectedMonths.filter(m => m !== month);
-                                } else {
-                                  // Seleccionar mes
-                                  updatedMonths = [...selectedMonths, month].sort((a, b) => a - b);
-                                }
-                                
-                                setSelectedMonths(updatedMonths);
-                                setSelectedMonthsByYear((prev) => ({
-                                  ...prev,
-                                  [currentYear]: updatedMonths
-                                }));
-                                
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  cuota_paga: updatedMonths[0] ? updatedMonths[0].toString() : "",
-                                }));
-                              }
-                            }}
-                            sx={{
-                              width: '100%',
-                              height: '42px',
-                              fontSize: '13px',
-                              fontWeight: 500,
-                              cursor: isPaid || !selectedPlayer ? 'not-allowed' : 'pointer',
-                              border: '2px solid',
-                              transition: 'all 0.2s ease-in-out',
-                              
-                              // Mes YA PAGADO (deshabilitado)
-                              ...(isPaid && {
-                                backgroundColor: '#f5f5f5',
-                                borderColor: '#e0e0e0',
-                                color: '#9e9e9e',
-                                '& .MuiChip-icon': {
-                                  color: '#66bb6a',
-                                },
-                              }),
-                              
-                              // Mes SELECCIONADO (verde club)
-                              ...(!isPaid && isSelected && {
-                                backgroundColor: '#1E8732',
-                                borderColor: '#1E8732',
-                                color: '#ffffff',
-                                fontWeight: 600,
-                                boxShadow: '0 2px 4px rgba(30, 135, 50, 0.3)',
-                                '& .MuiChip-icon': {
-                                  color: '#ffffff',
-                                },
-                                '&:hover': {
-                                  backgroundColor: '#176a28',
-                                  borderColor: '#176a28',
-                                  boxShadow: '0 4px 8px rgba(30, 135, 50, 0.4)',
-                                },
-                              }),
-                              
-                              // Mes DISPONIBLE (blanco con borde)
-                              ...(!isPaid && !isSelected && selectedPlayer && {
-                                backgroundColor: '#ffffff',
-                                borderColor: '#d0d0d0',
-                                color: '#333333',
-                                '&:hover': {
-                                  backgroundColor: '#f9f9f9',
-                                  borderColor: '#1E8732',
-                                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
-                                },
-                              }),
-                              
-                              // Sin jugador seleccionado
-                              ...(!selectedPlayer && {
-                                backgroundColor: '#fafafa',
-                                borderColor: '#e0e0e0',
-                                color: '#bdbdbd',
-                              }),
-                            }}
-                          />
-                        </Grid>
-                      );
-                    })}
-                </Grid>
-                
-                {/* Resumen de selección - MOSTRAR TODOS LOS AÑOS */}
-                {Object.keys(selectedMonthsByYear).some(year => selectedMonthsByYear[year]?.length > 0) && (
-                  <Box sx={{ 
-                    p: 1.5, 
-                    backgroundColor: 'rgba(30, 135, 50, 0.08)', 
-                    borderRadius: '8px',
-                    border: '1px solid rgba(30, 135, 50, 0.2)'
-                  }}>
-                    <Typography variant="body2" sx={{ color: '#1E8732', fontWeight: 500 }}>
-                      💡 Meses seleccionados:{' '}
-                      {Object.entries(selectedMonthsByYear)
-                        .filter(([year, months]) => months && months.length > 0)
-                        .sort(([yearA], [yearB]) => parseInt(yearA) - parseInt(yearB))
-                        .map(([year, months]) => {
-                          const monthsStr = months
-                            .sort((a, b) => a - b)
-                            .map((m) => {
-                              const names = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-                              return names[m - 1];
-                            })
-                            .join(', ');
-                          return `${year}: ${monthsStr}`;
-                        })
-                        .join(' | ')}
-                    </Typography>
-                  </Box>
-                )}
-                
-                {selectedPlayer && !Object.keys(selectedMonthsByYear).some(year => selectedMonthsByYear[year]?.length > 0) && (
-                  <Box sx={{ 
-                    p: 1.5, 
-                    backgroundColor: 'rgba(255, 152, 0, 0.08)', 
-                    borderRadius: '8px',
-                    border: '1px solid rgba(255, 152, 0, 0.2)'
-                  }}>
-                    <Typography variant="body2" sx={{ color: '#f57c00', fontWeight: 500 }}>
-                      ⚠️ Selecciona al menos un mes para continuar
-                    </Typography>
-                  </Box>
-                )}
+                {/* Monto total */}
+                <Box sx={{ flex: 1 }}>
+                  <MontoField
+                    key={selectedPlayer}
+                    initialValue={formData.monto}
+                    onValueChange={handleMontoChange}
+                  />
+                </Box>
               </Box>
 
-              {/* Monto total - EDITABLE */}
-              <TextField
-                label="Monto Total"
-                variant="outlined"
-                type="number"
-                value={formData.monto}
-                onChange={(e) => handleFormChange("monto", e.target.value)}
-                fullWidth
-                InputProps={{
-                  sx: {
-                    color: '#000',
-                  }
-                }}
-                sx={textFieldStyles}
-                helperText={montoHelperText}
+              {/* Selección de meses a pagar - COMPONENTE OPTIMIZADO */}
+              <MonthSelector
+                availableMonths={getAvailableMonthsForYear(formData.anio)}
+                paidMonths={paidMonths}
+                selectedMonths={selectedMonths}
+                onMonthToggle={handleMonthToggle}
+                currentYear={formData.anio}
+                selectedPlayer={selectedPlayer}
+              />
+              
+              {/* Resumen de selección - COMPONENTE OPTIMIZADO CON MONTOS */}
+              <SelectionSummary
+                selectedMonthsByYear={selectedMonthsByYear}
+                selectedPlayer={selectedPlayer}
+                valoresByYear={valoresByYear}
+                valores={valores}
               />
 
               <ObservacionesField
-                value={observacionesLocal}
-                onChange={(e) => setObservacionesLocal(e.target.value)}
-                textFieldStyles={textFieldStyles}
+                key={selectedPlayer} // Fuerza reset cuando cambia el jugador
+                onValueChange={handleObservacionesChange}
               />
 
               {/* Botones */}
@@ -1552,7 +1528,7 @@ const Payments = () => {
                   display: "flex",
                   gap: 2,
                   justifyContent: "flex-end",
-                  mt: 2,
+                  mt: 1,
                 }}
               >
                 <Button variant="outlined" onClick={handleCloseModal}>
